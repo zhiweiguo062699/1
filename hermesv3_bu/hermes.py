@@ -36,6 +36,7 @@ if parentPath not in sys.path:
 from timeit import default_timer as gettime
 
 from hermesv3_bu.config.config import Config
+from hermesv3_bu.grids.grid import select_grid
 
 
 class Hermes(object):
@@ -49,6 +50,8 @@ class Hermes(object):
         # updating starting date
         if new_date is not None:
             self.arguments.start_date = new_date
+
+        self.grid = select_grid(self.arguments)
 
         sys.exit(1)
 

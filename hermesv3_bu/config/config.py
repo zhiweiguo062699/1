@@ -68,7 +68,7 @@ class Config(ArgParser):
                        help='Path to the file that contains the global attributes.')
 
         p.add_argument('--domain_type', required=True, help='Type of domain to simulate.',
-                       choices=['global', 'lcc', 'rotated', 'mercator'])
+                       choices=['lcc', 'rotated', 'mercator', 'regular'])
 
         p.add_argument('--vertical_description', required=True,
                        help='Path to the file that contains the vertical description of the desired output.')
