@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-# TODO add license
-
 from setuptools import find_packages
 from setuptools import setup
 from hermesv3_bu import __version__
@@ -23,7 +21,7 @@ setup(
     long_description_content_type="text/markdown",
     author='Carles Tena Medina',
     author_email='carles.tena@bsc.es',
-    url='https://earth.bsc.es/gitlab/es/hermesv3_gr',
+    url='https://earth.bsc.es/gitlab/es/hermesv3_bu',
 
     keywords=['emissions', 'cmaq', 'monarch', 'wrf-chem', 'atmospheric composition', 'air quality', 'earth science'],
     # setup_requires=['pyproj'],
@@ -60,7 +58,7 @@ setup(
 
     entry_points={
         'console_scripts': [
-            'hermesv3_bu = hermesv3_gr.hermes:run',
+            'hermesv3_bu = hermesv3_bu.hermes:run',
         ],
     },
 )

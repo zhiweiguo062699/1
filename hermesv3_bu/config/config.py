@@ -2,20 +2,20 @@
 
 # Copyright 2018 Earth Sciences Department, BSC-CNS
 #
-# This file is part of HERMESv3_GR.
+# This file is part of HERMESv3_BU.
 #
-# HERMESv3_GR is free software: you can redistribute it and/or modify
+# HERMESv3_BU is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# HERMESv3_GR is distributed in the hope that it will be useful,
+# HERMESv3_BU is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with HERMESv3_GR. If not, see <http://www.gnu.org/licenses/>.
+# along with HERMESv3_BU. If not, see <http://www.gnu.org/licenses/>.
 
 
 from configargparse import ArgParser
@@ -27,21 +27,20 @@ class Config(ArgParser):
     """
     def __init__(self):
         super(Config, self).__init__()
-        self.options = self.read_options()
+        self.arguments = self.read_arguments()
 
-    def read_options(self):
+    def read_arguments(self):
         """
-        Reads all the options from command line or from the configuration file.
+        Reads all the arguments from command line or from the configuration file.
         The value of an argument given by command line has high priority that the one that appear in the
         configuration file.
 
         :return: Arguments already parsed.
         :rtype: Namespace
         """
-        # p = ArgParser(default_config_files=['/home/Earth/mguevara/HERMES/HERMESv3/IN/conf/hermes.conf'])
         p = ArgParser()
         p.add_argument('-c', '--my-config', required=False, is_config_file=True, help='Path to the configuration file.')
-        # TODO Detallar mas que significan 1, 2  y 3 los log_level
+        # ===== GENERAL =====
         p.add_argument('--log_level', required=True, help='Level of detail of the running process information.',
                        type=int, choices=[1, 2, 3])
 
@@ -55,124 +54,157 @@ class Config(ArgParser):
         p.add_argument('--end_date', required=False, default=None,
                        help='If you want to simulate more than one day you have to specify the ending date of ' +
                             'simulation in this parameter. If it is not set end_date = start_date.')
-
-        p.add_argument('--output_timestep_type', required=True, help='Type of timestep.',
-                       type=str, choices=['hourly', 'daily', 'monthly', 'yearly'])
         p.add_argument('--output_timestep_num', required=True, help='Number of timesteps to simulate.', type=int)
-        p.add_argument('--output_timestep_freq', required=True, help='Frequency between timesteps.', type=int)
+        p.add_argument('--auxiliar_files_path', required=True,
+                       help='Path to the directory where the necessary auxiliary files will be created if them are ' +
+                            'not created yet.')
+        p.add_argument('--molecular_weights', required=True,
+                       help='Path to the file that contains the molecular weights of the input pollutants.')
 
+        # ===== DOMAIN =====
         p.add_argument('--output_model', required=True, help='Name of the output model.',
-                       choices=['MONARCH', 'CMAQ', 'WRF_CHEM'])
+                       choices=['MONARCH', 'CMAQ', 'R-LINE', 'WRF_CHEM'])
         p.add_argument('--output_attributes', required=False,
                        help='Path to the file that contains the global attributes.')
 
         p.add_argument('--domain_type', required=True, help='Type of domain to simulate.',
                        choices=['global', 'lcc', 'rotated', 'mercator'])
-        p.add_argument('--auxiliar_files_path', required=True,
-                       help='Path to the directory where the necessary auxiliary files will be created if them are ' +
-                            'not created yet.')
 
         p.add_argument('--vertical_description', required=True,
                        help='Path to the file that contains the vertical description of the desired output.')
 
-        # Global options
-        p.add_argument('--inc_lat', required=False, help='Latitude resolution for a global domain.', type=float)
-        p.add_argument('--inc_lon', required=False, help='Longitude resolution for a global domain.', type=float)
-
         # Rotated options
-        p.add_argument('--centre_lat', required=False,
+        p.add_argument('--centre_lat', required=False, type=float,
                        help='Central geographic latitude of grid (non-rotated degrees). Corresponds to the TPH0D ' +
-                            'parameter in NMMB-MONARCH.', type=float)
-        p.add_argument('--centre_lon', required=False,
+                            'parameter in NMMB-MONARCH.')
+        p.add_argument('--centre_lon', required=False, type=float,
                        help='Central geographic longitude of grid (non-rotated degrees, positive east). Corresponds ' +
-                            'to the TLM0D parameter in NMMB-MONARCH.', type=float)
-        p.add_argument('--west_boundary', required=False,
+                            'to the TLM0D parameter in NMMB-MONARCH.')
+        p.add_argument('--west_boundary', required=False, type=float,
                        help="Grid's western boundary from center point (rotated degrees). Corresponds to the WBD " +
-                            "parameter in NMMB-MONARCH.", type=float)
-        p.add_argument('--south_boundary', required=False,
+                            "parameter in NMMB-MONARCH.")
+        p.add_argument('--south_boundary', required=False, type=float,
                        help="Grid's southern boundary from center point (rotated degrees). Corresponds to the SBD " +
-                            "parameter in NMMB-MONARCH.", type=float)
-        p.add_argument('--inc_rlat', required=False,
+                            "parameter in NMMB-MONARCH.")
+        p.add_argument('--inc_rlat', required=False, type=float,
                        help='Latitudinal grid resolution (rotated degrees). Corresponds to the DPHD parameter in ' +
-                            'NMMB-MONARCH.', type=float)
-        p.add_argument('--inc_rlon', required=False,
+                            'NMMB-MONARCH.')
+        p.add_argument('--inc_rlon', required=False, type=float,
                        help='Longitudinal grid resolution (rotated degrees). Corresponds to the DLMD parameter  ' +
-                            'in NMMB-MONARCH.', type=float)
+                            'in NMMB-MONARCH.')
 
         # Lambert conformal conic options
-        p.add_argument('--lat_1', required=False,
-                       help='Standard parallel 1 (in deg). Corresponds to the P_ALP parameter of the GRIDDESC file.',
-                       type=float)
-        p.add_argument('--lat_2', required=False,
-                       help='Standard parallel 2 (in deg). Corresponds to the P_BET parameter of the GRIDDESC file.',
-                       type=float)
-        p.add_argument('--lon_0', required=False,
+        p.add_argument('--lat_1', required=False, type=float,
+                       help='Standard parallel 1 (in deg). Corresponds to the P_ALP parameter of the GRIDDESC file.')
+        p.add_argument('--lat_2', required=False, type=float,
+                       help='Standard parallel 2 (in deg). Corresponds to the P_BET parameter of the GRIDDESC file.')
+        p.add_argument('--lon_0', required=False, type=float,
                        help='Longitude of the central meridian (degrees). Corresponds to the P_GAM parameter of ' +
-                            'the GRIDDESC file.', type=float)
-        p.add_argument('--lat_0', required=False,
+                            'the GRIDDESC file.')
+        p.add_argument('--lat_0', required=False, type=float,
                        help='Latitude of the origin of the projection (degrees). Corresponds to the Y_CENT  ' +
-                            'parameter of the GRIDDESC file.', type=float)
-        p.add_argument('--nx', required=False,
-                       help='Number of grid columns. Corresponds to the NCOLS parameter of the GRIDDESC file.',
-                       type=float)
-        p.add_argument('--ny', required=False,
-                       help='Number of grid rows. Corresponds to the NROWS parameter of the GRIDDESC file.',
-                       type=float)
-        p.add_argument('--inc_x', required=False,
+                            'parameter of the GRIDDESC file.')
+        p.add_argument('--nx', required=False, type=float,
+                       help='Number of grid columns. Corresponds to the NCOLS parameter of the GRIDDESC file.')
+        p.add_argument('--ny', required=False, type=float,
+                       help='Number of grid rows. Corresponds to the NROWS parameter of the GRIDDESC file.')
+        p.add_argument('--inc_x', required=False, type=float,
                        help='X-coordinate cell dimension (meters). Corresponds to the XCELL parameter of the ' +
-                            'GRIDDESC file.', type=float)
-        p.add_argument('--inc_y', required=False,
+                            'GRIDDESC file.')
+        p.add_argument('--inc_y', required=False, type=float,
                        help='Y-coordinate cell dimension (meters). Corresponds to the YCELL parameter of the ' +
-                            'GRIDDESC file.', type=float)
-        p.add_argument('--x_0', required=False,
+                            'GRIDDESC file.')
+        p.add_argument('--x_0', required=False, type=float,
                        help='X-coordinate origin of grid (meters). Corresponds to the XORIG parameter of the ' +
-                            'GRIDDESC file.', type=float)
-        p.add_argument('--y_0', required=False,
+                            'GRIDDESC file.')
+        p.add_argument('--y_0', required=False, type=float,
                        help='Y-coordinate origin of grid (meters). Corresponds to the YORIG parameter of the ' +
-                            'GRIDDESC file.', type=float)
+                            'GRIDDESC file.')
 
         # Mercator
-        p.add_argument('--lat_ts', required=False, help='...', type=float)
+        p.add_argument('--lat_ts', required=False, type=float, help='...')
 
-        p.add_argument('--cross_table', required=True,
-                       help='Path to the file that contains the information of the datasets to use.')
-        p.add_argument('--p_vertical', required=True,
-                       help='Path to the file that contains all the needed vertical profiles.')
-        p.add_argument('--p_month', required=True,
-                       help='Path to the file that contains all the needed monthly profiles.')
-        p.add_argument('--p_day', required=True, help='Path to the file that contains all the needed daily profiles.')
-        p.add_argument('--p_hour', required=True, help='Path to the file that contains all the needed hourly profiles.')
-        p.add_argument('--p_speciation', required=True,
-                       help='Path to the file that contains all the needed speciation profiles.')
-        p.add_argument('--molecular_weights', required=True,
-                       help='Path to the file that contains the molecular weights of the input pollutants.')
-        p.add_argument('--world_info', required=True,
-                       help='Path to the file that contains the world information like timezones, ISO codes, ...')
+        # Regular lat-lon options:
+        p.add_argument('--lat_orig', required=False, type=float, help='Latitude of the corner of the first cell.')
+        p.add_argument('--lon_orig', required=False, type=float, help='Longitude of the corner of the first cell.')
+        p.add_argument('--n_lat', required=False, type=float, help='Number of latitude elements.')
+        p.add_argument('--n_lon', required=False, type=float, help='Number of longitude elements.')
+        p.add_argument('--inc_lat', required=False, type=float, help='Latitude grid resolution.')
+        p.add_argument('--inc_lon', required=False, type=float, help='Longitude grid resolution.')
 
-        options = p.parse_args()
-        for item in vars(options):
+        # ===== SECTOR SELECTION =====
+        p.add_argument('--do_traffic', required=False, type=str, default='True')
+        p.add_argument('--do_traffic_area', required=False, type=str, default='True')
+        p.add_argument('--do_aviation', required=False, type=str, default='True')
+        p.add_argument('--do_point_sources', required=False, type=str, default='True')
+        p.add_argument('--do_recreational_boats', required=False, type=str, default='True')
+        p.add_argument('--do_shipping_port', required=False, type=str, default='True')
+        p.add_argument('--do_residential', required=False, type=str, default='True')
+        p.add_argument('--do_livestock', required=False, type=str, default='True')
+        p.add_argument('--do_crop_operations', required=False, type=str, default='True')
+        p.add_argument('--do_crop_fertilizers', required=False, type=str, default='True')
+        p.add_argument('--do_agricultural_machinery', required=False, type=str, default='True')
+
+        # ===== SHAPEFILES =====
+        p.add_argument('--nut_shapefile_prov', required=False, type=str, default='True')
+        p.add_argument('--nut_shapefile_ccaa', required=False, type=str, default='True')
+
+        # ===== METEO PATHS =====
+        p.add_argument('--temperature_hourly_files_path', required=False, type=str, default='True')
+        p.add_argument('--temperature_daily_files_path', required=False, type=str, default='True')
+        p.add_argument('--wind_speed_daily_files_path', required=False, type=str, default='True')
+        p.add_argument('--precipitation_files_path', required=False, type=str, default='True')
+        p.add_argument('--temperature_4d_dir', required=False, type=str, default='True')
+        p.add_argument('--temperature_sfc_dir', required=False, type=str, default='True')
+        p.add_argument('--u_wind_speed_4d_dir', required=False, type=str, default='True')
+        p.add_argument('--v_wind_speed_4d_dir', required=False, type=str, default='True')
+        p.add_argument('--u10_wind_speed_dir', required=False, type=str, default='True')
+        p.add_argument('--v10_wind_speed_dir', required=False, type=str, default='True')
+        p.add_argument('--friction_velocity_dir', required=False, type=str, default='True')
+        p.add_argument('--pblh_dir', required=False, type=str, default='True')
+        p.add_argument('--obukhov_length_dir', required=False, type=str, default='True')
+        p.add_argument('--layer_thickness_dir', required=False, type=str, default='True')
+
+
+
+        arguments = p.parse_args()
+        for item in vars(arguments):
             is_str = False
-            exec ("is_str = str == type(options.{0})".format(item))
+            exec ("is_str = str == type(arguments.{0})".format(item))
             if is_str:
-                exec("options.{0} = options.{0}.replace('<input_dir>', options.input_dir)".format(item))
-                exec("options.{0} = options.{0}.replace('<domain_type>', options.domain_type)".format(item))
-                if options.domain_type == 'global':
-                    exec("options.{0} = options.{0}.replace('<resolution>', '{1}_{2}')".format(
-                        item, options.inc_lat, options.inc_lon))
-                elif options.domain_type == 'rotated':
-                    exec("options.{0} = options.{0}.replace('<resolution>', '{1}_{2}')".format(
-                        item, options.inc_rlat, options.inc_rlon))
-                elif options.domain_type == 'lcc' or options.domain_type == 'mercator':
-                    exec("options.{0} = options.{0}.replace('<resolution>', '{1}_{2}')".format(
-                        item, options.inc_x, options.inc_y))
+                exec ("arguments.{0} = arguments.{0}.replace('<data_path>', arguments.data_path)".format(item))
+                exec ("arguments.{0} = arguments.{0}.replace('<input_dir>', arguments.input_dir)".format(item))
+                exec ("arguments.{0} = arguments.{0}.replace('<domain_type>', arguments.domain_type)".format(item))
+                if arguments.domain_type == 'regular':
+                    exec("arguments.{0} = arguments.{0}.replace('<resolution>', '{1}_{2}')".format(
+                        item, arguments.n_lat, arguments.n_lon))
+                elif arguments.domain_type == 'rotated':
+                    exec("arguments.{0} = arguments.{0}.replace('<resolution>', '{1}_{2}')".format(
+                        item, arguments.inc_rlat, arguments.inc_rlon))
+                elif arguments.domain_type == 'lcc' or arguments.domain_type == 'mercator':
+                    exec("arguments.{0} = arguments.{0}.replace('<resolution>', '{1}_{2}')".format(
+                        item, arguments.inc_x, arguments.inc_y))
 
-        options.start_date = self._parse_start_date(options.start_date)
-        options.end_date = self._parse_end_date(options.end_date, options.start_date)
+        arguments.start_date = self._parse_start_date(arguments.start_date)
+        arguments.end_date = self._parse_end_date(arguments.end_date, arguments.start_date)
 
-        self.create_dir(options.output_dir)
-        self.create_dir(options.auxiliar_files_path)
+        self.create_dir(arguments.output_dir)
+        self.create_dir(arguments.auxiliar_files_path)
 
-        return options
+        arguments.do_traffic = self._parse_bool(arguments.do_traffic)
+        arguments.do_traffic_area = self._parse_bool(arguments.do_traffic_area)
+        arguments.do_aviation = self._parse_bool(arguments.do_aviation)
+        arguments.do_point_sources = self._parse_bool(arguments.do_point_sources)
+        arguments.do_recreational_boats = self._parse_bool(arguments.do_recreational_boats)
+        arguments.do_shipping_port = self._parse_bool(arguments.do_shipping_port)
+        arguments.do_residential = self._parse_bool(arguments.do_residential)
+        arguments.do_livestock = self._parse_bool(arguments.do_livestock)
+        arguments.do_crop_operations = self._parse_bool(arguments.do_crop_operations)
+        arguments.do_crop_fertilizers = self._parse_bool(arguments.do_crop_fertilizers)
+        arguments.do_agricultural_machinery = self._parse_bool(arguments.do_agricultural_machinery)
+
+
+        return arguments
 
     def get_output_name(self, date):
         """
@@ -186,17 +218,17 @@ class Config(ArgParser):
         :rtype: str
         """
         import os
-        if self.options.output_timestep_type == 'hourly':
-            file_name = self.options.output_name.replace('<date>', date.strftime('%Y%m%d%H'))
-        elif self.options.output_timestep_type == 'daily':
-            file_name = self.options.output_name.replace('<date>', date.strftime('%Y%m%d'))
-        elif self.options.output_timestep_type == 'monthly':
-            file_name = self.options.output_name.replace('<date>', date.strftime('%Y%m'))
-        elif self.options.output_timestep_type == 'yearly':
-            file_name = self.options.output_name.replace('<date>', date.strftime('%Y'))
+        if self.arguments.output_timestep_type == 'hourly':
+            file_name = self.arguments.output_name.replace('<date>', date.strftime('%Y%m%d%H'))
+        elif self.arguments.output_timestep_type == 'daily':
+            file_name = self.arguments.output_name.replace('<date>', date.strftime('%Y%m%d'))
+        elif self.arguments.output_timestep_type == 'monthly':
+            file_name = self.arguments.output_name.replace('<date>', date.strftime('%Y%m'))
+        elif self.arguments.output_timestep_type == 'yearly':
+            file_name = self.arguments.output_name.replace('<date>', date.strftime('%Y'))
         else:
-            file_name = self.options.output_name
-        full_path = os.path.join(self.options.output_dir, file_name)
+            file_name = self.arguments.output_name
+        full_path = os.path.join(self.arguments.output_dir, file_name)
         return full_path
 
     @staticmethod
@@ -254,7 +286,7 @@ class Config(ArgParser):
             YYYY/MM/DD hh:mm:ss, YYYY-MM-DD hh:mm:ss, YYYY/MM/DD_hh, YYYY-MM-DD_hh.
 
         :param str_date: Date to the day to simulate in string format.
-        :type str_date: str
+        :type str_date: str, datetime
 
         :return: Date to the day to simulate in datetime format.
         :rtype: datetime.datetime
@@ -283,7 +315,7 @@ class Config(ArgParser):
         If it's not defined it will be the same date that start_date (to do only one day).
 
         :param end_date: Date to the last day to simulate in string format.
-        :type end_date: str
+        :type end_date: str, datetime
 
         :param start_date: Date to the first day to simulate.
         :type start_date: datetime.datetime
@@ -293,17 +325,17 @@ class Config(ArgParser):
         """
         if end_date is None:
             return start_date
-        else:
-            return self._parse_start_date(end_date)
+        return self._parse_start_date(end_date)
 
-    def set_log_level(self):
-        """
-        Defines the log_level using the common script settings.
-        """
-        import settings
-        settings.define_global_vars(self.options.log_level)
+    @staticmethod
+    def _parse_list(str_list):
+        import re
+        try:
+            return list(map(str, re.split(' , |, | ,|,| ; |; | ;|;| ', str_list)))
+        except TypeError:
+            return None
 
 
 if __name__ == '__main__':
     config = Config()
-    print config.options
+    print config.arguments
