@@ -5,18 +5,17 @@ import sys
 import numpy as np
 from pyproj import Proj
 from grid import Grid
-from netcdf_tools import write_netcdf
 
 
 class LccGrid(Grid):
     """
     Lambert Conformal Conic (LCC) grid object that contains all the information to do a lcc output.
 
-    :param grid_type: Type of the output grid [global, rotated, lcc, mercator].
-    :type grid_type: str
+    :param auxiliary_path: Path to the folder to store all the needed auxiliary files.
+    :type auxiliary_path: str
 
-    :param temporal_path: Path to the temporal folder.
-    :type temporal_path: str
+    :param vertical_description_path: Path to the file that describes the vertical resolution
+    :type vertical_description_path: str
 
     :param lat_1: Value of the Lat1 for the LCC grid type.
     :type lat_1: float
@@ -53,43 +52,33 @@ class LccGrid(Grid):
     :type earth_radius: float
     """
 
-    def __init__(self, grid_type, temporal_path, lat_1, lat_2, lon_0, lat_0,  nx, ny, inc_x, inc_y, x_0, y_0,
-                 earth_radius=6370000.000):
-
-        # Initialises with parent class
-        super(LccGrid, self).__init__(grid_type, temporal_path)
-
-        # Setting parameters
-        self.lat_1 = lat_1
-        self.lat_2 = lat_2
-        self.lon_0 = lon_0
-        self.lat_0 = lat_0
-        self.nx = nx
-        self.ny = ny
-        self.inc_x = inc_x
-        self.inc_y = inc_y
-        self.x_0 = x_0 + (inc_x / 2)
-        self.y_0 = y_0 + (inc_y / 2)
-        self.earth_radius = earth_radius
-
+    def __init__(self, auxiliary_path, vertical_description_path, lat_1, lat_2, lon_0, lat_0,  nx, ny, inc_x, inc_y,
+                 x_0, y_0, earth_radius=6370000.000):
+        self.grid_type = 'Lambert Conformal Conic'
         # UTM coordinates
         self.x = None
         self.y = None
 
-        # Creating coordinates
-        self.crs = "+proj=lcc +lat_1={0} +lat_2={1} +lat_0={2} +lon_0={3} +x_0={4} +y_0={5} +datum=WGS84".format(
-            self.lat_1, self.lat_2, self.lat_0, self.lon_0, 0, 0) + " +units=m"
+        attributes = {'lat_1': lat_1, 'lat_2': lat_2, 'lon_0': lon_0, 'lat_0': lat_0, 'nx': nx, 'ny': ny,
+                      'inc_x': inc_x, 'inc_y': inc_y, 'x_0': x_0, 'y_0': y_0, 'earth_radius': earth_radius,
+                      'crs': "+proj=lcc +lat_1={0} +lat_2={1} +lat_0={2} +lon_0={3} +x_0={4} +y_0={5} ".format(
+                          lat_1, lat_2, lat_0, lon_0, 0, 0) + "+datum=WGS84 +units=m"}
 
-        self.create_coords()
+        # Initialises with parent class
+        super(LccGrid, self).__init__(attributes, auxiliary_path, vertical_description_path)
 
-    def write_coords_netcdf(self):
-        if not self.chech_coords_file():
+    def write_netcdf(self):
+        from hermesv3_bu.io_server.io_netcdf import write_coords_netcdf
+        if not os.path.exists(self.netcdf_path):
+            if not os.path.exists(os.path.dirname(self.netcdf_path)):
+                os.makedirs(os.path.dirname(self.netcdf_path))
             # Writes an auxiliary empty NetCDF only with the coordinates and an empty variable.
-            write_netcdf(self.netcdf_file, self.center_latitudes, self.center_longitudes,
-                         [{'name': 'var_aux', 'units': '', 'data': 0}],
-                         boundary_latitudes=self.boundary_latitudes, boundary_longitudes=self.boundary_longitudes,
-                         lcc=True, lcc_x=self.x, lcc_y=self.y,
-                         lat_1_2="{0}, {1}".format(self.lat_1, self.lat_2), lon_0=self.lon_0, lat_0=self.lat_0)
+            write_coords_netcdf(self.netcdf_path, self.center_latitudes, self.center_longitudes,
+                                [{'name': 'var_aux', 'units': '', 'data': 0}],
+                                boundary_latitudes=self.boundary_latitudes,
+                                boundary_longitudes=self.boundary_longitudes, lcc=True, lcc_x=self.x, lcc_y=self.y,
+                                lat_1_2="{0}, {1}".format(self.attributes['lat_1'], self.attributes['lat_2']),
+                                lon_0=self.attributes['lon_0'], lat_0=self.attributes['lat_0'])
 
     def create_coords(self):
         """
@@ -97,38 +86,34 @@ class LccGrid(Grid):
         """
 
         # Create a regular grid in metres (Two 1D arrays)
-        self.x = np.arange(self.x_0, self.x_0 + self.inc_x * self.nx, self.inc_x, dtype=np.float)
-        self.y = np.arange(self.y_0, self.y_0 + self.inc_y * self.ny, self.inc_y, dtype=np.float)
+        self.x = np.arange(self.attributes['x_0'], self.attributes['x_0'] + self.attributes['inc_x'] *
+                           self.attributes['nx'], self.attributes['inc_x'], dtype=np.float)
+        self.y = np.arange(self.attributes['y_0'], self.attributes['y_0'] + self.attributes['inc_y'] *
+                           self.attributes['ny'], self.attributes['inc_y'], dtype=np.float)
 
         # 1D to 2D
         x = np.array([self.x] * len(self.y))
         y = np.array([self.y] * len(self.x)).T
 
         # Create UTM bounds
-        y_b = self.create_bounds(y, self.inc_y, number_vertices=4, inverse=True)
-        x_b = self.create_bounds(x, self.inc_x, number_vertices=4)
+        y_b = self.create_bounds(y, self.attributes['inc_y'], number_vertices=4, inverse=True)
+        x_b = self.create_bounds(x, self.attributes['inc_x'], number_vertices=4)
 
         # Create the LCC projection
         projection = Proj(
             proj='lcc',
             ellps='WGS84',
-            R=self.earth_radius,
-            lat_1=self.lat_1,
-            lat_2=self.lat_2,
-            lon_0=self.lon_0,
-            lat_0=self.lat_0,
+            R=self.attributes['earth_radius'],
+            lat_1=self.attributes['lat_1'],
+            lat_2=self.attributes['lat_2'],
+            lon_0=self.attributes['lon_0'],
+            lat_0=self.attributes['lat_0'],
             to_meter=1,
             x_0=0,
             y_0=0,
-            a=self.earth_radius,
+            a=self.attributes['earth_radius'],
             k_0=1.0)
 
         # UTM to LCC
         self.center_longitudes, self.center_latitudes = projection(x, y, inverse=True)
         self.boundary_longitudes, self.boundary_latitudes = projection(x_b, y_b, inverse=True)
-
-
-if __name__ == '__main__':
-    grid = LccGrid('lambert', '/home/Earth/ctena/temp', lat_1=37, lat_2=43, lon_0=-3, lat_0=40, nx=397, ny=397,
-                   inc_x=4000, inc_y=4000, x_0=-807847.688, y_0=-797137.125)
-    grid.write_coords_netcdf()

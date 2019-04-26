@@ -6,6 +6,6 @@ from timeit import default_timer as gettime
 from warnings import warn
 
 
-class Io(object):
+class IoServer(object):
     def __init__(self, comm=None):
         self.comm = comm

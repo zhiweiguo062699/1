@@ -23,7 +23,7 @@ import sys
 
 import numpy as np
 from hermesv3_bu.grids.grid import Grid
-from hermesv3_bu.io.io_netcdf import write_coords_netcdf
+from hermesv3_bu.io_server.io_netcdf import write_coords_netcdf
 
 
 class LatLonGrid(Grid):
@@ -59,13 +59,10 @@ class LatLonGrid(Grid):
     def __init__(self, auxiliary_path, vertical_description_path, inc_lat, inc_lon, lat_orig, lon_orig, n_lat, n_lon):
 
         attributes = {'inc_lat': inc_lat, 'inc_lon': inc_lon, 'lat_orig': lat_orig, 'lon_orig': lon_orig,
-                      'n_lat': n_lat, 'n_lon': n_lon}
+                      'n_lat': n_lat, 'n_lon': n_lon, 'crs': {'init': 'epsg:4326'}}
         # Initialize the class using parent
-        super(LatLonGrid, self).__init__(attributes, auxiliary_path, vertical_description_path)
-
         self.grid_type = 'Regular Lat-Lon'
-        self.create_coords()
-        self.write_netcdf()
+        super(LatLonGrid, self).__init__(attributes, auxiliary_path, vertical_description_path)
 
     def create_coords(self):
         """
@@ -76,20 +73,22 @@ class LatLonGrid(Grid):
         self.center_latitudes = np.arange(
             lat_c_orig, lat_c_orig + self.attributes['inc_lat'] * self.attributes['n_lat'], self.attributes['inc_lat'],
             dtype=np.float)
-        boundary_latitudes = self.create_bounds(self.center_latitudes, self.attributes['inc_lat'])
+        self.boundary_latitudes = self.create_bounds(self.center_latitudes, self.attributes['inc_lat'])
 
         # ===== Longitudes =====
         lon_c_orig = self.attributes['lon_orig'] + (self.attributes['inc_lon'] / 2)
         self.center_longitudes = np.arange(
             lon_c_orig, lon_c_orig + self.attributes['inc_lon'] * self.attributes['n_lon'], self.attributes['inc_lon'],
             dtype=np.float)
-        boundary_longitudes = self.create_bounds(self.center_longitudes, self.attributes['inc_lon'])
+        self.boundary_longitudes = self.create_bounds(self.center_longitudes, self.attributes['inc_lon'])
 
-        self.boundary_latitudes = boundary_latitudes.reshape((1,) + boundary_latitudes.shape)
-        self.boundary_longitudes = boundary_longitudes.reshape((1,) + boundary_longitudes.shape)
+        self.boundary_latitudes = self.boundary_latitudes.reshape((1,) + self.boundary_latitudes.shape)
+        self.boundary_longitudes = self.boundary_longitudes.reshape((1,) + self.boundary_longitudes.shape)
 
     def write_netcdf(self):
         if not os.path.exists(self.netcdf_path):
+            if not os.path.exists(os.path.dirname(self.netcdf_path)):
+                os.makedirs(os.path.dirname(self.netcdf_path))
             # Writes an auxiliary empty NetCDF only with the coordinates and an empty variable.
             write_coords_netcdf(self.netcdf_path, self.center_latitudes, self.center_longitudes,
                                 [{'name': 'var_aux', 'units': '', 'data': 0}],

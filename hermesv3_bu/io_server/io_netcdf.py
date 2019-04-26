@@ -4,10 +4,10 @@ import sys
 import os
 
 
-from hermesv3_bu.io.io import Io
+from hermesv3_bu.io_server.io_server import IoServer
 
 
-class IoNetcdf(Io):
+class IoNetcdf(IoServer):
     def __init__(self):
         super(IoNetcdf, self).__init__()
 

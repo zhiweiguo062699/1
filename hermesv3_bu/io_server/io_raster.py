@@ -10,7 +10,7 @@ import IN.src.config.settings as settings
 from IN.src.modules.io.io import Io
 
 
-class IoRaster(Io):
+class IoRaster(IO):
     def __init__(self):
         super(IoRaster, self).__init__()
 
