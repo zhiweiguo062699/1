@@ -165,8 +165,6 @@ class Config(ArgParser):
         p.add_argument('--obukhov_length_dir', required=False, type=str, default='True')
         p.add_argument('--layer_thickness_dir', required=False, type=str, default='True')
 
-
-
         arguments = p.parse_args()
         for item in vars(arguments):
             is_str = False
@@ -177,7 +175,7 @@ class Config(ArgParser):
                 exec ("arguments.{0} = arguments.{0}.replace('<domain_type>', arguments.domain_type)".format(item))
                 if arguments.domain_type == 'regular':
                     exec("arguments.{0} = arguments.{0}.replace('<resolution>', '{1}_{2}')".format(
-                        item, arguments.n_lat, arguments.n_lon))
+                        item, arguments.inc_lat, arguments.inc_lon))
                 elif arguments.domain_type == 'rotated':
                     exec("arguments.{0} = arguments.{0}.replace('<resolution>', '{1}_{2}')".format(
                         item, arguments.inc_rlat, arguments.inc_rlon))
