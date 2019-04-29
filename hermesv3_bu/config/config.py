@@ -149,6 +149,11 @@ class Config(ArgParser):
         p.add_argument('--nut_shapefile_prov', required=False, type=str, default='True')
         p.add_argument('--nut_shapefile_ccaa', required=False, type=str, default='True')
 
+        p.add_argument('--clipping', required=False, type=str, default=None,
+                       help='To clip the domain into an specific zone. ' +
+                            'It can be a shapefile path, a list of points to make a polygon or nothing to use ' +
+                            'the default clip: domain extension')
+
         # ===== METEO PATHS =====
         p.add_argument('--temperature_hourly_files_path', required=False, type=str, default='True')
         p.add_argument('--temperature_daily_files_path', required=False, type=str, default='True')

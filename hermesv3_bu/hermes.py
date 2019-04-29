@@ -1,30 +1,5 @@
 #!/usr/bin/env python
 
-"""
-Copyright 2018 Earth Sciences Department, BSC-CNS
-
- This file is part of HERMESv3.
-
- HERMESv3 is free software: you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation, either version 3 of the License, or
- (at your option) any later version.
- HERMESv3 is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License
- along with HERMESv3. If not, see <http://www.gnu.org/licenses/>.
-"""
-
-__author__ = "Carles Tena"
-__copyright__ = "Copyright 2018"
-__email__ = "carles.tena@bsc.es"
-__license__ = "GNU General Public License"
-__maintainer__ = "Carles Tena"
-__version__ = "3.3.1"
-
 import sys
 import os
 from mpi4py import MPI
@@ -37,6 +12,8 @@ from timeit import default_timer as gettime
 
 from hermesv3_bu.config.config import Config
 from hermesv3_bu.grids.grid import select_grid
+from hermesv3_bu.clipping.clip import select_clip
+
 
 
 class Hermes(object):
@@ -52,6 +29,10 @@ class Hermes(object):
             self.arguments.start_date = new_date
 
         self.grid = select_grid(self.arguments)
+
+        self.clip = select_clip(self.arguments.auxiliar_files_path, self.arguments.clipping, self.grid.shapefile)
+
+        print self.clip
 
         sys.exit(1)
 
