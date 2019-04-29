@@ -5,6 +5,15 @@ import numpy as np
 
 
 def select_grid(arguments):
+    """
+    Create and initialise the output grid.
+
+    :param arguments: Dictionary with all the necessary arguments to initialise the grid
+    :type arguments: namespace
+
+    :return: Desired output grid.
+    :rtype: Grid
+    """
     if arguments.domain_type == 'regular':
         from hermesv3_bu.grids.grid_latlon import LatLonGrid
         grid = LatLonGrid(
@@ -58,24 +67,46 @@ class Grid(object):
         self.create_coords()
         self.write_netcdf()
 
-        self.vertical_desctiption = None
+        self.vertical_desctiption = self.get_vertical_description(vertical_description_path)
         self.shapefile = self.create_shapefile()
 
+    @staticmethod
+    def get_vertical_description(path):
+        """
+        Extract the vertical description of the desired output.
+
+        :param path: Path to the file that contains the output vertical description.
+        :type path: str
+
+        :return: Heights of the output vertical layers.
+        :rtype: list
+        """
+        import pandas as pd
+        df = pd.read_csv(path, sep=';')
+
+        heights = df.height_magl.values
+
+        return heights
+
     def write_netcdf(self):
-        # implemented on inner classes
+        """
+        Implemented on inner classes
+        """
         pass
 
     def create_coords(self):
-        # implemented on inner classes
+        """
+        Implemented on inner classes
+        """
         pass
 
     @staticmethod
-    def create_bounds(coords, inc, number_vertices=2, inverse=False):
+    def create_bounds(coordinates, inc, number_vertices=2, inverse=False):
         """
         Calculate the vertices coordinates.
 
-        :param coords: Coordinates in degrees (latitude or longitude)
-        :type coords: numpy.array
+        :param coordinates: Coordinates in degrees (latitude or longitude)
+        :type coordinates: numpy.array
 
         :param inc: Increment between center values.
         :type inc: float
@@ -92,14 +123,14 @@ class Grid(object):
         """
 
         # Create new arrays moving the centers half increment less and more.
-        coords_left = coords - inc / 2
-        coords_right = coords + inc / 2
+        coords_left = coordinates - inc / 2
+        coords_right = coordinates + inc / 2
 
         # Defining the number of corners needed. 2 to regular grids and 4 for irregular ones.
         if number_vertices == 2:
             # Create an array of N arrays of 2 elements to store the floor and the ceil values for each cell
             bound_coords = np.dstack((coords_left, coords_right))
-            bound_coords = bound_coords.reshape((len(coords), number_vertices))
+            bound_coords = bound_coords.reshape((len(coordinates), number_vertices))
         elif number_vertices == 4:
             # Create an array of N arrays of 4 elements to store the corner values for each cell
             # It can be stored in clockwise starting form the left-top element, or in inverse mode.
@@ -114,6 +145,12 @@ class Grid(object):
         return bound_coords
 
     def create_shapefile(self):
+        """
+        Create a shapefile with the grid.
+
+        :return: Grid shapefile
+        :rtype: geopandas.GeoDataFrame
+        """
         import geopandas as gpd
         import pandas as pd
         from shapely.geometry import Polygon

@@ -86,6 +86,9 @@ class LatLonGrid(Grid):
         self.boundary_longitudes = self.boundary_longitudes.reshape((1,) + self.boundary_longitudes.shape)
 
     def write_netcdf(self):
+        """
+        Write a regular lat-lon grid NetCDF with empty data
+        """
         if not os.path.exists(self.netcdf_path):
             if not os.path.exists(os.path.dirname(self.netcdf_path)):
                 os.makedirs(os.path.dirname(self.netcdf_path))

@@ -24,9 +24,19 @@ class RotatedGrid(Grid):
         # Initialises with parent class
         super(RotatedGrid, self).__init__(attributes, auxiliary_path, vertical_description_path)
 
-    def create_regular_rotated(self, lat_origin, lon_origin, lat_inc, lon_inc, n_lat, n_lon):
-        center_latitudes = np.arange(lat_origin, lat_origin + (n_lat * lat_inc), lat_inc, dtype=np.float)
-        center_longitudes = np.arange(lon_origin, lon_origin + (n_lon * lon_inc), lon_inc, dtype=np.float)
+    def create_regular_rotated(self):
+        """
+        Create a regular grid on the rotated domain.
+
+        :return: center_latitudes, center_longitudes, corner_latitudes, corner_longitudes
+        :rtype: tuple
+        """
+        center_latitudes = np.arange(self.attributes['south_boundary'], self.attributes['south_boundary'] +
+                                     (self.attributes['n_lat'] * self.attributes['inc_rlat']),
+                                     self.attributes['inc_rlat'], dtype=np.float)
+        center_longitudes = np.arange(self.attributes['west_boundary'], self.attributes['west_boundary'] +
+                                      (self.attributes['n_lon'] * self.attributes['inc_rlon']),
+                                      self.attributes['inc_rlon'], dtype=np.float)
 
         corner_latitudes = self.create_bounds(center_latitudes, self.attributes['inc_rlat'], number_vertices=4,
                                               inverse=True)
@@ -39,9 +49,7 @@ class RotatedGrid(Grid):
         Create the coordinates for a rotated domain.
         """
         # Create rotated coordinates
-        (self.rlat, self.rlon, br_lats_single, br_lons_single) = self.create_regular_rotated(
-            self.attributes['south_boundary'], self.attributes['west_boundary'], self.attributes['inc_rlat'],
-            self.attributes['inc_rlon'], self.attributes['n_lat'], self.attributes['n_lon'])
+        (self.rlat, self.rlon, br_lats_single, br_lons_single) = self.create_regular_rotated()
 
         # 1D to 2D
         c_lats = np.array([self.rlat] * len(self.rlon)).T
@@ -119,6 +127,9 @@ class RotatedGrid(Grid):
         return almd, aphd
 
     def write_netcdf(self):
+        """
+        Write a rotated grid NetCDF with empty data
+        """
         from hermesv3_bu.io_server.io_netcdf import write_coords_netcdf
         if not os.path.exists(self.netcdf_path):
             if not os.path.exists(os.path.dirname(self.netcdf_path)):

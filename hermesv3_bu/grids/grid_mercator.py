@@ -60,6 +60,9 @@ class MercatorGrid(Grid):
         super(MercatorGrid, self).__init__(attributes, auxiliary_path, vertical_description_path)
 
     def write_netcdf(self):
+        """
+        Write a mercator grid NetCDF with empty data
+        """
         from hermesv3_bu.io_server.io_netcdf import write_coords_netcdf
         if not os.path.exists(self.netcdf_path):
             if not os.path.exists(os.path.dirname(self.netcdf_path)):
