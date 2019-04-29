@@ -24,6 +24,12 @@ def select_grid(arguments):
             arguments.auxiliar_files_path, arguments.vertical_description, arguments.centre_lat, arguments.centre_lon,
             arguments.west_boundary, arguments.south_boundary, arguments.inc_rlat, arguments.inc_rlon)
 
+    elif arguments.domain_type == 'mercator':
+        from hermesv3_bu.grids.grid_mercator import MercatorGrid
+        grid = MercatorGrid(
+            arguments.auxiliar_files_path, arguments.vertical_description, arguments.lat_ts, arguments.lon_0,
+            arguments.nx, arguments.ny, arguments.inc_x, arguments.inc_y, arguments.x_0, arguments.y_0)
+
     else:
         raise NameError('Unknown grid type {0}'.format(arguments.domain_type))
 

@@ -54,7 +54,9 @@ class LccGrid(Grid):
 
     def __init__(self, auxiliary_path, vertical_description_path, lat_1, lat_2, lon_0, lat_0,  nx, ny, inc_x, inc_y,
                  x_0, y_0, earth_radius=6370000.000):
+
         self.grid_type = 'Lambert Conformal Conic'
+
         # UTM coordinates
         self.x = None
         self.y = None
