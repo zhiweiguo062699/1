@@ -23,6 +23,9 @@ def select_clip(auxiliary_path, clipping, grid_shp):
     if clipping is None:
         from hermesv3_bu.clipping.default_clip import DefaultClip
         clip = DefaultClip(auxiliary_path, grid_shp)
+    if clipping[0] == os.path.sep:
+        from hermesv3_bu.clipping.shapefile_clip import ShapefileClip
+        clip = ShapefileClip(auxiliary_path, clipping)
     return clip
 
 
