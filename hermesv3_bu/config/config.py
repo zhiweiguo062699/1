@@ -332,8 +332,3 @@ class Config(ArgParser):
             return list(map(str, re.split(' , |, | ,|,| ; |; | ;|;| ', str_list)))
         except TypeError:
             return None
-
-
-if __name__ == '__main__':
-    config = Config()
-    print config.arguments
