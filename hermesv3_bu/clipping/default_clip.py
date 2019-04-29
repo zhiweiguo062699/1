@@ -8,8 +8,8 @@ from hermesv3_bu.clipping.clip import Clip
 
 class DefaultClip(Clip):
     def __init__(self, auxiliary_path, grid_shp):
-        self.clip_type = 'Default clip'
         super(DefaultClip, self).__init__(auxiliary_path)
+        self.clip_type = 'Default clip'
         self.shapefile = self.create_clip(grid_shp)
 
     def create_clip(self, grid_shp):

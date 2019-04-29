@@ -29,5 +29,11 @@ def select_clip(auxiliary_path, clipping, grid_shp):
 class Clip(object):
 
     def __init__(self, auxiliary_path):
+        self.clip_type = None
         self.shapefile = None
         self.shapefile_path = os.path.join(auxiliary_path, 'clip', 'clip.shp')
+
+    def __str__(self):
+        text = "I'm a {0}. \n\tShapefile path: {1}\n\tClip polygon: {2}".format(self.clip_type, self.shapefile_path,
+                                                                                 self.shapefile.loc[0, 'geometry'])
+        return text
