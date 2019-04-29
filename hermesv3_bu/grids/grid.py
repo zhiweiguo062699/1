@@ -1,27 +1,34 @@
 #!/usr/bin/env python
 
 import os
-import sys
-import timeit
 import numpy as np
 
 
 def select_grid(arguments):
     if arguments.domain_type == 'regular':
         from hermesv3_bu.grids.grid_latlon import LatLonGrid
+        grid = LatLonGrid(
+            arguments.auxiliar_files_path, arguments.vertical_description, arguments.inc_lat, arguments.inc_lon,
+            arguments.lat_orig, arguments.lon_orig, arguments.n_lat, arguments.n_lon)
 
-        grid = LatLonGrid(arguments.auxiliar_files_path, arguments.vertical_description, arguments.inc_lat,
-                          arguments.inc_lon, arguments.lat_orig, arguments.lon_orig, arguments.n_lat, arguments.n_lon)
     elif arguments.domain_type == 'lcc':
         from hermesv3_bu.grids.grid_lcc import LccGrid
+        grid = LccGrid(
+            arguments.auxiliar_files_path, arguments.vertical_description, arguments.lat_1, arguments.lat_2,
+            arguments.lon_0, arguments.lat_0, arguments.nx, arguments.ny, arguments.inc_x, arguments.inc_y,
+            arguments.x_0, arguments.y_0)
 
-        grid = LccGrid(arguments.auxiliar_files_path, arguments.vertical_description,arguments.lat_1, arguments.lat_2,
-                       arguments.lon_0, arguments.lat_0, arguments.nx, arguments.ny,arguments.inc_x, arguments.inc_y,
-                       arguments.x_0, arguments.y_0)
+    elif arguments.domain_type == 'rotated':
+        from hermesv3_bu.grids.grid_rotated import RotatedGrid
+        grid = RotatedGrid(
+            arguments.auxiliar_files_path, arguments.vertical_description, arguments.centre_lat, arguments.centre_lon,
+            arguments.west_boundary, arguments.south_boundary, arguments.inc_rlat, arguments.inc_rlon)
+
     else:
         raise NameError('Unknown grid type {0}'.format(arguments.domain_type))
 
     return grid
+
 
 class Grid(object):
     """
@@ -37,6 +44,7 @@ class Grid(object):
         self.netcdf_path = os.path.join(auxiliary_path, 'grid', 'grid.nc')
         self.shapefile_path = os.path.join(auxiliary_path, 'grid', 'grid.shp')
 
+        self.grid_type = None
         self.center_latitudes = None
         self.center_longitudes = None
         self.boundary_latitudes = None
