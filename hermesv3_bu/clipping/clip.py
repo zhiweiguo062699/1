@@ -4,9 +4,11 @@ import os
 import sys
 
 
-def select_clip(auxiliary_path, clipping, grid_shp):
+def select_clip(comm, auxiliary_path, clipping, grid_shp):
     """
     Create and initialise the clip.
+
+    :param comm: MPI communicator.
 
     :param auxiliary_path: Path to the folder to store all the needed auxiliary files.
     :type auxiliary_path: str
@@ -20,15 +22,20 @@ def select_clip(auxiliary_path, clipping, grid_shp):
     :return: Clip
     :rtype: Clip
     """
-    if clipping is None:
-        from hermesv3_bu.clipping.default_clip import DefaultClip
-        clip = DefaultClip(auxiliary_path, grid_shp)
-    elif clipping[0] == os.path.sep:
-        from hermesv3_bu.clipping.shapefile_clip import ShapefileClip
-        clip = ShapefileClip(auxiliary_path, clipping)
+    if comm.Get_rank() == 0:
+        if clipping is None:
+            from hermesv3_bu.clipping.default_clip import DefaultClip
+            clip = DefaultClip(auxiliary_path, grid_shp)
+        elif clipping[0] == os.path.sep:
+            from hermesv3_bu.clipping.shapefile_clip import ShapefileClip
+            clip = ShapefileClip(auxiliary_path, clipping)
+        else:
+            from hermesv3_bu.clipping.custom_clip import CustomClip
+            clip = CustomClip(auxiliary_path, clipping)
     else:
-        from hermesv3_bu.clipping.custom_clip import CustomClip
-        clip = CustomClip(auxiliary_path, clipping)
+        clip = None
+
+    clip = comm.bcast(clip, root=0)
     return clip
 
 

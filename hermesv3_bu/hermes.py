@@ -4,16 +4,11 @@ import sys
 import os
 from mpi4py import MPI
 
-parentPath = os.path.abspath(os.path.join('..', '..'))
-if parentPath not in sys.path:
-    sys.path.insert(0, parentPath)
-
 from timeit import default_timer as gettime
 
 from hermesv3_bu.config.config import Config
 from hermesv3_bu.grids.grid import select_grid
 from hermesv3_bu.clipping.clip import select_clip
-
 
 
 class Hermes(object):
@@ -22,15 +17,17 @@ class Hermes(object):
     """
     def __init__(self, config, new_date=None):
 
+        comm_world = MPI.COMM_WORLD
+
         self.arguments = config.arguments
 
         # updating starting date
         if new_date is not None:
             self.arguments.start_date = new_date
 
-        self.grid = select_grid(self.arguments)
+        self.grid = select_grid(comm_world, self.arguments)
 
-        self.clip = select_clip(self.arguments.auxiliar_files_path, self.arguments.clipping, self.grid.shapefile)
+        self.clip = select_clip(comm_world, self.arguments.auxiliar_files_path, self.arguments.clipping, self.grid.shapefile)
 
         print self.clip
 
