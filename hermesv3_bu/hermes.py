@@ -16,6 +16,7 @@ class Hermes(object):
     Interface class for HERMESv3.
     """
     def __init__(self, config, new_date=None):
+        from shutil import rmtree
 
         comm_world = MPI.COMM_WORLD
 
@@ -27,7 +28,8 @@ class Hermes(object):
 
         self.grid = select_grid(comm_world, self.arguments)
 
-        self.clip = select_clip(comm_world, self.arguments.auxiliar_files_path, self.arguments.clipping, self.grid.shapefile)
+        self.clip = select_clip(comm_world, self.arguments.auxiliar_files_path, self.arguments.clipping,
+                                self.grid.shapefile)
 
         print self.clip
 

@@ -19,7 +19,7 @@
 
 
 from configargparse import ArgParser
-
+import os
 
 class Config(ArgParser):
     """
@@ -38,6 +38,8 @@ class Config(ArgParser):
         :return: Arguments already parsed.
         :rtype: Namespace
         """
+        from shutil import rmtree
+
         p = ArgParser()
         p.add_argument('-c', '--my-config', required=False, is_config_file=True, help='Path to the configuration file.')
         # ===== GENERAL =====
@@ -58,6 +60,8 @@ class Config(ArgParser):
         p.add_argument('--auxiliar_files_path', required=True,
                        help='Path to the directory where the necessary auxiliary files will be created if them are ' +
                             'not created yet.')
+        p.add_argument('--erase_auxiliary_files', required=False, default='False', type=str,
+                       help='Indicates if you want to start from scratch removing the auxiliary files already created.')
         p.add_argument('--molecular_weights', required=True,
                        help='Path to the file that contains the molecular weights of the input pollutants.')
 
@@ -191,7 +195,12 @@ class Config(ArgParser):
         arguments.start_date = self._parse_start_date(arguments.start_date)
         arguments.end_date = self._parse_end_date(arguments.end_date, arguments.start_date)
 
+        arguments.erase_auxiliary_files = self._parse_bool(arguments.erase_auxiliary_files)
         self.create_dir(arguments.output_dir)
+
+        if arguments.erase_auxiliary_files:
+            if os.path.exists(arguments.auxiliar_files_path):
+                rmtree(arguments.auxiliar_files_path)
         self.create_dir(arguments.auxiliar_files_path)
 
         arguments.do_traffic = self._parse_bool(arguments.do_traffic)
