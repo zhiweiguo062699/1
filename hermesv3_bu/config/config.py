@@ -149,6 +149,18 @@ class Config(ArgParser):
         p.add_argument('--do_crop_fertilizers', required=False, type=str, default='True')
         p.add_argument('--do_agricultural_machinery', required=False, type=str, default='True')
 
+        p.add_argument('--traffic_processors', required=False, type=int, default='True')
+        p.add_argument('--traffic_area_processors', required=False, type=int, default='True')
+        p.add_argument('--aviation_processors', required=False, type=int, default='True')
+        p.add_argument('--point_sources_processors', required=False, type=int, default='True')
+        p.add_argument('--recreational_boats_processors', required=False, type=int, default='True')
+        p.add_argument('--shipping_port_processors', required=False, type=int, default='True')
+        p.add_argument('--residential_processors', required=False, type=int, default='True')
+        p.add_argument('--livestock_processors', required=False, type=int, default='True')
+        p.add_argument('--crop_operations_processors', required=False, type=int, default='True')
+        p.add_argument('--crop_fertilizers_processors', required=False, type=int, default='True')
+        p.add_argument('--agricultural_machinery_processors', required=False, type=int, default='True')
+
         # ===== SHAPEFILES =====
         p.add_argument('--nut_shapefile_prov', required=False, type=str, default='True')
         p.add_argument('--nut_shapefile_ccaa', required=False, type=str, default='True')
