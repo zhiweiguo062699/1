@@ -16,7 +16,7 @@ report_dir = 'tests/report/python{}'.format(version)
 errno = pytest.main([
     'tests',
     '--ignore=tests/report',
-    '--cov=hermesv3_gr',
+    '--cov=hermesv3_bu',
     '--cov-report=term',
     '--cov-report=html:{}/coverage_html'.format(report_dir),
     '--cov-report=xml:{}/coverage.xml'.format(report_dir),
