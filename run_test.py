@@ -1,5 +1,5 @@
 # coding=utf-8
-"""Script to run the tests for EarthDiagnostics and generate the code coverage report"""
+"""Script to run the tests for HERMESv3_BU and generate the code coverage report"""
 
 import os
 import sys
