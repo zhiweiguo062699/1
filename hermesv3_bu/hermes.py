@@ -9,6 +9,7 @@ from timeit import default_timer as gettime
 from hermesv3_bu.config.config import Config
 from hermesv3_bu.grids.grid import select_grid
 from hermesv3_bu.clipping.clip import select_clip
+from hermesv3_bu.sectors.sector_manager import SectorManager
 
 
 class Hermes(object):
@@ -31,7 +32,7 @@ class Hermes(object):
         self.clip = select_clip(comm_world, self.arguments.auxiliar_files_path, self.arguments.clipping,
                                 self.grid.shapefile)
 
-        print self.clip
+        self.sector_manager = SectorManager(comm_world, self.grid, self.clip, self.arguments)
 
         sys.exit(1)
 
