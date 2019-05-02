@@ -46,14 +46,12 @@ class IoRaster(IoServer):
             out_img, out_transform = mask(raster=data, shapes=coords, crop=True)
             out_meta = data.meta.copy()
 
-            out_meta.update(
-                {
-                   "driver": "GTiff",
-                    "height": out_img.shape[1],
-                    "width": out_img.shape[2],
-                    "transform": out_transform,
-                    "crs": data.crs
-                })
+            out_meta.update({
+                "driver": "GTiff",
+                "height": out_img.shape[1],
+                "width": out_img.shape[2],
+                "transform": out_transform,
+                "crs": data.crs})
             if not os.path.exists(os.path.dirname(clipped_raster_path)):
                 os.makedirs(os.path.dirname(clipped_raster_path))
             dst = rasterio.open(clipped_raster_path, "w", **out_meta)
@@ -225,11 +223,7 @@ class IoRaster(IoServer):
         return clipped_raster_path
 
     def clip_raster_with_shapefile_poly_serie(self, raster_path, geo, clipped_raster_path, nodata=0):
-        if settings.log_level_3:
-            st_time = gettime()
-        else:
-            st_time = None
-        def getFeatures(gdf):
+        def get_features(gdf):
             """
             https://automating-gis-processes.github.io/CSC18/lessons/L6/clipping-raster.html
             Function to parse features from GeoDataFrame in such a manner that rasterio wants them"""
@@ -238,24 +232,27 @@ class IoRaster(IoServer):
 
         import geopandas as gpd
         from rasterio.mask import mask
+
+        if settings.log_level_3:
+            st_time = gettime()
+        else:
+            st_time = None
         data = rasterio.open(raster_path)
 
         if len(geo) > 1:
             geo = gpd.GeoDataFrame(geometry=[geo.geometry.unary_union], crs=geo.crs)
         geo = geo.to_crs(crs=data.crs.data)
-        coords = getFeatures(geo)
+        coords = get_features(geo)
 
         out_img, out_transform = mask(raster=data, shapes=coords, crop=True, all_touched=True, nodata=nodata)
         out_meta = data.meta.copy()
 
-        out_meta.update(
-            {
-               "driver": "GTiff",
-                "height": out_img.shape[1],
-                "width": out_img.shape[2],
-                "transform": out_transform,
-                "crs": data.crs
-            })
+        out_meta.update({
+            "driver": "GTiff",
+            "height": out_img.shape[1],
+            "width": out_img.shape[2],
+            "transform": out_transform,
+            "crs": data.crs})
         if not os.path.exists(os.path.dirname(clipped_raster_path)):
             os.makedirs(os.path.dirname(clipped_raster_path))
         dst = rasterio.open(clipped_raster_path, "w", **out_meta)

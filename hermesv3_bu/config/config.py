@@ -21,6 +21,7 @@
 from configargparse import ArgParser
 import os
 
+
 class Config(ArgParser):
     """
     Initialization of the arguments that the parser can handle.
