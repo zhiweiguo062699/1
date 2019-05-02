@@ -35,7 +35,8 @@ class IoShapefile(Io):
         if not os.path.exists(os.path.dirname(path)):
             os.makedirs(os.path.dirname(path))
         data.to_file(path)
-        print 'TIME -> IoShapefile.write_serial_shapefile: Rank {0} {1} s'.format(settings.rank, round(gettime() - st_time, 2))
+        print 'TIME -> IoShapefile.write_serial_shapefile: Rank {0} {1} s'.format(
+            settings.rank, round(gettime() - st_time, 2))
 
         return True
 
@@ -46,7 +47,8 @@ class IoShapefile(Io):
             st_time = None
 
         gdf = gpd.read_file(path)
-        print 'TIME -> IoShapefile.read_serial_shapefile: Rank {0} {1} s'.format(settings.rank, round(gettime() - st_time, 2))
+        print 'TIME -> IoShapefile.read_serial_shapefile: Rank {0} {1} s'.format(
+            settings.rank, round(gettime() - st_time, 2))
 
         return gdf
 
@@ -73,7 +75,8 @@ class IoShapefile(Io):
             data.to_file(path)
 
         self.comm.Barrier()
-        print 'TIME -> IoShapefile.write_shapefile: Rank {0} {1} s'.format(settings.rank, round(gettime() - st_time, 2))
+        print 'TIME -> IoShapefile.write_shapefile: Rank {0} {1} s'.format(
+            settings.rank, round(gettime() - st_time, 2))
 
         return True
 
@@ -101,7 +104,8 @@ class IoShapefile(Io):
             st_time = None
 
         if self.size == 1:
-            print 'TIME -> IoShapefile.split_shapefile: Rank {0} {1} s'.format(settings.rank, round(gettime() - st_time, 2))
+            print 'TIME -> IoShapefile.split_shapefile: Rank {0} {1} s'.format(
+                settings.rank, round(gettime() - st_time, 2))
             return data
 
         if self.rank == 0:
@@ -132,4 +136,3 @@ class IoShapefile(Io):
         print 'TIME -> IoShapefile.balance: Rank {0} {1} s'.format(settings.rank, round(gettime() - st_time, 2))
 
         return data
-

@@ -7,10 +7,10 @@ from warnings import warn
 import rasterio
 
 import IN.src.config.settings as settings
-from IN.src.modules.io.io import Io
+from hermesv3_bu.io_server.io_server import IoServer
 
 
-class IoRaster(IO):
+class IoRaster(IoServer):
     def __init__(self):
         super(IoRaster, self).__init__()
 
@@ -59,38 +59,41 @@ class IoRaster(IO):
             dst = rasterio.open(clipped_raster_path, "w", **out_meta)
             dst.write(out_img)
         self.comm.Barrier()
-        print 'TIME -> IoRaster.clip_raster_with_shapefile: Rank {0} {1} s'.format(settings.rank, round(gettime() - st_time, 2))
+        print 'TIME -> IoRaster.clip_raster_with_shapefile: Rank {0} {1} s'.format(
+            settings.rank, round(gettime() - st_time, 2))
 
         return clipped_raster_path
 
     def clip_raster_with_shapefile_poly(self, raster_path, geo, clipped_raster_path, nodata=0):
-        if settings.log_level_3:
-            st_time = gettime()
-        else:
-            st_time = None
-        def getFeatures(gdf):
+        def get_features(gdf):
             """
             https://automating-gis-processes.github.io/CSC18/lessons/L6/clipping-raster.html
             Function to parse features from GeoDataFrame in such a manner that rasterio wants them"""
             import json
             return [json.loads(gdf.to_json())['features'][0]['geometry']]
 
+        if settings.log_level_3:
+            st_time = gettime()
+        else:
+            st_time = None
+
         import geopandas as gpd
         from rasterio.mask import mask
+
         if self.rank == 0:
             data = rasterio.open(raster_path)
 
             if len(geo) > 1:
                 geo = gpd.GeoDataFrame(geometry=[geo.geometry.unary_union], crs=geo.crs)
             geo = geo.to_crs(crs=data.crs.data)
-            coords = getFeatures(geo)
+            coords = get_features(geo)
 
             out_img, out_transform = mask(raster=data, shapes=coords, crop=True, all_touched=True, nodata=nodata)
             out_meta = data.meta.copy()
 
             out_meta.update(
                 {
-                   "driver": "GTiff",
+                    "driver": "GTiff",
                     "height": out_img.shape[1],
                     "width": out_img.shape[2],
                     "transform": out_transform,
@@ -101,7 +104,8 @@ class IoRaster(IO):
             dst = rasterio.open(clipped_raster_path, "w", **out_meta)
             dst.write(out_img)
         self.comm.Barrier()
-        print 'TIME -> IoRaster.clip_raster_with_shapefile_poly Rank {0} {1} s'.format(settings.rank, round(gettime() - st_time, 2))
+        print 'TIME -> IoRaster.clip_raster_with_shapefile_poly Rank {0} {1} s'.format(
+            settings.rank, round(gettime() - st_time, 2))
 
         return clipped_raster_path
 
@@ -110,7 +114,7 @@ class IoRaster(IO):
         import pandas as pd
         import numpy as np
         from shapely.geometry import Polygon
-        from IN.src.modules.grids.grid import Grid
+        from hermesv3_bu.grids.grid import Grid
         if settings.log_level_3:
             st_time = gettime()
         else:
@@ -179,12 +183,7 @@ class IoRaster(IO):
         return gdf
 
     def clip_raster_with_shapefile_serie(self, raster_path, shape_path, clipped_raster_path):
-        if settings.log_level_3:
-            st_time = gettime()
-        else:
-            st_time = None
-
-        def getFeatures(gdf):
+        def get_features(gdf):
             """
             https://automating-gis-processes.github.io/CSC18/lessons/L6/clipping-raster.html
             Function to parse features from GeoDataFrame in such a manner that rasterio wants them"""
@@ -193,19 +192,24 @@ class IoRaster(IO):
 
         import geopandas as gpd
         from rasterio.mask import mask
+
+        if settings.log_level_3:
+            st_time = gettime()
+        else:
+            st_time = None
         data = rasterio.open(raster_path)
         geo = gpd.read_file(shape_path)
         if len(geo) > 1:
             geo = gpd.GeoDataFrame(geometry=[geo.geometry.unary_union], crs=geo.crs)
         geo = geo.to_crs(crs=data.crs.data)
-        coords = getFeatures(geo)
+        coords = get_features(geo)
 
         out_img, out_transform = mask(raster=data, shapes=coords, crop=True)
         out_meta = data.meta.copy()
 
         out_meta.update(
             {
-               "driver": "GTiff",
+                "driver": "GTiff",
                 "height": out_img.shape[1],
                 "width": out_img.shape[2],
                 "transform": out_transform,
@@ -215,7 +219,8 @@ class IoRaster(IO):
             os.makedirs(os.path.dirname(clipped_raster_path))
         dst = rasterio.open(clipped_raster_path, "w", **out_meta)
         dst.write(out_img)
-        print 'TIME -> IoRaster.clip_raster_with_shapefile: Rank {0} {1} s'.format(settings.rank, round(gettime() - st_time, 2))
+        print 'TIME -> IoRaster.clip_raster_with_shapefile: Rank {0} {1} s'.format(
+            settings.rank, round(gettime() - st_time, 2))
 
         return clipped_raster_path
 
@@ -255,7 +260,8 @@ class IoRaster(IO):
             os.makedirs(os.path.dirname(clipped_raster_path))
         dst = rasterio.open(clipped_raster_path, "w", **out_meta)
         dst.write(out_img)
-        print 'TIME -> IoRaster.clip_raster_with_shapefile_poly Rank {0} {1} s'.format(settings.rank, round(gettime() - st_time, 2))
+        print 'TIME -> IoRaster.clip_raster_with_shapefile_poly Rank {0} {1} s'.format(
+            settings.rank, round(gettime() - st_time, 2))
 
         return clipped_raster_path
 
@@ -264,7 +270,7 @@ class IoRaster(IO):
         import pandas as pd
         import numpy as np
         from shapely.geometry import Polygon
-        from IN.src.modules.grids.grid import Grid
+        from hermesv3_bu.grids.grid import Grid
         if settings.log_level_3:
             st_time = gettime()
         else:
@@ -340,15 +346,11 @@ class IoRaster(IO):
         return gdf
 
     def value_to_shapefile(self, raster_path, value, out_path=None, crs=None):
-        import geopandas as gpd
         import pandas as pd
         import numpy as np
+        from hermesv3_bu.grids.grid import Grid
         from shapely.geometry import Polygon
-        from IN.src.modules.grids.grid import Grid
-        if settings.log_level_3:
-            st_time = gettime()
-        else:
-            st_time = None
+
         if self.rank == 0:
             ds = rasterio.open(raster_path)
             data = ds.read(1).flatten()
@@ -388,11 +390,12 @@ class IoRaster(IO):
             del df['b_lat_3'], df['b_lon_3']
             df['p4'] = zip(df.b_lon_4, df.b_lat_4)
             del df['b_lat_4'], df['b_lon_4']
-            sys.exit()
+
             list_points = df.as_matrix()
             del df['p1'], df['p2'], df['p3'], df['p4']
 
-            gdf = gpd.GeoDataFrame(data, columns=['data'], crs=ds.crs, geometry=[Polygon(list(points)) for points in list_points])
+            gdf = gpd.GeoDataFrame(data, columns=['data'], crs=ds.crs,
+                                   geometry=[Polygon(list(points)) for points in list_points])
             gdf.loc[:, 'CELL_ID'] = index
 
             gdf = gdf[gdf['data'] > 0]
@@ -408,7 +411,5 @@ class IoRaster(IO):
             gdf = None
 
         gdf = self.comm.bcast(gdf, root=0)
-        sys.exit()
-        print 'TIME -> IoRaster.value_to_shapefile Rank {0} {1} s'.format(settings.rank, round(gettime() - st_time, 2))
 
         return gdf

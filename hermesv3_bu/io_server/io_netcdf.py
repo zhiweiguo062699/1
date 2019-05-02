@@ -12,13 +12,12 @@ class IoNetcdf(IoServer):
         super(IoNetcdf, self).__init__()
 
 
-def write_coords_netcdf(netcdf_path, center_latitudes, center_longitudes, data_list,
-     levels=None, date=None, hours=None,
-     boundary_latitudes=None, boundary_longitudes=None, cell_area=None, global_attributes=None,
-     regular_latlon=False,
-     rotated=False, rotated_lats=None, rotated_lons=None, north_pole_lat=None, north_pole_lon=None,
-     lcc=False, lcc_x=None, lcc_y=None, lat_1_2=None, lon_0=None, lat_0=None,
-     mercator=False, lat_ts=None):
+def write_coords_netcdf(netcdf_path, center_latitudes, center_longitudes, data_list, levels=None, date=None, hours=None,
+                        boundary_latitudes=None, boundary_longitudes=None, cell_area=None, global_attributes=None,
+                        regular_latlon=False,
+                        rotated=False, rotated_lats=None, rotated_lons=None, north_pole_lat=None, north_pole_lon=None,
+                        lcc=False, lcc_x=None, lcc_y=None, lat_1_2=None, lon_0=None, lat_0=None,
+                        mercator=False, lat_ts=None):
 
     from netCDF4 import Dataset
     from cf_units import Unit, encode_time

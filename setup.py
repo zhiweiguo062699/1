@@ -41,7 +41,8 @@ setup(
         'timezonefinder',
         'mpi4py',
         'pytest',
-        'shapely'
+        'shapely',
+        'rasterio',
     ],
     packages=find_packages(),
     classifiers=[

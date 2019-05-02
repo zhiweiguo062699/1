@@ -227,7 +227,6 @@ class Config(ArgParser):
         arguments.do_crop_fertilizers = self._parse_bool(arguments.do_crop_fertilizers)
         arguments.do_agricultural_machinery = self._parse_bool(arguments.do_agricultural_machinery)
 
-
         return arguments
 
     def get_output_name(self, date):

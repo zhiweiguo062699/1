@@ -33,8 +33,9 @@ def select_grid(comm, arguments):
         elif arguments.domain_type == 'rotated':
             from hermesv3_bu.grids.grid_rotated import RotatedGrid
             grid = RotatedGrid(
-                arguments.auxiliar_files_path, arguments.vertical_description, arguments.centre_lat, arguments.centre_lon,
-                arguments.west_boundary, arguments.south_boundary, arguments.inc_rlat, arguments.inc_rlon)
+                arguments.auxiliar_files_path, arguments.vertical_description, arguments.centre_lat,
+                arguments.centre_lon, arguments.west_boundary, arguments.south_boundary, arguments.inc_rlat,
+                arguments.inc_rlon)
 
         elif arguments.domain_type == 'mercator':
             from hermesv3_bu.grids.grid_mercator import MercatorGrid

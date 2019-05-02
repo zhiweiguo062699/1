@@ -47,6 +47,6 @@ class Clip(object):
         self.shapefile_path = os.path.join(auxiliary_path, 'clip', 'clip.shp')
 
     def __str__(self):
-        text = "I'm a {0}. \n\tShapefile path: {1}\n\tClip polygon: {2}".format(self.clip_type, self.shapefile_path,
-                                                                                 self.shapefile.loc[0, 'geometry'])
+        text = "I'm a {0}. \n\tShapefile path: {1}\n\tClip polygon: {2}".format(
+            self.clip_type, self.shapefile_path, self.shapefile.loc[0, 'geometry'])
         return text

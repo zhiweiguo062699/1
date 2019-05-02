@@ -22,5 +22,3 @@ class SectorManager(object):
             if vars(arguments)['do_{0}'.format(sector)]:
                 sector_dict[sector] = vars(arguments)['{0}_processors'.format(sector)]
         return sector_dict
-
-
