@@ -4,8 +4,6 @@ import sys
 import os
 from mpi4py import MPI
 
-from timeit import default_timer as gettime
-
 from hermesv3_bu.config.config import Config
 from hermesv3_bu.grids.grid import select_grid
 from hermesv3_bu.clipping.clip import select_clip
@@ -17,7 +15,6 @@ class Hermes(object):
     Interface class for HERMESv3.
     """
     def __init__(self, config, new_date=None):
-        from shutil import rmtree
 
         comm_world = MPI.COMM_WORLD
 
@@ -43,7 +40,7 @@ class Hermes(object):
         """
         from datetime import timedelta
 
-        if self.arguments.start_date < self.options.end_date:
+        if self.arguments.start_date < self.arguments.end_date:
             return self.arguments.start_date + timedelta(days=1)
 
         return None

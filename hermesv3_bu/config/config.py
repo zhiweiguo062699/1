@@ -187,22 +187,40 @@ class Config(ArgParser):
         p.add_argument('--obukhov_length_dir', required=False, type=str, default='True')
         p.add_argument('--layer_thickness_dir', required=False, type=str, default='True')
 
+        # ***** AVIATION SEECTOR *****
+        p.add_argument('--aviation_source_pollutants', required=False, help='...')
+        p.add_argument('--airport_list', required=False, help='...')
+        p.add_argument('--plane_list', required=False, help='...')
+        p.add_argument('--airport_shapefile_path', required=False, help='...')
+        p.add_argument('--airport_runways_shapefile_path', required=False, help='...')
+        p.add_argument('--airport_runways_corners_shapefile_path', required=False, help='...')
+        p.add_argument('--airport_trajectories_shapefile_path', required=False, help='...')
+        p.add_argument('--airport_operations_path', required=False, help='...')
+        p.add_argument('--planes_path', required=False, help='...')
+        p.add_argument('--airport_times_path', required=False, help='...')
+        p.add_argument('--airport_ef_dir', required=False, help='...')
+        p.add_argument('--aviation_weekly_profiles', required=False, help='...')
+        p.add_argument('--aviation_hourly_profiles', required=False, help='...')
+        p.add_argument('--aviation_speciation_map', required=False, help='...')
+        p.add_argument('--aviation_speciation_profiles', required=False, help='...')
+
         arguments = p.parse_args()
+
         for item in vars(arguments):
-            is_str = False
-            exec ("is_str = str == type(arguments.{0})".format(item))
+            is_str = isinstance(type(arguments.__dict__[item]), str)
             if is_str:
-                exec ("arguments.{0} = arguments.{0}.replace('<data_path>', arguments.data_path)".format(item))
-                exec ("arguments.{0} = arguments.{0}.replace('<input_dir>', arguments.input_dir)".format(item))
-                exec ("arguments.{0} = arguments.{0}.replace('<domain_type>', arguments.domain_type)".format(item))
+                arguments.__dict__[item] = arguments.__dict__[item].replace('<data_path>', arguments.data_path)
+                arguments.__dict__[item] = arguments.__dict__[item].replace('<input_dir>', arguments.input_dir)
+                arguments.__dict__[item] = arguments.__dict__[item].replace('<domain_type>', arguments.domain_type)
+
                 if arguments.domain_type == 'regular':
-                    exec("arguments.{0} = arguments.{0}.replace('<resolution>', '{1}_{2}')".format(
+                    arguments.__dict__[item] = arguments.__dict__[item].replace('<resolution>', '{1}_{2}'.format(
                         item, arguments.inc_lat, arguments.inc_lon))
                 elif arguments.domain_type == 'rotated':
-                    exec("arguments.{0} = arguments.{0}.replace('<resolution>', '{1}_{2}')".format(
+                    arguments.__dict__[item] = arguments.__dict__[item].replace('<resolution>', '{1}_{2}'.format(
                         item, arguments.inc_rlat, arguments.inc_rlon))
                 elif arguments.domain_type == 'lcc' or arguments.domain_type == 'mercator':
-                    exec("arguments.{0} = arguments.{0}.replace('<resolution>', '{1}_{2}')".format(
+                    arguments.__dict__[item] = arguments.__dict__[item].replace('<resolution>', '{1}_{2}'.format(
                         item, arguments.inc_x, arguments.inc_y))
 
         arguments.start_date = self._parse_start_date(arguments.start_date)
