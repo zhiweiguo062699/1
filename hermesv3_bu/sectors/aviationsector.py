@@ -788,26 +788,3 @@ class AviationSector(Sector):
         emissions = emissions * 1000
 
         return emissions
-
-    def to_grid(self, data):
-        data.reset_index(inplace=True)
-        data = self.comm.gather(data, root=0)
-        if self.comm.Get_rank() == 0:
-            data = pd.concat(data)
-
-            emission_list = []
-            for out_p in self.output_pollutants:
-                aux_data = data[[out_p, 'tstep', 'layer', 'FID']]
-                aux_data = aux_data.loc[aux_data[out_p] > 0, :]
-                aux_data = aux_data.groupby(['tstep', 'layer', 'FID']).sum().reset_index()
-                dict_aux = {
-                    'name': out_p,
-                    'units': '',
-                    'data': aux_data
-                }
-                # print dict_aux
-                emission_list.append(dict_aux)
-        else:
-            emission_list = None
-
-        return emission_list
