@@ -23,8 +23,8 @@ test_python2:
     - conda env update -f environment.yml -n hermesv3_gr python=2.7
     - source activate hermesv3_gr
     - python run_test.py
-    - pip install codacy-coverage --upgrade
-    - python-codacy-coverage -r tests/report/python2/coverage.xml
+    #- pip install codacy-coverage --upgrade
+    #- python-codacy-coverage -r tests/report/python2/coverage.xml
 
 #test_python3:
 #  stage: test
