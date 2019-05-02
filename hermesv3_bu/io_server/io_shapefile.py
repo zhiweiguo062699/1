@@ -8,11 +8,10 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 
-import IN.src.config.settings as settings
-from IN.src.modules.io.io import Io
+from hermesv3_bu.io_server.io_server import IoServer
 
 
-class IoShapefile(Io):
+class IoShapefile(IoServer):
     def __init__(self):
         super(IoShapefile, self).__init__()
 

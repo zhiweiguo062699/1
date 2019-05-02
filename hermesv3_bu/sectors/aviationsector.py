@@ -89,7 +89,6 @@ class AviationSector(Sector):
         super(AviationSector, self).__init__(
             comm, auxiliary_dir, grid_shp, date_array, source_pollutants, vertical_levels, weekly_profiles_path,
             hourly_profiles_path, speciation_map_path, speciation_profiles_path, molecular_weights_path)
-
         if 'hc' in self.source_pollutants:
             for poll in ['nmvoc', 'ch4']:
                 if poll not in self.source_pollutants:
@@ -105,6 +104,7 @@ class AviationSector(Sector):
         self.plane_list = plane_list
 
         full_airport_shapefile = gpd.read_file(airport_shapefile_path)
+        full_airport_shapefile.drop(columns='airport_na', inplace=True)
         full_airport_shapefile.set_index(AIRPORT_CODE, inplace=True)
         self.airport_shapefile = full_airport_shapefile.loc[self.airport_list, ['geometry']]
 
@@ -305,6 +305,7 @@ class AviationSector(Sector):
                 airport_distribution.rename(columns={'idx1': AIRPORT_CODE}, inplace=True)
                 airport_distribution['layer'] = 0
                 airport_distribution.set_index([AIRPORT_CODE, 'FID', 'layer'], inplace=True)
+                print airport_distribution
                 airport_distribution.to_csv(airport_distribution_path)
             else:
                 airport_distribution = None
@@ -526,7 +527,6 @@ class AviationSector(Sector):
 
         # Dates
         dataframe = self.add_dates(dataframe)
-
         dataframe['month'] = dataframe['date'].dt.month
         dataframe['weekday'] = dataframe['date'].dt.weekday
         dataframe['hour'] = dataframe['date'].dt.hour

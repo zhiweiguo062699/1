@@ -207,7 +207,7 @@ class Config(ArgParser):
         arguments = p.parse_args()
 
         for item in vars(arguments):
-            is_str = isinstance(type(arguments.__dict__[item]), str)
+            is_str = isinstance(arguments.__dict__[item], str)
             if is_str:
                 arguments.__dict__[item] = arguments.__dict__[item].replace('<data_path>', arguments.data_path)
                 arguments.__dict__[item] = arguments.__dict__[item].replace('<input_dir>', arguments.input_dir)
@@ -245,6 +245,10 @@ class Config(ArgParser):
         arguments.do_crop_operations = self._parse_bool(arguments.do_crop_operations)
         arguments.do_crop_fertilizers = self._parse_bool(arguments.do_crop_fertilizers)
         arguments.do_agricultural_machinery = self._parse_bool(arguments.do_agricultural_machinery)
+
+        arguments.airport_list = self._parse_list(arguments.airport_list)
+        arguments.plane_list = self._parse_list(arguments.plane_list)
+        arguments.aviation_source_pollutants = self._parse_list(arguments.aviation_source_pollutants)
 
         return arguments
 

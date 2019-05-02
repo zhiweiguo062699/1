@@ -253,10 +253,9 @@ class Sector(object):
             # df_aux = self.to_timezone(df_aux)
             df_list.append(df_aux)
         dataframe = pd.concat(df_list, ignore_index=True)
-
         dataframe = self.to_timezone(dataframe)
-        # print zip(np.unique(dataframe['date_utc'].values), np.unique(dataframe['date'].values))
         dataframe.drop('date_utc', axis=1, inplace=True)
+
         return dataframe
 
     @staticmethod
@@ -281,7 +280,8 @@ class Sector(object):
         :return: Catalog with the local date column.
         :rtype: pandas.DataFrame
         """
-        dataframe['date'] = dataframe.groupby('timezone')['date'].apply(lambda x: x.dt.tz_convert(x.name))
+        dataframe['date'] = dataframe.groupby('timezone')['date'].apply(
+            lambda x: x.dt.tz_convert(x.name).dt.tz_localize(None))
 
         dataframe.drop('timezone', axis=1, inplace=True)
 

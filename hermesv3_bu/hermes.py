@@ -3,6 +3,7 @@
 import sys
 import os
 from mpi4py import MPI
+from datetime import timedelta
 
 from hermesv3_bu.config.config import Config
 from hermesv3_bu.grids.grid import select_grid
@@ -28,10 +29,10 @@ class Hermes(object):
 
         self.clip = select_clip(comm_world, self.arguments.auxiliar_files_path, self.arguments.clipping,
                                 self.grid.shapefile)
+        self.date_array = [self.arguments.start_date + timedelta(hours=hour) for hour in
+                           xrange(self.arguments.output_timestep_num)]
 
-        self.sector_manager = SectorManager(comm_world, self.grid, self.clip, self.arguments)
-
-        sys.exit(1)
+        self.sector_manager = SectorManager(comm_world, self.grid, self.clip, self.date_array, self.arguments)
 
     # @profile
     def main(self):
@@ -39,6 +40,9 @@ class Hermes(object):
         Main functionality of the model.
         """
         from datetime import timedelta
+
+        emis = self.sector_manager.calculate_emissions()
+        print emis
 
         if self.arguments.start_date < self.arguments.end_date:
             return self.arguments.start_date + timedelta(days=1)
