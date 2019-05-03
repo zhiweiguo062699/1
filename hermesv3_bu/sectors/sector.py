@@ -10,7 +10,7 @@ from mpi4py import MPI
 
 class Sector(object):
 
-    def __init__(self, comm, auxiliary_dir, grid_shp, date_array, source_pollutants, vertical_levels,
+    def __init__(self, comm, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
                  weekly_profiles_path, hourly_profiles_path, speciation_map_path, speciation_profiles_path,
                  molecular_weights_path):
         """
@@ -61,6 +61,7 @@ class Sector(object):
         self.comm = comm
         self.auxiliray_dir = auxiliary_dir
         self.grid_shp = grid_shp
+        self.clip = clip
         self.date_array = date_array
         self.source_pollutants = source_pollutants
 

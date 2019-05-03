@@ -12,34 +12,21 @@ class SectorManager(object):
             raise ValueError("The selected number of processors '{0}' does not fit ".format(comm_world.Get_size()) +
                              "with the sum of processors dedicated for all the sectors " +
                              "'{0}': {1}".format(sum(self.sector_list.values()), self.sector_list))
-        from hermesv3_bu.sectors.aviationsector import AviationSector
-        self.sector = AviationSector(
-                    comm_world,
-                    arguments.auxiliar_files_path,
-                    grid.shapefile,
-                    date_array,
-                    arguments.aviation_source_pollutants,
-                    grid.vertical_desctiption,
-                    arguments.airport_list,
-                    arguments.plane_list,
-                    arguments.airport_shapefile_path,
-                    arguments.airport_runways_shapefile_path,
-                    arguments.airport_runways_corners_shapefile_path,
-                    arguments.airport_trajectories_shapefile_path,
-                    arguments.airport_operations_path,
-                    arguments.planes_path,
-                    arguments.airport_times_path,
-                    arguments.airport_ef_dir,
-                    arguments.aviation_weekly_profiles,
-                    arguments.aviation_hourly_profiles,
-                    arguments.aviation_speciation_map,
-                    arguments.aviation_speciation_profiles,
-                    arguments.molecular_weights,
+        from hermesv3_bu.sectors.aviation_sector import AviationSector
+        self.sector = AviationSector(comm_world, arguments.auxiliar_files_path, grid.shapefile, clip, date_array,
+                                     arguments.aviation_source_pollutants, grid.vertical_desctiption,
+                                     arguments.airport_list, arguments.plane_list, arguments.airport_shapefile_path,
+                                     arguments.airport_runways_shapefile_path,
+                                     arguments.airport_runways_corners_shapefile_path,
+                                     arguments.airport_trajectories_shapefile_path, arguments.airport_operations_path,
+                                     arguments.planes_path, arguments.airport_times_path, arguments.airport_ef_dir,
+                                     arguments.aviation_weekly_profiles, arguments.aviation_hourly_profiles,
+                                     arguments.aviation_speciation_map, arguments.aviation_speciation_profiles,
+                                     arguments.molecular_weights,
                 )
 
-    def calculate_emissions(self):
-        print self.sector.calculate_emissions()
-        exit()
+    def run(self):
+        return self.sector.calculate_emissions()
 
     @staticmethod
     def make_sector_list(arguments):

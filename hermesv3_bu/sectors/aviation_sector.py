@@ -11,7 +11,6 @@ import geopandas as gpd
 from hermesv3_bu.sectors.sector import Sector
 from hermesv3_bu.io_server.io_shapefile import IoShapefile
 
-AIRPORT_CODE = 'airport_co'
 
 PHASE_TYPE = {'taxi_out': 'departure', 'pre-taxi_out': 'departure', 'takeoff': 'departure', 'climbout': 'departure',
               'approach': 'arrival', 'taxi_in': 'arrival', 'post-taxi_in': 'arrival', 'landing': 'arrival',
@@ -35,11 +34,11 @@ class AviationSector(Sector):
         - Taxi in
         - Post-taxi in
     """
-    def __init__(self, comm, auxiliary_dir, grid_shp, date_array, source_pollutants, vertical_levels, airport_list, plane_list,
-                 airport_shapefile_path, airport_runways_shapefile_path, airport_runways_corners_shapefile_path,
-                 airport_trajectories_shapefile_path, operations_path, planes_path, times_path, ef_dir,
-                 weekly_profiles_path, hourly_profiles_path, speciation_map_path, speciation_profiles_path,
-                 molecular_weights_path):
+    def __init__(self, comm, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+                 airport_list, plane_list, airport_shapefile_path, airport_runways_shapefile_path,
+                 airport_runways_corners_shapefile_path, airport_trajectories_shapefile_path, operations_path,
+                 planes_path, times_path, ef_dir, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
+                 speciation_profiles_path, molecular_weights_path):
         """
         :param comm: Communicator for the sector calculation.
         :type comm: MPI.COMM
@@ -87,7 +86,7 @@ class AviationSector(Sector):
         """
 
         super(AviationSector, self).__init__(
-            comm, auxiliary_dir, grid_shp, date_array, source_pollutants, vertical_levels, weekly_profiles_path,
+            comm, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels, weekly_profiles_path,
             hourly_profiles_path, speciation_map_path, speciation_profiles_path, molecular_weights_path)
         if 'hc' in self.source_pollutants:
             for poll in ['nmvoc', 'ch4']:
@@ -105,7 +104,7 @@ class AviationSector(Sector):
 
         full_airport_shapefile = gpd.read_file(airport_shapefile_path)
         full_airport_shapefile.drop(columns='airport_na', inplace=True)
-        full_airport_shapefile.set_index(AIRPORT_CODE, inplace=True)
+        full_airport_shapefile.set_index('airport_id', inplace=True)
         self.airport_shapefile = full_airport_shapefile.loc[self.airport_list, ['geometry']]
 
         self.operations = self.read_operations_update_plane_list(operations_path)
@@ -125,7 +124,6 @@ class AviationSector(Sector):
 
     def read_trajectories_shapefile(self, trajectories_path, runways_corners_path, runways_path):
         trajectories = gpd.read_file(trajectories_path)
-        trajectories.rename(columns={'runaway_co': 'runway_co'}, inplace=True)
 
         corners = gpd.read_file(runways_corners_path).to_crs(trajectories.crs)
         corners.rename(columns={'geometry': 'start_point'}, inplace=True)
@@ -133,21 +131,21 @@ class AviationSector(Sector):
         runways = gpd.read_file(runways_path).to_crs(trajectories.crs)
         runways.rename(columns={'approach_f': 'arrival_f', 'climbout_f': 'departure_f'}, inplace=True)
 
-        trajectories = trajectories.merge(corners[['runway_co', 'start_point']], on='runway_co', how='left')
-        trajectories = trajectories.merge(runways[['runway_co', 'arrival_f', 'departure_f']], on='runway_co',
+        trajectories = trajectories.merge(corners[['runway_id', 'start_point']], on='runway_id', how='left')
+        trajectories = trajectories.merge(runways[['runway_id', 'arrival_f', 'departure_f']], on='runway_id',
                                           how='left')
         trajectories.loc[trajectories['operation'] == 'departure', 'fraction'] = trajectories['departure_f']
         trajectories.loc[trajectories['operation'] == 'arrival', 'fraction'] = trajectories['arrival_f']
 
         trajectories.drop(columns=['arrival_f', 'departure_f'], inplace=True)
-        trajectories.set_index(['runway_co', 'operation'], inplace=True)
+        trajectories.set_index(['runway_id', 'operation'], inplace=True)
 
         return trajectories
 
     def read_runway_shapefile(self, airport_runways_shapefile_path):
         if self.comm.rank == 0:
             runway_shapefile = gpd.read_file(airport_runways_shapefile_path)
-            runway_shapefile.set_index(AIRPORT_CODE, inplace=True)
+            runway_shapefile.set_index('airport_id', inplace=True)
             runway_shapefile = runway_shapefile.loc[self.airport_list_full, :]
             runway_shapefile = runway_shapefile.loc[runway_shapefile['cons'] == 1,
                                                     ['approach_f', 'climbout_f', 'geometry']]
@@ -190,7 +188,7 @@ class AviationSector(Sector):
         airports.
 
         :param operations_csv_path: Path to the CSV that contains the operations information by plane, airport, and
-            phase. The cSC must contain the following columns: [plane_code, airport_code, operation, 1, 2, 3, 4, 5, 6,
+            phase. The cSC must contain the following columns: [plane_id, airport_id, operation, 1, 2, 3, 4, 5, 6,
             7, 8, 9, 10, 11, 12] with the number of operations by month.
         :type operations_csv_path: str
 
@@ -203,18 +201,18 @@ class AviationSector(Sector):
 
         if check:
             print 'CHECKINNNNNG'
-            for index, aux_operations in operations.groupby(['airport_code', 'plane_code', 'operation']):
+            for index, aux_operations in operations.groupby(['airport_id', 'plane_id', 'operation']):
                 if len(aux_operations) > 1:
                     print index, len(aux_operations)
 
         if self.plane_list is None:
-            self.plane_list = list(np.unique(operations['plane_code'].values))
+            self.plane_list = list(np.unique(operations['plane_id'].values))
         else:
-            operations = operations.loc[operations['plane_code'].isin(self.plane_list), :]
+            operations = operations.loc[operations['plane_id'].isin(self.plane_list), :]
         if len(operations) == 0:
             raise NameError("The plane/s defined in the plane_list do not exist.")
-        operations = operations.loc[operations['airport_code'].isin(self.airport_list), :]
-        operations.set_index(['airport_code', 'plane_code', 'operation'], inplace=True)
+        operations = operations.loc[operations['airport_id'].isin(self.airport_list), :]
+        operations.set_index(['airport_id', 'plane_id', 'operation'], inplace=True)
         operations.rename(columns={'1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10,
                                    '11': 11, '12': 12}, inplace=True)
         return operations
@@ -222,19 +220,19 @@ class AviationSector(Sector):
     def read_planes(self, planes_path):
         check = False
         dataframe = pd.read_csv(planes_path)
-        dataframe = dataframe.loc[dataframe['plane_code'].isin(self.plane_list)]
+        dataframe = dataframe.loc[dataframe['plane_id'].isin(self.plane_list)]
         if check:
             print 'CHECKINNNNNG'
-            for index, aux_operations in dataframe.groupby('plane_code'):
+            for index, aux_operations in dataframe.groupby('plane_id'):
                 if len(aux_operations) > 1:
                     print index, len(aux_operations)
-        dataframe.set_index('plane_code', inplace=True)
+        dataframe.set_index('plane_id', inplace=True)
         return dataframe
 
     def read_times_info(self, times_path):
         dataframe = pd.read_csv(times_path)
-        dataframe = dataframe.loc[dataframe['airport_code'].isin(self.airport_list)]
-        dataframe.set_index(['airport_code', 'plane_type'], inplace=True)
+        dataframe = dataframe.loc[dataframe['airport_id'].isin(self.airport_list)]
+        dataframe.set_index(['airport_id', 'plane_type'], inplace=True)
         return dataframe
 
     def get_airport_list(self, conf_airport_list, airport_shapefile):
@@ -257,10 +255,9 @@ class AviationSector(Sector):
         if self.comm.rank == 0:
             airport_shapefile = airport_shapefile.reset_index()
             airport_shapefile = gpd.sjoin(airport_shapefile.to_crs(self.grid_shp.crs),
-                                          gpd.GeoDataFrame(geometry=[self.grid_shp.unary_union], crs=self.grid_shp.crs),
-                                          how='inner', op='intersects')
+                                          self.clip.shapefile.to_crs(self.grid_shp.crs), how='inner', op='intersects')
 
-            shp_airport_list = list(np.unique(airport_shapefile[AIRPORT_CODE].values))
+            shp_airport_list = list(np.unique(airport_shapefile['airport_id'].values))
 
             if conf_airport_list is not None:
                 shp_airport_list = list(set(conf_airport_list).intersection(shp_airport_list))
@@ -302,17 +299,16 @@ class AviationSector(Sector):
                 airport_distribution = self.spatial_overlays(airport_shapefile, self.grid_shp, how='intersection')
                 airport_distribution['fraction'] = airport_distribution.area / airport_distribution['area']
                 airport_distribution.drop(columns=['idx2', 'area', 'geometry'], inplace=True)
-                airport_distribution.rename(columns={'idx1': AIRPORT_CODE}, inplace=True)
+                airport_distribution.rename(columns={'idx1': 'airport_id'}, inplace=True)
                 airport_distribution['layer'] = 0
-                airport_distribution.set_index([AIRPORT_CODE, 'FID', 'layer'], inplace=True)
-                print airport_distribution
+                airport_distribution.set_index(['airport_id', 'FID', 'layer'], inplace=True)
                 airport_distribution.to_csv(airport_distribution_path)
             else:
                 airport_distribution = None
             airport_distribution = self.comm.bcast(airport_distribution, root=0)
         else:
             airport_distribution = pd.read_csv(airport_distribution_path)
-            airport_distribution.set_index([AIRPORT_CODE, 'FID', 'layer'], inplace=True)
+            airport_distribution.set_index(['airport_id', 'FID', 'layer'], inplace=True)
 
         return airport_distribution
 
@@ -320,11 +316,6 @@ class AviationSector(Sector):
         def get_intersection_length(row):
             intersection = row.get('geometry_x').intersection(row.get('geometry_y'))
             return intersection.length
-
-        def do_intersection(row):
-            intersection = row.get('geometry_x').intersection(row.get('geometry_y'))
-            print row.get('geometry_x'), intersection
-            return intersection
 
         def normalize(df):
             total_fraction = df['{0}_f'.format(phase_type)].values.sum()
@@ -338,7 +329,7 @@ class AviationSector(Sector):
 
         if not os.path.exists(runway_distribution_path):
             if self.comm.rank == 0:
-                runway_shapefile['{0}_f'.format(phase_type)] = runway_shapefile.groupby(AIRPORT_CODE).apply(normalize)
+                runway_shapefile['{0}_f'.format(phase_type)] = runway_shapefile.groupby('airport_id').apply(normalize)
                 if not os.path.exists(os.path.dirname(runway_distribution_path)):
                     os.makedirs(os.path.dirname(runway_distribution_path))
                 runway_shapefile.reset_index(inplace=True)
@@ -358,16 +349,16 @@ class AviationSector(Sector):
                     runway_shapefile['mini_length'] / runway_shapefile['length'])
 
                 runway_shapefile['layer'] = 0
-                runway_shapefile = runway_shapefile[[AIRPORT_CODE, 'FID', 'layer', 'fraction']]
-                runway_shapefile = runway_shapefile.groupby([AIRPORT_CODE, 'FID', 'layer']).sum()
-                # runway_shapefile.set_index([AIRPORT_CODE, 'FID', 'layer'], inplace=True)
+                runway_shapefile = runway_shapefile[['airport_id', 'FID', 'layer', 'fraction']]
+                runway_shapefile = runway_shapefile.groupby(['airport_id', 'FID', 'layer']).sum()
+                # runway_shapefile.set_index(['airport_id', 'FID', 'layer'], inplace=True)
                 runway_shapefile.to_csv(runway_distribution_path)
             else:
                 runway_shapefile = None
             runway_shapefile = self.comm.bcast(runway_shapefile, root=0)
         else:
             runway_shapefile = pd.read_csv(runway_distribution_path)
-            runway_shapefile.set_index([AIRPORT_CODE, 'FID', 'layer'], inplace=True)
+            runway_shapefile.set_index(['airport_id', 'FID', 'layer'], inplace=True)
 
         return runway_shapefile
 
@@ -406,9 +397,9 @@ class AviationSector(Sector):
                 # Filtering shapefile
                 airport_trajectories_shapefile = airport_trajectories_shapefile.xs(phase_type, level='operation').copy()
                 airport_trajectories_shapefile = airport_trajectories_shapefile.loc[
-                                                 airport_trajectories_shapefile[AIRPORT_CODE].isin(self.airport_list_full),
+                                                 airport_trajectories_shapefile['airport_id'].isin(self.airport_list_full),
                                                  :]
-                airport_trajectories_shapefile['fraction'] = airport_trajectories_shapefile.groupby(AIRPORT_CODE).apply(
+                airport_trajectories_shapefile['fraction'] = airport_trajectories_shapefile.groupby('airport_id').apply(
                     normalize)
 
                 # VERTICAL DISTRIBUTION
@@ -421,7 +412,7 @@ class AviationSector(Sector):
                     dataframe['circle_radious'] = (float(v_lev) / 1000.) * dataframe['length']
                     dataframe['geometry'] = dataframe[['src_geometry', 'start_point', 'circle_radious']].apply(
                         do_vertical_intersection, axis=1)
-                    trajectories_distr.append(dataframe[['airport_co', 'fraction', 'length', 'layer', 'geometry']])
+                    trajectories_distr.append(dataframe[['airport_id', 'fraction', 'length', 'layer', 'geometry']])
                     airport_trajectories_shapefile['geometry'] = dataframe[
                         ['src_geometry', 'start_point', 'circle_radious']].apply(do_difference, axis=1)
                     if v_lev > 1000:
@@ -444,16 +435,16 @@ class AviationSector(Sector):
                 trajectories_distr['fraction'] = trajectories_distr['fraction'].multiply(
                     trajectories_distr['mini_h_length'] / trajectories_distr['length'])
 
-                trajectories_distr = trajectories_distr[[AIRPORT_CODE, 'FID', 'layer', 'fraction']]
-                trajectories_distr = trajectories_distr.groupby([AIRPORT_CODE, 'FID', 'layer']).sum()
-                # trajectories_distr.set_index([AIRPORT_CODE, 'FID', 'layer'], inplace=True)
+                trajectories_distr = trajectories_distr[['airport_id', 'FID', 'layer', 'fraction']]
+                trajectories_distr = trajectories_distr.groupby(['airport_id', 'FID', 'layer']).sum()
+                # trajectories_distr.set_index(['airport_id', 'FID', 'layer'], inplace=True)
                 trajectories_distr.to_csv(trajectories_distribution_path)
             else:
                 trajectories_distr = None
             trajectories_distr = self.comm.bcast(trajectories_distr, root=0)
         else:
             trajectories_distr = pd.read_csv(trajectories_distribution_path)
-            trajectories_distr.set_index([AIRPORT_CODE, 'FID', 'layer'], inplace=True)
+            trajectories_distr.set_index(['airport_id', 'FID', 'layer'], inplace=True)
         return trajectories_distr
 
     def get_main_engine_emission(self, phase):
@@ -517,13 +508,13 @@ class AviationSector(Sector):
         print phase
         # Merging operations with airport geometry
         dataframe = pd.DataFrame(index=self.operations.xs(PHASE_TYPE[phase], level='operation').index)
-        dataframe = dataframe.reset_index().set_index('airport_code')
+        dataframe = dataframe.reset_index().set_index('airport_id')
         dataframe = self.airport_shapefile.join(dataframe, how='inner')
-        dataframe.index.name = AIRPORT_CODE
-        dataframe = dataframe.reset_index().set_index([AIRPORT_CODE, 'plane_code'])
+        dataframe.index.name = 'airport_id'
+        dataframe = dataframe.reset_index().set_index(['airport_id', 'plane_id'])
 
-        dataframe['E'] = dataframe.groupby('plane_code').apply(get_e)
-        dataframe['t'] = dataframe.groupby([AIRPORT_CODE, 'plane_code']).apply(get_t)
+        dataframe['E'] = dataframe.groupby('plane_id').apply(get_e)
+        dataframe['t'] = dataframe.groupby(['airport_id', 'plane_id']).apply(get_t)
 
         # Dates
         dataframe = self.add_dates(dataframe)
@@ -531,9 +522,9 @@ class AviationSector(Sector):
         dataframe['weekday'] = dataframe['date'].dt.weekday
         dataframe['hour'] = dataframe['date'].dt.hour
 
-        dataframe['N'] = dataframe.groupby([AIRPORT_CODE, 'plane_code', 'month']).apply(get_n)
-        dataframe['WF'] = dataframe.groupby([AIRPORT_CODE, 'month']).apply(get_wf)
-        dataframe['HF'] = dataframe.groupby([AIRPORT_CODE, 'hour', 'weekday']).apply(get_hf)
+        dataframe['N'] = dataframe.groupby(['airport_id', 'plane_id', 'month']).apply(get_n)
+        dataframe['WF'] = dataframe.groupby(['airport_id', 'month']).apply(get_wf)
+        dataframe['HF'] = dataframe.groupby(['airport_id', 'hour', 'weekday']).apply(get_hf)
         dataframe.drop(columns=['date', 'month', 'weekday', 'hour'], inplace=True)
 
         # Getting factor
@@ -542,11 +533,11 @@ class AviationSector(Sector):
 
         for pollutant in self.source_pollutants:
             if pollutant not in ['nmvoc', 'ch4']:
-                dataframe[pollutant] = dataframe.groupby('plane_code').apply(lambda x: get_ef(x, pollutant))
+                dataframe[pollutant] = dataframe.groupby('plane_id').apply(lambda x: get_ef(x, pollutant))
                 dataframe[pollutant] = dataframe[pollutant] * dataframe['f']
 
-        dataframe.drop(columns=['f', 'plane_code', 'geometry'], inplace=True)
-        dataframe = dataframe.groupby([AIRPORT_CODE, 'tstep']).sum()
+        dataframe.drop(columns=['f', 'plane_id', 'geometry'], inplace=True)
+        dataframe = dataframe.groupby(['airport_id', 'tstep']).sum()
 
         # dataframe.to_csv('~/temp/{0}.csv'.format(phase))
         return dataframe
@@ -564,7 +555,7 @@ class AviationSector(Sector):
             Emission factor associated to phase and pollutant
             """
             ef_dataframe = pd.read_csv(os.path.join(self.ef_dir, PHASE_EF_FILE[phase]))
-            ef_dataframe.set_index('plane_code', inplace=True)
+            ef_dataframe.set_index('plane_id', inplace=True)
             ef = ef_dataframe.loc['default', poll]
             return ef
 
@@ -603,12 +594,12 @@ class AviationSector(Sector):
         print phase
         # Merging operations with airport geometry
         dataframe = pd.DataFrame(index=self.operations.xs(PHASE_TYPE[phase], level='operation').index)
-        dataframe = dataframe.reset_index().set_index('airport_code')
+        dataframe = dataframe.reset_index().set_index('airport_id')
         dataframe = self.airport_shapefile.join(dataframe, how='inner')
-        dataframe.index.name = AIRPORT_CODE
-        dataframe = dataframe.reset_index().set_index([AIRPORT_CODE, 'plane_code'])
+        dataframe.index.name = 'airport_id'
+        dataframe = dataframe.reset_index().set_index(['airport_id', 'plane_id'])
 
-        dataframe['MTOW'] = dataframe.groupby('plane_code').apply(get_mtow)
+        dataframe['MTOW'] = dataframe.groupby('plane_id').apply(get_mtow)
 
         # Dates
         dataframe = self.add_dates(dataframe)
@@ -616,9 +607,9 @@ class AviationSector(Sector):
         dataframe['weekday'] = dataframe['date'].dt.weekday
         dataframe['hour'] = dataframe['date'].dt.hour
 
-        dataframe['N'] = dataframe.groupby([AIRPORT_CODE, 'plane_code', 'month']).apply(get_n)
-        dataframe['WF'] = dataframe.groupby([AIRPORT_CODE, 'month']).apply(get_wf)
-        dataframe['HF'] = dataframe.groupby([AIRPORT_CODE, 'hour', 'weekday']).apply(get_hf)
+        dataframe['N'] = dataframe.groupby(['airport_id', 'plane_id', 'month']).apply(get_n)
+        dataframe['WF'] = dataframe.groupby(['airport_id', 'month']).apply(get_wf)
+        dataframe['HF'] = dataframe.groupby(['airport_id', 'hour', 'weekday']).apply(get_hf)
         dataframe.drop(columns=['date', 'month', 'weekday', 'hour'], inplace=True)
 
         # Getting factor
@@ -633,8 +624,8 @@ class AviationSector(Sector):
                 dataframe[pollutant] = get_ef(pollutant)
                 dataframe[pollutant] = dataframe[pollutant] * dataframe['f']
 
-        dataframe.drop(columns=['f', 'plane_code', 'geometry'], inplace=True)
-        dataframe = dataframe.groupby([AIRPORT_CODE, 'tstep']).sum()
+        dataframe.drop(columns=['f', 'plane_id', 'geometry'], inplace=True)
+        dataframe = dataframe.groupby(['airport_id', 'tstep']).sum()
 
         # dataframe.to_csv('~/temp/{0}.csv'.format(phase))
         return dataframe
@@ -697,12 +688,12 @@ class AviationSector(Sector):
         print phase
         # Merging operations with airport geometry
         dataframe = pd.DataFrame(index=self.operations.xs(PHASE_TYPE[phase], level='operation').index)
-        dataframe = dataframe.reset_index().set_index('airport_code')
+        dataframe = dataframe.reset_index().set_index('airport_id')
         dataframe = self.airport_shapefile.join(dataframe, how='inner')
-        dataframe.index.name = AIRPORT_CODE
-        dataframe = dataframe.reset_index().set_index([AIRPORT_CODE, 'plane_code'])
+        dataframe.index.name = 'airport_id'
+        dataframe = dataframe.reset_index().set_index(['airport_id', 'plane_id'])
 
-        dataframe['t'] = dataframe.groupby([AIRPORT_CODE, 'plane_code']).apply(get_t)
+        dataframe['t'] = dataframe.groupby(['airport_id', 'plane_id']).apply(get_t)
 
         # Dates
         dataframe = self.add_dates(dataframe)
@@ -710,9 +701,9 @@ class AviationSector(Sector):
         dataframe['weekday'] = dataframe['date'].dt.weekday
         dataframe['hour'] = dataframe['date'].dt.hour
 
-        dataframe['N'] = dataframe.groupby([AIRPORT_CODE, 'plane_code', 'month']).apply(get_n)
-        dataframe['WF'] = dataframe.groupby([AIRPORT_CODE, 'month']).apply(get_wf)
-        dataframe['HF'] = dataframe.groupby([AIRPORT_CODE, 'hour', 'weekday']).apply(get_hf)
+        dataframe['N'] = dataframe.groupby(['airport_id', 'plane_id', 'month']).apply(get_n)
+        dataframe['WF'] = dataframe.groupby(['airport_id', 'month']).apply(get_wf)
+        dataframe['HF'] = dataframe.groupby(['airport_id', 'hour', 'weekday']).apply(get_hf)
         dataframe.drop(columns=['date', 'month', 'weekday', 'hour'], inplace=True)
 
         # Getting factor
@@ -721,11 +712,11 @@ class AviationSector(Sector):
 
         for pollutant in self.source_pollutants:
             if pollutant not in ['nmvoc', 'ch4']:
-                dataframe[pollutant] = dataframe.groupby('plane_code').apply(lambda x: get_ef(x, pollutant))
+                dataframe[pollutant] = dataframe.groupby('plane_id').apply(lambda x: get_ef(x, pollutant))
                 dataframe[pollutant] = dataframe[pollutant] * dataframe['f']
 
-        dataframe.drop(columns=['f', 'plane_code', 'geometry'], inplace=True)
-        dataframe = dataframe.groupby([AIRPORT_CODE, 'tstep']).sum()
+        dataframe.drop(columns=['f', 'plane_id', 'geometry'], inplace=True)
+        dataframe = dataframe.groupby(['airport_id', 'tstep']).sum()
 
         # dataframe.to_csv('~/temp/{0}.csv'.format(phase))
         return dataframe
@@ -735,10 +726,10 @@ class AviationSector(Sector):
         dataframe.reset_index(inplace=True)
         distribution.reset_index(inplace=True)
 
-        dataframe = dataframe.merge(distribution, on=AIRPORT_CODE)
+        dataframe = dataframe.merge(distribution, on='airport_id')
 
         dataframe[pollutants] = dataframe[pollutants].multiply(dataframe['fraction'], axis=0)
-        dataframe.drop(columns=[AIRPORT_CODE, 'fraction'], inplace=True)
+        dataframe.drop(columns=['airport_id', 'fraction'], inplace=True)
         dataframe = dataframe.groupby(['FID', 'tstep', 'layer']).sum()
         # dataframe.set_index(['FID', 'tstep', 'layer'], inplace=True)
         return dataframe
@@ -758,7 +749,7 @@ class AviationSector(Sector):
         pre_taxi_out = self.get_auxiliar_power_unit_emission('pre-taxi_out')
 
         airport_emissions = pd.concat([pre_taxi_out, taxi_out, taxi_in, post_taxi_in])
-        airport_emissions = airport_emissions.groupby([AIRPORT_CODE, 'tstep']).sum()
+        airport_emissions = airport_emissions.groupby(['airport_id', 'tstep']).sum()
         airport_emissions = self.distribute(airport_emissions, self.airport_distribution)
 
         runway_departure_emissions = self.distribute(takeoff, self.runway_departure_distribution)

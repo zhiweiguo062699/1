@@ -41,7 +41,7 @@ class Hermes(object):
         """
         from datetime import timedelta
 
-        emis = self.sector_manager.calculate_emissions()
+        emis = self.sector_manager.run()
         print emis
 
         if self.arguments.start_date < self.arguments.end_date:
