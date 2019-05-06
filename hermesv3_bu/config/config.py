@@ -58,7 +58,7 @@ class Config(ArgParser):
                        help='If you want to simulate more than one day you have to specify the ending date of ' +
                             'simulation in this parameter. If it is not set end_date = start_date.')
         p.add_argument('--output_timestep_num', required=True, help='Number of timesteps to simulate.', type=int)
-        p.add_argument('--auxiliar_files_path', required=True,
+        p.add_argument('--auxiliary_files_path', required=True,
                        help='Path to the directory where the necessary auxiliary files will be created if them are ' +
                             'not created yet.')
         p.add_argument('--erase_auxiliary_files', required=False, default='False', type=str,
@@ -234,9 +234,9 @@ class Config(ArgParser):
         self.create_dir(arguments.output_dir)
 
         if arguments.erase_auxiliary_files:
-            if os.path.exists(arguments.auxiliar_files_path):
-                rmtree(arguments.auxiliar_files_path)
-        self.create_dir(arguments.auxiliar_files_path)
+            if os.path.exists(arguments.auxiliary_files_path):
+                rmtree(arguments.auxiliary_files_path)
+        self.create_dir(arguments.auxiliary_files_path)
 
         arguments.do_traffic = self._parse_bool(arguments.do_traffic)
         arguments.do_traffic_area = self._parse_bool(arguments.do_traffic_area)

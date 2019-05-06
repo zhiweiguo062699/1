@@ -13,7 +13,7 @@ class SectorManager(object):
                              "with the sum of processors dedicated for all the sectors " +
                              "'{0}': {1}".format(sum(self.sector_list.values()), self.sector_list))
         from hermesv3_bu.sectors.aviation_sector import AviationSector
-        self.sector = AviationSector(comm_world, arguments.auxiliar_files_path, grid.shapefile, clip, date_array,
+        self.sector = AviationSector(comm_world, arguments.auxiliary_files_path, grid.shapefile, clip, date_array,
                                      arguments.aviation_source_pollutants, grid.vertical_desctiption,
                                      arguments.airport_list, arguments.plane_list, arguments.airport_shapefile_path,
                                      arguments.airport_runways_shapefile_path,
@@ -22,8 +22,7 @@ class SectorManager(object):
                                      arguments.planes_path, arguments.airport_times_path, arguments.airport_ef_dir,
                                      arguments.aviation_weekly_profiles, arguments.aviation_hourly_profiles,
                                      arguments.aviation_speciation_map, arguments.aviation_speciation_profiles,
-                                     arguments.molecular_weights,
-                )
+                                     arguments.molecular_weights)
 
     def run(self):
         return self.sector.calculate_emissions()
