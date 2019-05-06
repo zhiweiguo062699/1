@@ -10,7 +10,7 @@ def select_writer(arguments, grid):
     comm = MPI.COMM_WORLD
     if arguments.output_model == 'DEFAULT':
         from hermesv3_bu.writer.default_writer import DefaultWriter
-        writer = DefaultWriter(comm, arguments.output_path)
+        writer = DefaultWriter(comm, arguments.output_name)
 
     return writer
 

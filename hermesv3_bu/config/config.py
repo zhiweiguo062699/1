@@ -228,6 +228,7 @@ class Config(ArgParser):
 
         arguments.start_date = self._parse_start_date(arguments.start_date)
         arguments.end_date = self._parse_end_date(arguments.end_date, arguments.start_date)
+        arguments.output_name = self.get_output_name(arguments)
 
         arguments.erase_auxiliary_files = self._parse_bool(arguments.erase_auxiliary_files)
         self.create_dir(arguments.output_dir)
@@ -255,29 +256,21 @@ class Config(ArgParser):
 
         return arguments
 
-    def get_output_name(self, date):
+    @staticmethod
+    def get_output_name(arguments):
         """
-        Generates the full path of the output replacing <date> by YYYYMMDDHH, YYYYMMDD, YYYYMM or YYYY depending on the
-        output_timestep_type.
+        Generates the full path of the output replacing <date> by YYYYMMDDHH.
 
-        :param date: Date of the day to simulate.
-        :type: datetime.datetime
+        :param arguments: Config file arguments.
+        :type arguments: Namespace
 
         :return: Complete path to the output file.
         :rtype: str
         """
         import os
-        if self.arguments.output_timestep_type == 'hourly':
-            file_name = self.arguments.output_name.replace('<date>', date.strftime('%Y%m%d%H'))
-        elif self.arguments.output_timestep_type == 'daily':
-            file_name = self.arguments.output_name.replace('<date>', date.strftime('%Y%m%d'))
-        elif self.arguments.output_timestep_type == 'monthly':
-            file_name = self.arguments.output_name.replace('<date>', date.strftime('%Y%m'))
-        elif self.arguments.output_timestep_type == 'yearly':
-            file_name = self.arguments.output_name.replace('<date>', date.strftime('%Y'))
-        else:
-            file_name = self.arguments.output_name
-        full_path = os.path.join(self.arguments.output_dir, file_name)
+        file_name = arguments.output_name.replace('<date>', arguments.start_date.strftime('%Y%m%d%H'))
+
+        full_path = os.path.join(arguments.output_dir, file_name)
         return full_path
 
     @staticmethod

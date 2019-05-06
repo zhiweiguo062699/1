@@ -8,6 +8,7 @@ from datetime import timedelta
 from hermesv3_bu.config.config import Config
 from hermesv3_bu.grids.grid import select_grid
 from hermesv3_bu.clipping.clip import select_clip
+from hermesv3_bu.writer.writer import select_writer
 from hermesv3_bu.sectors.sector_manager import SectorManager
 
 
@@ -33,6 +34,10 @@ class Hermes(object):
                            xrange(self.arguments.output_timestep_num)]
 
         self.sector_manager = SectorManager(comm_world, self.grid, self.clip, self.date_array, self.arguments)
+
+        self.writer = select_writer(self.arguments, self.grid)
+
+        sys.exit()
 
     # @profile
     def main(self):
