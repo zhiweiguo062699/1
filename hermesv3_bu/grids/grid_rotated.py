@@ -7,8 +7,8 @@ import math
 
 
 class RotatedGrid(Grid):
-    def __init__(self, auxiliary_path, vertical_description_path, centre_lat, centre_lon, west_boundary, south_boundary,
-                 inc_rlat, inc_rlon):
+    def __init__(self, auxiliary_path, tstep_num, vertical_description_path, centre_lat, centre_lon, west_boundary,
+                 south_boundary, inc_rlat, inc_rlon):
 
         self.grid_type = 'Rotated'
 
@@ -23,6 +23,8 @@ class RotatedGrid(Grid):
 
         # Initialises with parent class
         super(RotatedGrid, self).__init__(attributes, auxiliary_path, vertical_description_path)
+
+        self.shape = (tstep_num, len(self.vertical_desctiption), len(self.rlat), len(self.rlon))
 
     def create_regular_rotated(self):
         """

@@ -52,8 +52,8 @@ class LccGrid(Grid):
     :type earth_radius: float
     """
 
-    def __init__(self, auxiliary_path, vertical_description_path, lat_1, lat_2, lon_0, lat_0,  nx, ny, inc_x, inc_y,
-                 x_0, y_0, earth_radius=6370000.000):
+    def __init__(self, auxiliary_path, tstep_num, vertical_description_path, lat_1, lat_2, lon_0, lat_0,  nx, ny, inc_x,
+                 inc_y, x_0, y_0, earth_radius=6370000.000):
 
         self.grid_type = 'Lambert Conformal Conic'
 
@@ -68,6 +68,8 @@ class LccGrid(Grid):
 
         # Initialises with parent class
         super(LccGrid, self).__init__(attributes, auxiliary_path, vertical_description_path)
+
+        self.shape = (tstep_num, len(self.vertical_desctiption), ny, nx)
 
     def write_netcdf(self):
         """
