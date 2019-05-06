@@ -112,9 +112,9 @@ class Config(ArgParser):
         p.add_argument('--lat_0', required=False, type=float,
                        help='Latitude of the origin of the projection (degrees). Corresponds to the Y_CENT  ' +
                             'parameter of the GRIDDESC file.')
-        p.add_argument('--nx', required=False, type=float,
+        p.add_argument('--nx', required=False, type=int,
                        help='Number of grid columns. Corresponds to the NCOLS parameter of the GRIDDESC file.')
-        p.add_argument('--ny', required=False, type=float,
+        p.add_argument('--ny', required=False, type=int,
                        help='Number of grid rows. Corresponds to the NROWS parameter of the GRIDDESC file.')
         p.add_argument('--inc_x', required=False, type=float,
                        help='X-coordinate cell dimension (meters). Corresponds to the XCELL parameter of the ' +
@@ -135,8 +135,8 @@ class Config(ArgParser):
         # Regular lat-lon options:
         p.add_argument('--lat_orig', required=False, type=float, help='Latitude of the corner of the first cell.')
         p.add_argument('--lon_orig', required=False, type=float, help='Longitude of the corner of the first cell.')
-        p.add_argument('--n_lat', required=False, type=float, help='Number of latitude elements.')
-        p.add_argument('--n_lon', required=False, type=float, help='Number of longitude elements.')
+        p.add_argument('--n_lat', required=False, type=int, help='Number of latitude elements.')
+        p.add_argument('--n_lon', required=False, type=int, help='Number of longitude elements.')
         p.add_argument('--inc_lat', required=False, type=float, help='Latitude grid resolution.')
         p.add_argument('--inc_lon', required=False, type=float, help='Longitude grid resolution.')
 
