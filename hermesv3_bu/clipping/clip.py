@@ -4,7 +4,7 @@ import os
 import sys
 
 
-def select_clip(comm, auxiliary_path, clipping, grid_shp):
+def select_clip(comm, auxiliary_path, clipping, grid):
     """
     Create and initialise the clip.
 
@@ -16,8 +16,8 @@ def select_clip(comm, auxiliary_path, clipping, grid_shp):
     :param clipping: String (or None) with the path to the shapefile clip or a list of points to make the clip.
     :type clipping: str
 
-    :param grid_shp: Shapefile with the desired output grid
-    :type grid_shp: geopandas.GeoDataFrame
+    :param grid_shp: Desired output grid
+    :type grid_shp: Grid
 
     :return: Clip
     :rtype: Clip
@@ -25,7 +25,7 @@ def select_clip(comm, auxiliary_path, clipping, grid_shp):
     if comm.Get_rank() == 0:
         if clipping is None:
             from hermesv3_bu.clipping.default_clip import DefaultClip
-            clip = DefaultClip(auxiliary_path, grid_shp)
+            clip = DefaultClip(auxiliary_path, grid)
         elif clipping[0] == os.path.sep:
             from hermesv3_bu.clipping.shapefile_clip import ShapefileClip
             clip = ShapefileClip(auxiliary_path, clipping)
