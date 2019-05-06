@@ -28,8 +28,7 @@ class Hermes(object):
 
         self.grid = select_grid(comm_world, self.arguments)
 
-        self.clip = select_clip(comm_world, self.arguments.auxiliar_files_path, self.arguments.clipping,
-                                self.grid.shapefile)
+        self.clip = select_clip(comm_world, self.arguments.auxiliar_files_path, self.arguments.clipping, self.grid)
         self.date_array = [self.arguments.start_date + timedelta(hours=hour) for hour in
                            xrange(self.arguments.output_timestep_num)]
 
