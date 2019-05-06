@@ -2,10 +2,17 @@
 
 import os
 import numpy as np
+from mpi4py import MPI
 
 
-def select_writer(comm, arguments):
-    pass
+def select_writer(arguments, grid):
+
+    comm = MPI.COMM_WORLD
+    if arguments.output_model == 'DEFAULT':
+        from hermesv3_bu.writer.default_writer import DefaultWriter
+        writer = DefaultWriter(comm, arguments.output_path)
+
+    return writer
 
 
 class Writer(object):
