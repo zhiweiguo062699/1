@@ -68,7 +68,7 @@ class Config(ArgParser):
 
         # ===== DOMAIN =====
         p.add_argument('--output_model', required=True, help='Name of the output model.',
-                       choices=['MONARCH', 'CMAQ', 'R-LINE', 'WRF_CHEM'])
+                       choices=['MONARCH', 'CMAQ', 'R-LINE', 'WRF_CHEM', 'DEFAULT'])
         p.add_argument('--output_attributes', required=False,
                        help='Path to the file that contains the global attributes.')
 

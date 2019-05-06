@@ -256,7 +256,6 @@ class Sector(object):
         dataframe = pd.concat(df_list, ignore_index=True)
         dataframe = self.to_timezone(dataframe)
         dataframe.drop('date_utc', axis=1, inplace=True)
-
         return dataframe
 
     @staticmethod
