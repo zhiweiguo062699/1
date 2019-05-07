@@ -275,8 +275,8 @@ class AviationSector(Sector):
             for sublist in shp_airport_list:
                 if len(sublist) == 0:
                     raise ValueError("ERROR: The selected number of processors is to high. " +
-                                     "The maximum number of processors accepted are {0}".format(max_len)) + \
-                                     "(Maximum number of airports included in the working domain)"
+                                     "The maximum number of processors accepted are {0}".format(max_len) +
+                                     "(Maximum number of airports included in the working domain")
         else:
             shp_airport_list = None
 
