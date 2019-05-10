@@ -9,7 +9,7 @@ from warnings import warn
 CHUNKING = True
 
 
-def select_writer(arguments, grid):
+def select_writer(arguments, grid, date_array):
 
     comm_world = MPI.COMM_WORLD
 
@@ -33,9 +33,12 @@ def select_writer(arguments, grid):
 
     comm_write = comm_world.Split(color, comm_world.Get_rank())
 
+    pollutant_info = pd.read_csv(arguments.speciation_map, usecols=['dst', 'description', 'units'], index_col='dst')
+
     if arguments.output_model == 'DEFAULT':
         from hermesv3_bu.writer.default_writer import DefaultWriter
-        writer = DefaultWriter(comm_world, comm_write, arguments.output_name, rank_distribution)
+        writer = DefaultWriter(comm_world, comm_write, arguments.output_name, grid, date_array, pollutant_info,
+                               rank_distribution)
 
     return writer
 
@@ -75,11 +78,14 @@ def get_distribution(processors, shape):
 
 
 class Writer(object):
-    def __init__(self, comm_world, comm_write, netcdf_path, rank_distribution):
+    def __init__(self, comm_world, comm_write, netcdf_path, grid, date_array, pollutant_info, rank_distribution):
 
         self.comm_world = comm_world
         self.comm_write = comm_write
         self.netcdf_path = netcdf_path
+        self.grid = grid
+        self.date_array = date_array
+        self.pollutant_info = pollutant_info
         self.rank_distribution = rank_distribution
 
     def gather_emissions(self, emissions):
@@ -107,5 +113,10 @@ class Writer(object):
         return new_emissions
 
     def write(self, emissions):
+        emissions = self.unit_change(emissions)
         emissions = self.gather_emissions(emissions)
+        if self.comm_world.Get_rank() in self.rank_distribution.iterkeys():
+            self.write_netcdf(emissions)
+
+        self.comm_world.Barrier()
 

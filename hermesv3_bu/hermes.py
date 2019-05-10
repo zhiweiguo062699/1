@@ -34,7 +34,7 @@ class Hermes(object):
 
         self.sector_manager = SectorManager(comm_world, self.grid, self.clip, self.date_array, self.arguments)
 
-        self.writer = select_writer(self.arguments, self.grid)
+        self.writer = select_writer(self.arguments, self.grid, self.date_array)
 
     def main(self):
         """

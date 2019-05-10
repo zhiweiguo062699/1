@@ -220,7 +220,7 @@ def write_coords_netcdf(netcdf_path, center_latitudes, center_longitudes, data_l
         # Rotated pole
         mapping = netcdf.createVariable('rotated_pole', 'c')
         mapping.grid_mapping_name = 'rotated_latitude_longitude'
-        mapping.grid_north_pole_latitude = north_pole_lat
+        mapping.grid_north_pole_latitude = 90 - north_pole_lat
         mapping.grid_north_pole_longitude = north_pole_lon
     elif lcc:
         # CRS
