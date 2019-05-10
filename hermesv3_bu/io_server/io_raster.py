@@ -107,7 +107,7 @@ class IoRaster(IoServer):
 
         return clipped_raster_path
 
-    def to_shapefile(self, raster_path, out_path=None, write=False, crs=None, nodata=0):
+    def to_shapefile_old(self, raster_path, out_path=None, write=False, crs=None, nodata=0):
         import geopandas as gpd
         import pandas as pd
         import numpy as np
@@ -133,6 +133,79 @@ class IoRaster(IoServer):
 
             b_lons = Grid.create_bounds(c_lons, grid_info[1], number_vertices=4) + grid_info[1]/2
             b_lats = Grid.create_bounds(c_lats, grid_info[1], number_vertices=4, inverse=True) + grid_info[5]/2
+
+            df_lats = pd.DataFrame(b_lats[0], columns=['b_lat_1', 'b_lat_2', 'b_lat_3', 'b_lat_4'])
+            df_lons = pd.DataFrame(b_lons[0], columns=['b_lon_1', 'b_lon_2', 'b_lon_3', 'b_lon_4'])
+            df = pd.concat([df_lats, df_lons], axis=1)
+
+            del df_lats, df_lons, b_lats, b_lons
+
+            df['p1'] = zip(df.b_lon_1, df.b_lat_1)
+            del df['b_lat_1'], df['b_lon_1']
+            df['p2'] = zip(df.b_lon_2, df.b_lat_2)
+            del df['b_lat_2'], df['b_lon_2']
+            df['p3'] = zip(df.b_lon_3, df.b_lat_3)
+            del df['b_lat_3'], df['b_lon_3']
+            df['p4'] = zip(df.b_lon_4, df.b_lat_4)
+            del df['b_lat_4'], df['b_lon_4']
+
+            # list_points = df.as_matrix()
+            list_points = df.values
+
+            del df['p1'], df['p2'], df['p3'], df['p4']
+
+            data = ds.read(1).flatten()
+
+            geometry = [Polygon(list(points)) for points in list_points]
+
+            gdf = gpd.GeoDataFrame(data, columns=['data'], crs=ds.crs, geometry=geometry)
+
+            gdf.loc[:, 'CELL_ID'] = xrange(len(gdf))
+
+            gdf = gdf[gdf['data'] != nodata]
+
+            if crs is not None:
+                gdf = gdf.to_crs(crs)
+
+            if write:
+                if not os.path.exists(os.path.dirname(out_path)):
+                    os.makedirs(os.path.dirname(out_path))
+                gdf.to_file(out_path)
+        else:
+            gdf = None
+
+        print 'TIME -> IoRaster.to_shapefile Rank {0} {1} s'.format(settings.rank, round(gettime() - st_time, 2))
+        if self.size > 1:
+            gdf = self.comm.bcast(gdf, root=0)
+
+        return gdf
+
+    def to_shapefile(self, raster_path, out_path=None, write=False, crs=None, nodata=0):
+        import geopandas as gpd
+        import pandas as pd
+        import numpy as np
+        from shapely.geometry import Polygon
+        from hermesv3_bu.grids.grid import Grid
+        if settings.log_level_3:
+            st_time = gettime()
+        else:
+            st_time = None
+        if self.rank == 0:
+            ds = rasterio.open(raster_path)
+
+            grid_info = ds.transform
+            # grid_info = ds.affine.Affine
+
+            lons = np.arange(ds.width) * grid_info[2] + grid_info[2]
+            lats = np.arange(ds.height) * grid_info[4] + grid_info[5]
+
+            # 1D to 2D
+            c_lats = np.array([lats] * len(lons)).T.flatten()
+            c_lons = np.array([lons] * len(lats)).flatten()
+            del lons, lats
+
+            b_lons = Grid.create_bounds(c_lons, grid_info[0], number_vertices=4) + grid_info[0]/2
+            b_lats = Grid.create_bounds(c_lats, grid_info[4], number_vertices=4, inverse=True) + grid_info[4]/2
 
             df_lats = pd.DataFrame(b_lats[0], columns=['b_lat_1', 'b_lat_2', 'b_lat_3', 'b_lat_4'])
             df_lons = pd.DataFrame(b_lons[0], columns=['b_lon_1', 'b_lon_2', 'b_lon_3', 'b_lon_4'])
