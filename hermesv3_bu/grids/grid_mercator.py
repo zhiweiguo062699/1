@@ -45,7 +45,6 @@ class MercatorGrid(Grid):
     def __init__(self, auxiliary_path, tstep_num, vertical_description_path, lat_ts, lon_0, nx, ny, inc_x, inc_y, x_0,
                  y_0, earth_radius=6370000.000):
 
-        self.grid_type = 'Mercator'
 
         attributes = {'lat_ts': lat_ts, 'lon_0': lon_0, 'nx': nx, 'ny': ny, 'inc_x': inc_x, 'inc_y': inc_y,
                       'x_0': x_0 + (inc_x / 2), 'y_0': y_0 + (inc_y / 2), 'earth_radius': earth_radius,
@@ -58,6 +57,7 @@ class MercatorGrid(Grid):
 
         # Initialises with parent class
         super(MercatorGrid, self).__init__(attributes, auxiliary_path, vertical_description_path)
+        self.grid_type = 'Mercator'
 
         self.shape = (tstep_num, len(self.vertical_desctiption), ny, nx)
 
