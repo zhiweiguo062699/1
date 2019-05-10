@@ -36,9 +36,6 @@ class Hermes(object):
 
         self.writer = select_writer(self.arguments, self.grid)
 
-        # sys.exit()
-
-    # @profile
     def main(self):
         """
         Main functionality of the model.
@@ -46,7 +43,8 @@ class Hermes(object):
         from datetime import timedelta
 
         emis = self.sector_manager.run()
-        print emis
+
+        self.writer.write(emis)
 
         if self.arguments.start_date < self.arguments.end_date:
             return self.arguments.start_date + timedelta(days=1)

@@ -2,6 +2,7 @@
 
 import os
 import numpy as np
+import pandas as pd
 from mpi4py import MPI
 from warnings import warn
 
@@ -80,3 +81,31 @@ class Writer(object):
         self.comm_write = comm_write
         self.netcdf_path = netcdf_path
         self.rank_distribution = rank_distribution
+
+    def gather_emissions(self, emissions):
+
+        # Sending
+        requests = []
+        for w_rank, info in self.rank_distribution.iteritems():
+            partial_emis = emissions.loc[(emissions.index.get_level_values(0) >= info['fid_min']) &
+                                         (emissions.index.get_level_values(0) < info['fid_max'])]
+            requests.append(self.comm_world.isend(partial_emis, dest=w_rank))
+
+        # Receiving
+        if self.comm_world.Get_rank() in self.rank_distribution.iterkeys():
+            data_list = [None] * self.comm_world.Get_size()
+
+            for i_rank in xrange(self.comm_world.Get_size()):
+                data_list[i_rank] = self.comm_world.recv(source=i_rank)
+
+            new_emissions = pd.concat(data_list).reset_index().groupby(['FID', 'layer', 'tstep']).sum()
+        else:
+            new_emissions = None
+
+        self.comm_world.Barrier()
+
+        return new_emissions
+
+    def write(self, emissions):
+        emissions = self.gather_emissions(emissions)
+
