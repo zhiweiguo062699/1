@@ -112,6 +112,17 @@ class Writer(object):
 
         return new_emissions
 
+    def dataframe_to_array(self, dataframe):
+        var_name = dataframe.columns.values
+        shape = self.rank_distribution[self.comm_write.Get_rank()]['shape']
+        dataframe.reset_index(inplace=True)
+        dataframe['FID'] = dataframe['FID'] - self.rank_distribution[self.comm_write.Get_rank()]['fid_min']
+        data = np.empty((shape[0], shape[1], shape[2] * shape[3]))
+
+        for (layer, tstep), aux_df in dataframe.groupby(['layer', 'tstep']):
+            data[tstep, layer, aux_df['FID']] = aux_df[var_name].values.flatten()
+        return data.reshape(shape)
+
     def write(self, emissions):
         emissions = self.unit_change(emissions)
         emissions = self.gather_emissions(emissions)
