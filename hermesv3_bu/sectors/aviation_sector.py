@@ -730,7 +730,7 @@ class AviationSector(Sector):
 
         dataframe[pollutants] = dataframe[pollutants].multiply(dataframe['fraction'], axis=0)
         dataframe.drop(columns=['airport_id', 'fraction'], inplace=True)
-        dataframe = dataframe.groupby(['FID', 'tstep', 'layer']).sum()
+        dataframe = dataframe.groupby(['FID', 'layer', 'tstep']).sum()
         # dataframe.set_index(['FID', 'tstep', 'layer'], inplace=True)
         return dataframe
 
@@ -761,8 +761,8 @@ class AviationSector(Sector):
         emissions = pd.concat([airport_emissions, runway_departure_emissions, trajectory_arrival_emissions,
                                trajectory_departure_emisions, runway_arrival_emissions])
 
-        emissions = emissions.groupby(['FID', 'tstep', 'layer']).sum()
-        runway_arrival_emissions_wear = runway_arrival_emissions_wear.groupby(['FID', 'tstep', 'layer']).sum()
+        emissions = emissions.groupby(['FID', 'layer', 'tstep']).sum()
+        runway_arrival_emissions_wear = runway_arrival_emissions_wear.groupby(['FID', 'layer', 'tstep']).sum()
 
         if 'hc' in self.source_pollutants:  # After Olivier (1991)
             emissions['nmvoc'] = 0.9 * emissions['hc']
@@ -773,7 +773,8 @@ class AviationSector(Sector):
         emissions = self.speciate(emissions, 'default')
 
         emissions = pd.concat([emissions, runway_arrival_emissions_wear])
-        emissions = emissions.groupby(['FID', 'tstep', 'layer']).sum()
+        emissions = emissions[(emissions.T != 0).any()]
+        emissions = emissions.groupby(['FID', 'layer', 'tstep']).sum()
 
         # From kmol/h or kg/h to mol/h or g/h
         emissions = emissions * 1000
