@@ -21,7 +21,7 @@ class SectorManager(object):
                                      arguments.airport_trajectories_shapefile_path, arguments.airport_operations_path,
                                      arguments.planes_path, arguments.airport_times_path, arguments.airport_ef_dir,
                                      arguments.aviation_weekly_profiles, arguments.aviation_hourly_profiles,
-                                     arguments.aviation_speciation_map, arguments.aviation_speciation_profiles,
+                                     arguments.speciation_map, arguments.aviation_speciation_profiles,
                                      arguments.molecular_weights)
 
     def run(self):

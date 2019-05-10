@@ -165,6 +165,7 @@ class Config(ArgParser):
         p.add_argument('--crop_fertilizers_processors', required=False, type=int, default='True')
         p.add_argument('--agricultural_machinery_processors', required=False, type=int, default='True')
 
+        p.add_argument('--speciation_map', required=False, help='...')
         # ===== SHAPEFILES =====
         p.add_argument('--nut_shapefile_prov', required=False, type=str, default='True')
         p.add_argument('--nut_shapefile_ccaa', required=False, type=str, default='True')
@@ -204,7 +205,6 @@ class Config(ArgParser):
         p.add_argument('--airport_ef_dir', required=False, help='...')
         p.add_argument('--aviation_weekly_profiles', required=False, help='...')
         p.add_argument('--aviation_hourly_profiles', required=False, help='...')
-        p.add_argument('--aviation_speciation_map', required=False, help='...')
         p.add_argument('--aviation_speciation_profiles', required=False, help='...')
 
         arguments = p.parse_args()
