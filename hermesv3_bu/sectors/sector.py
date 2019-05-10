@@ -351,7 +351,7 @@ class Sector(object):
                                                    self.speciation_profile.loc[code, out_pollutant]
             else:
                 print "{0} = ({1}/{2} - {4}/{5})*{3}".format(out_pollutant, 'pm10', self.molecular_weights['pm10'],
-                                                             self.speciation_profile[out_pollutant],
+                                                             self.speciation_profile.loc[code, out_pollutant],
                                                              'pm25', self.molecular_weights['pm25'],)
                 new_dataframe[out_pollutant] = ((dataframe['pm10'] / self.molecular_weights['pm10']) -
                                                 (dataframe['pm25'] / self.molecular_weights['pm25'])) * \
