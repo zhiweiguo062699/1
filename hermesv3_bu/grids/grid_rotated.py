@@ -13,6 +13,7 @@ class RotatedGrid(Grid):
         self.rlat = None
         self.rlon = None
 
+        self.grid_type = 'Rotated'
         attributes = {'new_pole_longitude_degrees': -180 + centre_lon, 'new_pole_latitude_degrees': centre_lat,
                       'centre_lat': centre_lat, 'centre_lon': centre_lon, 'west_boundary': west_boundary,
                       'south_boundary': south_boundary, 'inc_rlat': inc_rlat, 'inc_rlon': inc_rlon,
@@ -21,7 +22,6 @@ class RotatedGrid(Grid):
 
         # Initialises with parent class
         super(RotatedGrid, self).__init__(attributes, auxiliary_path, vertical_description_path)
-        self.grid_type = 'Rotated'
 
         self.shape = (tstep_num, len(self.vertical_desctiption), len(self.rlat), len(self.rlon))
 

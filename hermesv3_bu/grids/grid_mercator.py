@@ -45,7 +45,7 @@ class MercatorGrid(Grid):
     def __init__(self, auxiliary_path, tstep_num, vertical_description_path, lat_ts, lon_0, nx, ny, inc_x, inc_y, x_0,
                  y_0, earth_radius=6370000.000):
 
-
+        self.grid_type = 'Mercator'
         attributes = {'lat_ts': lat_ts, 'lon_0': lon_0, 'nx': nx, 'ny': ny, 'inc_x': inc_x, 'inc_y': inc_y,
                       'x_0': x_0 + (inc_x / 2), 'y_0': y_0 + (inc_y / 2), 'earth_radius': earth_radius,
                       'crs': "+proj=merc +a={2} +b={2} +lat_ts={0} +lon_0={1}".format(
@@ -57,7 +57,6 @@ class MercatorGrid(Grid):
 
         # Initialises with parent class
         super(MercatorGrid, self).__init__(attributes, auxiliary_path, vertical_description_path)
-        self.grid_type = 'Mercator'
 
         self.shape = (tstep_num, len(self.vertical_desctiption), ny, nx)
 
@@ -69,6 +68,7 @@ class MercatorGrid(Grid):
         if not os.path.exists(self.netcdf_path):
             if not os.path.exists(os.path.dirname(self.netcdf_path)):
                 os.makedirs(os.path.dirname(self.netcdf_path))
+
             # Writes an auxiliary empty NetCDF only with the coordinates and an empty variable.
             write_coords_netcdf(self.netcdf_path, self.center_latitudes, self.center_longitudes,
                                 [{'name': 'var_aux', 'units': '', 'data': 0}],

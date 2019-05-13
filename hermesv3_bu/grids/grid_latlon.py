@@ -59,11 +59,11 @@ class LatLonGrid(Grid):
     def __init__(self, auxiliary_path, tstep_num, vertical_description_path, inc_lat, inc_lon, lat_orig, lon_orig,
                  n_lat, n_lon):
 
+        self.grid_type = 'Regular Lat-Lon'
         attributes = {'inc_lat': inc_lat, 'inc_lon': inc_lon, 'lat_orig': lat_orig, 'lon_orig': lon_orig,
                       'n_lat': n_lat, 'n_lon': n_lon, 'crs': {'init': 'epsg:4326'}}
         # Initialize the class using parent
         super(LatLonGrid, self).__init__(attributes, auxiliary_path, vertical_description_path)
-        self.grid_type = 'Regular Lat-Lon'
 
         self.shape = (tstep_num, len(self.vertical_desctiption), n_lat, n_lon)
 

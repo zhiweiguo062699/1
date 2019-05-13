@@ -69,7 +69,6 @@ class Grid(object):
         self.netcdf_path = os.path.join(auxiliary_path, 'grid', 'grid.nc')
         self.shapefile_path = os.path.join(auxiliary_path, 'grid', 'grid.shp')
 
-        self.grid_type = None
         self.center_latitudes = None
         self.center_longitudes = None
         self.boundary_latitudes = None
