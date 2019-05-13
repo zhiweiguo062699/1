@@ -20,6 +20,7 @@
 
 from configargparse import ArgParser
 import os
+from mpi4py import MPI
 
 
 class Config(ArgParser):
@@ -235,7 +236,10 @@ class Config(ArgParser):
 
         if arguments.erase_auxiliary_files:
             if os.path.exists(arguments.auxiliary_files_path):
-                rmtree(arguments.auxiliary_files_path)
+                comm = MPI.COMM_WORLD
+                if comm.Get_rank() == 0:
+                    rmtree(arguments.auxiliary_files_path)
+                comm.Barrier()
         self.create_dir(arguments.auxiliary_files_path)
 
         arguments.do_traffic = self._parse_bool(arguments.do_traffic)
