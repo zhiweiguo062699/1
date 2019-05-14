@@ -12,7 +12,6 @@ class DefaultWriter(Writer):
         super(DefaultWriter, self).__init__(comm_wolrd, comm_write, netcdf_path, grid, date_array, pollutant_info,
                                             rank_distribution)
 
-
     def unit_change(self, emissions):
 
         return emissions
@@ -162,5 +161,4 @@ class DefaultWriter(Writer):
 
         netcdf.close()
         print self.netcdf_path
-
-
+        return True

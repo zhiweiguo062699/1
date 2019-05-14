@@ -174,7 +174,8 @@ class AviationSector(Sector):
         profiles.rename(
             columns={"operation": -3, "day_type": -2, 'P_hour': -1, '00': 0, '01': 1, '02': 2, '03': 3, '04': 4,
                      '05': 5, '06': 6, '07': 7, '08': 8, '09': 9, '10': 10, '11': 11, '12': 12, '13': 13, '14': 14,
-                     '15': 15, '16': 16, '17': 17, '18': 18, '19': 19, '20': 20, '21': 21, '22': 22, '23': 23}, inplace=True)
+                     '15': 15, '16': 16, '17': 17, '18': 18, '19': 19, '20': 20, '21': 21, '22': 22, '23': 23},
+            inplace=True)
         profiles.columns = profiles.columns.astype(int)
         profiles.rename(columns={-1: 'P_hour', -3: "operation", -2: "day_type"}, inplace=True)
         profiles.set_index(["P_hour", "operation", "day_type"], inplace=True)
@@ -269,7 +270,6 @@ class AviationSector(Sector):
             # Only for master (rank == 0)
             self.airport_list_full = shp_airport_list
 
-
             shp_airport_list = [shp_airport_list[i * len(shp_airport_list) // self.comm.size:
                                                  (i + 1) * len(shp_airport_list) // self.comm.size]
                                 for i in range(self.comm.size)]
@@ -339,7 +339,8 @@ class AviationSector(Sector):
                 # duplicating each runway by involved cell
                 runway_shapefile = gpd.sjoin(runway_shapefile, self.grid_shp, how="inner", op='intersects')
                 # Adding cell geometry
-                runway_shapefile = runway_shapefile.merge(self.grid_shp.loc[:, ['FID', 'geometry']], on='FID', how='left')
+                runway_shapefile = runway_shapefile.merge(self.grid_shp.loc[:, ['FID', 'geometry']], on='FID',
+                                                          how='left')
                 # Intersection between line (roadway) and polygon (cell)
                 # runway_shapefile['geometry'] = runway_shapefile.apply(do_intersection, axis=1)
                 runway_shapefile['mini_length'] = runway_shapefile.apply(get_intersection_length, axis=1)
@@ -398,7 +399,8 @@ class AviationSector(Sector):
                 # Filtering shapefile
                 airport_trajectories_shapefile = airport_trajectories_shapefile.xs(phase_type, level='operation').copy()
                 airport_trajectories_shapefile = airport_trajectories_shapefile.loc[
-                                                 airport_trajectories_shapefile['airport_id'].isin(self.airport_list_full),
+                                                 airport_trajectories_shapefile['airport_id'].isin(
+                                                     self.airport_list_full),
                                                  :]
                 airport_trajectories_shapefile['fraction'] = airport_trajectories_shapefile.groupby('airport_id').apply(
                     normalize)
@@ -428,10 +430,12 @@ class AviationSector(Sector):
                 # duplicating each runway by involved cell
                 trajectories_distr = gpd.sjoin(trajectories_distr, aux_grid, how="inner", op='intersects')
                 # Adding cell geometry
-                trajectories_distr = trajectories_distr.merge(aux_grid.loc[:, ['FID', 'geometry']], on='FID', how='left')
+                trajectories_distr = trajectories_distr.merge(aux_grid.loc[:, ['FID', 'geometry']], on='FID',
+                                                              how='left')
                 # Intersection between line (roadway) and polygon (cell)
                 trajectories_distr['geometry'] = trajectories_distr.apply(do_horizontal_intersection, axis=1)
-                trajectories_distr['mini_h_length'] = trajectories_distr.apply(get_horizontal_intersection_length, axis=1)
+                trajectories_distr['mini_h_length'] = trajectories_distr.apply(get_horizontal_intersection_length,
+                                                                               axis=1)
                 trajectories_distr.drop(columns=['geometry_x', 'geometry_y', 'index_right'], inplace=True)
 
                 trajectories_distr['fraction'] = trajectories_distr['fraction'].multiply(

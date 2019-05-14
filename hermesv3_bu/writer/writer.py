@@ -130,4 +130,4 @@ class Writer(object):
             self.write_netcdf(emissions)
 
         self.comm_world.Barrier()
-
+        return True

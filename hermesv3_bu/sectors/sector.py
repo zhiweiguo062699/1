@@ -323,7 +323,7 @@ class Sector(object):
             dfinter = pairs[cols + ['Intersection']].copy()
             dfinter.rename(columns={'Intersection': 'geometry'}, inplace=True)
             dfinter = gpd.GeoDataFrame(dfinter, columns=dfinter.columns, crs=pairs.crs)
-            dfinter = dfinter.loc[dfinter.geometry.is_empty == False]
+            dfinter = dfinter.loc[dfinter.geometry.is_empty is False]
             return dfinter
         elif how == 'difference':
             spatial_index = df2.sindex
@@ -332,7 +332,7 @@ class Sector(object):
             df1['new_g'] = df1.apply(lambda x: reduce(lambda x, y: x.difference(y).buffer(0),
                                                       [x.geometry] + list(df2.iloc[x.histreg].geometry)), axis=1)
             df1.geometry = df1.new_g
-            df1 = df1.loc[df1.geometry.is_empty == False].copy()
+            df1 = df1.loc[df1.geometry.is_empty is False].copy()
             df1.drop(['bbox', 'histreg', 'new_g'], axis=1, inplace=True)
             return df1
 
@@ -353,7 +353,8 @@ class Sector(object):
                 print "{0} = ({1}/{2} - {4}/{5})*{3}".format(out_pollutant, 'pm10', self.molecular_weights['pm10'],
                                                              self.speciation_profile.loc[code, out_pollutant],
                                                              'pm25', self.molecular_weights['pm25'],)
-                new_dataframe[out_pollutant] = ((dataframe['pm10'] / self.molecular_weights['pm10']) -
-                                                (dataframe['pm25'] / self.molecular_weights['pm25'])) * \
-                                               self.speciation_profile.loc[code, out_pollutant]
+                new_dataframe[out_pollutant] = \
+                    ((dataframe['pm10'] / self.molecular_weights['pm10']) -
+                     (dataframe['pm25'] / self.molecular_weights['pm25'])) * \
+                    self.speciation_profile.loc[code, out_pollutant]
         return new_dataframe
