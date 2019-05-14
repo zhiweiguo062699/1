@@ -541,7 +541,6 @@ class AviationSector(Sector):
         dataframe.drop(columns=['f', 'plane_id', 'geometry'], inplace=True)
         dataframe = dataframe.groupby(['airport_id', 'tstep']).sum()
 
-        # dataframe.to_csv('~/temp/{0}.csv'.format(phase))
         return dataframe
 
     def get_tyre_and_brake_wear_emission(self, phase):
@@ -628,7 +627,6 @@ class AviationSector(Sector):
         dataframe.drop(columns=['f', 'plane_id', 'geometry'], inplace=True)
         dataframe = dataframe.groupby(['airport_id', 'tstep']).sum()
 
-        # dataframe.to_csv('~/temp/{0}.csv'.format(phase))
         return dataframe
 
     def get_auxiliar_power_unit_emission(self, phase):
@@ -719,7 +717,6 @@ class AviationSector(Sector):
         dataframe.drop(columns=['f', 'plane_id', 'geometry'], inplace=True)
         dataframe = dataframe.groupby(['airport_id', 'tstep']).sum()
 
-        # dataframe.to_csv('~/temp/{0}.csv'.format(phase))
         return dataframe
 
     def distribute(self, dataframe, distribution):
@@ -732,7 +729,6 @@ class AviationSector(Sector):
         dataframe[pollutants] = dataframe[pollutants].multiply(dataframe['fraction'], axis=0)
         dataframe.drop(columns=['airport_id', 'fraction'], inplace=True)
         dataframe = dataframe.groupby(['FID', 'layer', 'tstep']).sum()
-        # dataframe.set_index(['FID', 'tstep', 'layer'], inplace=True)
         return dataframe
 
     def calculate_emissions(self):
