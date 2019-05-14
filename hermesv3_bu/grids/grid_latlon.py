@@ -73,16 +73,17 @@ class LatLonGrid(Grid):
         """
         # From corner latitude /longitude to center ones
         lat_c_orig = self.attributes['lat_orig'] + (self.attributes['inc_lat'] / 2)
-        self.center_latitudes = np.arange(
-            lat_c_orig, lat_c_orig + self.attributes['inc_lat'] * self.attributes['n_lat'], self.attributes['inc_lat'],
+        self.center_latitudes = np.linspace(
+            lat_c_orig, lat_c_orig + (self.attributes['inc_lat'] * (self.attributes['n_lat'] - 1)), self.attributes['n_lat'],
             dtype=np.float)
         self.boundary_latitudes = self.create_bounds(self.center_latitudes, self.attributes['inc_lat'])
 
         # ===== Longitudes =====
         lon_c_orig = self.attributes['lon_orig'] + (self.attributes['inc_lon'] / 2)
-        self.center_longitudes = np.arange(
-            lon_c_orig, lon_c_orig + self.attributes['inc_lon'] * self.attributes['n_lon'], self.attributes['inc_lon'],
+        self.center_longitudes = np.linspace(
+            lon_c_orig, lon_c_orig + (self.attributes['inc_lon'] * (self.attributes['n_lon'] - 1)), self.attributes['n_lon'],
             dtype=np.float)
+
         self.boundary_longitudes = self.create_bounds(self.center_longitudes, self.attributes['inc_lon'])
 
         self.boundary_latitudes = self.boundary_latitudes.reshape((1,) + self.boundary_latitudes.shape)
