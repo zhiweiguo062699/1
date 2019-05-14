@@ -269,6 +269,7 @@ class AviationSector(Sector):
             # Only for master (rank == 0)
             self.airport_list_full = shp_airport_list
 
+
             shp_airport_list = [shp_airport_list[i * len(shp_airport_list) // self.comm.size:
                                                  (i + 1) * len(shp_airport_list) // self.comm.size]
                                 for i in range(self.comm.size)]
@@ -290,7 +291,7 @@ class AviationSector(Sector):
 
         if not os.path.exists(airport_distribution_path):
             if self.comm.rank == 0:
-                airport_shapefile = airport_shapefile.copy()
+                airport_shapefile = airport_shapefile.loc[self.airport_list_full, :].copy()
                 if not os.path.exists(os.path.dirname(airport_distribution_path)):
                     os.makedirs(os.path.dirname(airport_distribution_path))
 
@@ -298,10 +299,11 @@ class AviationSector(Sector):
                 airport_shapefile['area'] = airport_shapefile.area
                 airport_distribution = self.spatial_overlays(airport_shapefile, self.grid_shp, how='intersection')
                 airport_distribution['fraction'] = airport_distribution.area / airport_distribution['area']
-                airport_distribution.drop(columns=['idx2', 'area', 'geometry'], inplace=True)
+                airport_distribution.drop(columns=['idx2', 'area', 'geometry', 'cons'], inplace=True)
                 airport_distribution.rename(columns={'idx1': 'airport_id'}, inplace=True)
                 airport_distribution['layer'] = 0
                 airport_distribution.set_index(['airport_id', 'FID', 'layer'], inplace=True)
+
                 airport_distribution.to_csv(airport_distribution_path)
             else:
                 airport_distribution = None
@@ -309,7 +311,6 @@ class AviationSector(Sector):
         else:
             airport_distribution = pd.read_csv(airport_distribution_path)
             airport_distribution.set_index(['airport_id', 'FID', 'layer'], inplace=True)
-
         return airport_distribution
 
     def calculate_runway_distribution(self, runway_shapefile, phase_type):
@@ -422,11 +423,12 @@ class AviationSector(Sector):
                 trajectories_distr.reset_index(inplace=True)
 
                 # HORIZONTAL DISTRIBUTION
-                trajectories_distr.to_crs(self.grid_shp.crs, inplace=True)
+                aux_grid = self.grid_shp.to_crs(trajectories_distr.crs)
+                # trajectories_distr.to_crs(self.grid_shp.crs, inplace=True)
                 # duplicating each runway by involved cell
-                trajectories_distr = gpd.sjoin(trajectories_distr, self.grid_shp, how="inner", op='intersects')
+                trajectories_distr = gpd.sjoin(trajectories_distr, aux_grid, how="inner", op='intersects')
                 # Adding cell geometry
-                trajectories_distr = trajectories_distr.merge(self.grid_shp.loc[:, ['FID', 'geometry']], on='FID', how='left')
+                trajectories_distr = trajectories_distr.merge(aux_grid.loc[:, ['FID', 'geometry']], on='FID', how='left')
                 # Intersection between line (roadway) and polygon (cell)
                 trajectories_distr['geometry'] = trajectories_distr.apply(do_horizontal_intersection, axis=1)
                 trajectories_distr['mini_h_length'] = trajectories_distr.apply(get_horizontal_intersection_length, axis=1)
@@ -437,7 +439,7 @@ class AviationSector(Sector):
 
                 trajectories_distr = trajectories_distr[['airport_id', 'FID', 'layer', 'fraction']]
                 trajectories_distr = trajectories_distr.groupby(['airport_id', 'FID', 'layer']).sum()
-                # trajectories_distr.set_index(['airport_id', 'FID', 'layer'], inplace=True)
+
                 trajectories_distr.to_csv(trajectories_distribution_path)
             else:
                 trajectories_distr = None
@@ -614,8 +616,7 @@ class AviationSector(Sector):
 
         # Getting factor
         dataframe['f'] = dataframe['MTOW'] * dataframe['N']
-        # print dataframe
-        # sys.exit()
+
         dataframe['f'] = dataframe['MTOW'] * dataframe['N'] * dataframe['WF'] * dataframe['HF']
         dataframe.drop(columns=['MTOW', 'N', 'WF', 'HF'], inplace=True)
 
