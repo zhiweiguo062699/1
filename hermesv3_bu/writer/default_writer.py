@@ -113,12 +113,15 @@ class DefaultWriter(Writer):
             # var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim,
             #                             chunksizes=self.rank_distribution[0]['shape'])
             var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim)
-            var[:, :,
-            self.rank_distribution[self.comm_write.Get_rank()]['y_min']:
-            self.rank_distribution[self.comm_write.Get_rank()]['y_max'],
-            self.rank_distribution[self.comm_write.Get_rank()]['x_min']:
-            self.rank_distribution[self.comm_write.Get_rank()]['x_max']] = var_data
 
+            var[:, :,
+                self.rank_distribution[self.comm_write.Get_rank()]['y_min']:
+                self.rank_distribution[self.comm_write.Get_rank()]['y_max'],
+                self.rank_distribution[self.comm_write.Get_rank()]['x_min']:
+                self.rank_distribution[self.comm_write.Get_rank()]['x_max']] = var_data
+
+            var.long_name = self.pollutant_info.loc[var_name, 'description']
+            var.units = self.pollutant_info.loc[var_name, 'units']
             var.missing_value = -999.0
             var.coordinates = 'lat lon'
             if self.grid.grid_type == 'Regular Lat-Lon':
