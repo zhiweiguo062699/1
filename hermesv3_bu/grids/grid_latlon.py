@@ -27,38 +27,39 @@ from hermesv3_bu.io_server.io_netcdf import write_coords_netcdf
 
 
 class LatLonGrid(Grid):
-    """
-    Regional regular lat-lon grid object that contains all the information to do a global output.
-
-    :param auxiliary_path: Path to the folder to store all the needed auxiliary files.
-    :type auxiliary_path: str
-
-    :param vertical_description_path: Path to the file that describes the vertical resolution
-    :type vertical_description_path: str
-
-    :param inc_lat: Increment between latitude centroids.
-    :type inc_lat: float
-
-    :param inc_lon: Increment between longitude centroids.
-    :type inc_lon: float
-
-    :param lat_orig: Location of the latitude of the corner of the first cell (down left).
-    :type lat_orig: float
-
-    :param lon_orig: Location of the longitude of the corner of the first cell (down left).
-    :type lon_orig: float
-
-    :param n_lat: Number of cells on the latitude direction.
-    :type n_lat = int
-
-    :param n_lon: Number of cells on the latitude direction.
-    :type n_lon = int
-
-    """
 
     def __init__(self, auxiliary_path, tstep_num, vertical_description_path, inc_lat, inc_lon, lat_orig, lon_orig,
                  n_lat, n_lon):
+        """
+        Regional regular lat-lon grid object that contains all the information to do a global output.
 
+        :param auxiliary_path: Path to the folder to store all the needed auxiliary files.
+        :type auxiliary_path: str
+
+        :param tstep_num: Number of time steps.
+        :type tstep_num: int
+
+        :param vertical_description_path: Path to the file that describes the vertical resolution
+        :type vertical_description_path: str
+
+        :param inc_lat: Increment between latitude centroids.
+        :type inc_lat: float
+
+        :param inc_lon: Increment between longitude centroids.
+        :type inc_lon: float
+
+        :param lat_orig: Location of the latitude of the corner of the first cell (down left).
+        :type lat_orig: float
+
+        :param lon_orig: Location of the longitude of the corner of the first cell (down left).
+        :type lon_orig: float
+
+        :param n_lat: Number of cells on the latitude direction.
+        :type n_lat = int
+
+        :param n_lon: Number of cells on the latitude direction.
+        :type n_lon = int
+        """
         self.grid_type = 'Regular Lat-Lon'
         attributes = {'inc_lat': inc_lat, 'inc_lon': inc_lon, 'lat_orig': lat_orig, 'lon_orig': lon_orig,
                       'n_lat': n_lat, 'n_lon': n_lon, 'crs': {'init': 'epsg:4326'}}

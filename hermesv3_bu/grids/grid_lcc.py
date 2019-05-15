@@ -8,53 +8,56 @@ from grid import Grid
 
 
 class LccGrid(Grid):
-    """
-    Lambert Conformal Conic (LCC) grid object that contains all the information to do a lcc output.
 
-    :param auxiliary_path: Path to the folder to store all the needed auxiliary files.
-    :type auxiliary_path: str
-
-    :param vertical_description_path: Path to the file that describes the vertical resolution
-    :type vertical_description_path: str
-
-    :param lat_1: Value of the Lat1 for the LCC grid type.
-    :type lat_1: float
-
-    :param lat_2: Value of the Lat2 for the LCC grid type.
-    :type lat_2: float
-
-    :param lon_0: Value of the Lon0 for the LCC grid type.
-    :type lon_0: float
-
-    :param lat_0: Value of the Lat0 for the LCC grid type.
-    :type lat_0: float
-
-    :param nx: Number of cells on the x dimension.
-    :type nx: int
-
-    :param ny: Number of cells on the y dimension.
-    :type ny: int
-
-    :param inc_x: Increment between x dimensions cell centroids (metres).
-    :type inc_x: int
-
-    :param inc_y: Increment between y dimensions cell centroids (metres).
-    :type inc_y: int
-
-    :param x_0: Value of the X0 for the LCC grid type.
-    :type x_0: float
-
-    :param y_0: Value of the Y0 for the LCC grid type.
-    :type y_0: float
-
-    :param earth_radius: Radius of the Earth (metres).
-    Default = 6370000.000
-    :type earth_radius: float
-    """
 
     def __init__(self, auxiliary_path, tstep_num, vertical_description_path, lat_1, lat_2, lon_0, lat_0,  nx, ny, inc_x,
                  inc_y, x_0, y_0, earth_radius=6370000.000):
+        """
+        Lambert Conformal Conic (LCC) grid object that contains all the information to do a lcc output.
 
+        :param auxiliary_path: Path to the folder to store all the needed auxiliary files.
+        :type auxiliary_path: str
+
+        :param tstep_num: Number of time steps.
+        :type tstep_num: int
+
+        :param vertical_description_path: Path to the file that describes the vertical resolution
+        :type vertical_description_path: str
+
+        :param lat_1: Value of the Lat1 for the LCC grid type.
+        :type lat_1: float
+
+        :param lat_2: Value of the Lat2 for the LCC grid type.
+        :type lat_2: float
+
+        :param lon_0: Value of the Lon0 for the LCC grid type.
+        :type lon_0: float
+
+        :param lat_0: Value of the Lat0 for the LCC grid type.
+        :type lat_0: float
+
+        :param nx: Number of cells on the x dimension.
+        :type nx: int
+
+        :param ny: Number of cells on the y dimension.
+        :type ny: int
+
+        :param inc_x: Increment between x dimensions cell centroids (metres).
+        :type inc_x: int
+
+        :param inc_y: Increment between y dimensions cell centroids (metres).
+        :type inc_y: int
+
+        :param x_0: Value of the X0 for the LCC grid type.
+        :type x_0: float
+
+        :param y_0: Value of the Y0 for the LCC grid type.
+        :type y_0: float
+
+        :param earth_radius: Radius of the Earth (metres).
+        Default = 6370000.000
+        :type earth_radius: float
+        """
         self.grid_type = 'Lambert Conformal Conic'
 
         # UTM coordinates
