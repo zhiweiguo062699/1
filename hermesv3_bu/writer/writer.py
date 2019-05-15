@@ -10,6 +10,21 @@ CHUNKING = True
 
 
 def select_writer(arguments, grid, date_array):
+    """
+    Select the writer depending on the arguments passed to HERMESv3_BU
+
+    :param arguments: Arguments passed to HERMESv3_BU
+    :type arguments: Namespace
+
+    :param grid: Output grid definition.
+    :type grid: hermesv3_bu.grids.grid.Grid
+
+    :param date_array: Array with each time step to be calculated.
+    :type date_array: list of datetime.datetime
+
+    :return: Selected writer.
+    :rtype: Writer
+    """
 
     comm_world = MPI.COMM_WORLD
 
@@ -44,6 +59,31 @@ def select_writer(arguments, grid, date_array):
 
 
 def get_distribution(processors, shape):
+    """
+
+    :param processors: Number of writing processors.
+    :type processors: int
+
+    :param shape: Complete shape of the destiny domain.
+    :type shape: tuple
+
+    :return: Information of the writing process. That argument is a dictionary with the writing
+        process rank as key and another dictionary as value. That other dictionary contains:
+        - shape: Shape to write
+        - x_min: X minimum position to write on the full array.
+        - x_max: X maximum position to write on the full array.
+        - y_min: Y minimum position to write on the full array.
+        - y_max: Y maximum position to write on the full array.
+        - fid_min: Minimum cell ID of a flatten X Y domain.
+        - fid_max: Maximum cell ID of a flatten X Y domain.
+
+        e.g. 24 time steps. 48 vertical levels, 10 x 10
+        {0: {'fid_min': 0, 'y_min': 0, 'y_max': 5, 'fid_max': 50, 'shape': (24, 48, 5, 10), 'x_max': 10,
+            'x_min': 0},
+        1: {'fid_min': 50, 'y_min': 5, 'y_max': 10, 'fid_max': 100, 'shape': (24, 48, 5, 10), 'x_max': 10,
+            'x_min': 0}}
+    :rtype rank_distribution: dict
+    """
     fid_dist = {}
     total_rows = shape[2]
 
@@ -79,6 +119,44 @@ def get_distribution(processors, shape):
 
 class Writer(object):
     def __init__(self, comm_world, comm_write, netcdf_path, grid, date_array, pollutant_info, rank_distribution):
+        """
+        Initialise the Writer class.
+
+        :param comm_wolrd: Global communicator for all the calculation process
+        :type comm_wolrd: MPI.COMM
+
+        :param comm_write: Sector communicator.
+        :type comm_write: MPI.Intracomm
+
+        :param netcdf_path: Path to the output NetCDF file-
+        :type netcdf_path: str
+
+        :param grid: Output grid definition.
+        :type grid: hermesv3_bu.grids.grid.Grid
+
+        :param date_array: Array with each time step to be calculated.
+        :type date_array: list of datetime.datetime
+
+        :param pollutant_info: Information related with the output pollutants, short description, units...
+        :type pollutant_info: pandas.DataFrame
+
+        :param rank_distribution: Information of the writing process. That argument is a dictionary with the writing
+            process rank as key and another dictionary as value. That other dictionary contains:
+            - shape: Shape to write
+            - x_min: X minimum position to write on the full array.
+            - x_max: X maximum position to write on the full array.
+            - y_min: Y minimum position to write on the full array.
+            - y_max: Y maximum position to write on the full array.
+            - fid_min: Minimum cell ID of a flatten X Y domain.
+            - fid_max: Maximum cell ID of a flatten X Y domain.
+
+            e.g. 24 time steps. 48 vertical levels, 10 x 10
+            {0: {'fid_min': 0, 'y_min': 0, 'y_max': 5, 'fid_max': 50, 'shape': (24, 48, 5, 10), 'x_max': 10,
+                'x_min': 0},
+            1: {'fid_min': 50, 'y_min': 5, 'y_max': 10, 'fid_max': 100, 'shape': (24, 48, 5, 10), 'x_max': 10,
+                'x_min': 0}}
+        :type rank_distribution: dict
+        """
 
         self.comm_world = comm_world
         self.comm_write = comm_write
@@ -89,7 +167,18 @@ class Writer(object):
         self.rank_distribution = rank_distribution
 
     def gather_emissions(self, emissions):
+        """
+        Each writing process recives the emissions for a concrete region of the domain.
 
+        Each calculation process sends a part of the emissions to each writing processor.
+
+        :param emissions: Emissions to be split and sent to the writing processors.
+        :type emissions: pandas.DataFrame
+
+        :return: The writing processors will return the emissions to write but the non writer processors will return
+            None.
+        :rtype: pandas.DataFrame
+        """
         # Sending
         requests = []
         for w_rank, info in self.rank_distribution.iteritems():
@@ -113,6 +202,15 @@ class Writer(object):
         return new_emissions
 
     def dataframe_to_array(self, dataframe):
+        """
+        Set the dataframe emissions to a 4D numpy array in the way taht have to be written.
+
+        :param dataframe: Dataframe with the FID, level and time step as index and pollutant as columns.
+        :type dataframe: pandas.DataFrame
+
+        :return: 4D array with the emissions to be written.
+        :rtype: numpy.array
+        """
         var_name = dataframe.columns.values[0]
         shape = self.rank_distribution[self.comm_write.Get_rank()]['shape']
         dataframe.reset_index(inplace=True)
@@ -124,6 +222,15 @@ class Writer(object):
         return data.reshape(shape)
 
     def write(self, emissions):
+        """
+        Do all the process to write the emissions.
+
+        :param emissions: Emissions to be written.
+        :type emissions: pandas.DataFrame
+
+        :return: True if everything finish OK.
+        :rtype: bool
+        """
         emissions = self.unit_change(emissions)
         emissions = self.gather_emissions(emissions)
         if self.comm_world.Get_rank() in self.rank_distribution.iterkeys():
