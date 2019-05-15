@@ -92,7 +92,7 @@ class Grid(object):
         :rtype: list
         """
         import pandas as pd
-        df = pd.read_csv(path, sep=';')
+        df = pd.read_csv(path, sep=',')
 
         heights = df.height_magl.values
 
