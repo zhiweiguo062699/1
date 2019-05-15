@@ -323,7 +323,7 @@ class Sector(object):
             dfinter = pairs[cols + ['Intersection']].copy()
             dfinter.rename(columns={'Intersection': 'geometry'}, inplace=True)
             dfinter = gpd.GeoDataFrame(dfinter, columns=dfinter.columns, crs=pairs.crs)
-            dfinter = dfinter.loc[dfinter.geometry.is_empty is False]
+            dfinter = dfinter.loc[dfinter.geometry.is_empty == False]
             return dfinter
         elif how == 'difference':
             spatial_index = df2.sindex
@@ -332,7 +332,7 @@ class Sector(object):
             df1['new_g'] = df1.apply(lambda x: reduce(lambda x, y: x.difference(y).buffer(0),
                                                       [x.geometry] + list(df2.iloc[x.histreg].geometry)), axis=1)
             df1.geometry = df1.new_g
-            df1 = df1.loc[df1.geometry.is_empty is False].copy()
+            df1 = df1.loc[df1.geometry.is_empty == False].copy()
             df1.drop(['bbox', 'histreg', 'new_g'], axis=1, inplace=True)
             return df1
 
