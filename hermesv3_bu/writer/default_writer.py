@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import os
 import numpy as np
 from netCDF4 import Dataset, date2num
 from hermesv3_bu.writer.writer import Writer
@@ -9,14 +8,66 @@ from mpi4py import MPI
 
 class DefaultWriter(Writer):
     def __init__(self, comm_wolrd, comm_write, netcdf_path, grid, date_array, pollutant_info, rank_distribution):
+        """
+        Initilise the Default writer that will write a NetCDF CF-1.6 complient.
+
+        :param comm_wolrd: Global communicator for all the calculation process
+        :type comm_wolrd: MPI.COMM
+
+        :param comm_write: Sector communicator.
+        :type comm_write: MPI.Intracomm
+
+        :param netcdf_path: Path to the output NetCDF file-
+        :type netcdf_path: str
+
+        :param grid: Output grid definition.
+        :type grid: hermesv3_bu.grids.grid.Grid
+
+        :param date_array: Array with each time step to be calculated.
+        :type date_array: list of datetime.datetime
+
+        :param pollutant_info: Information related with the output pollutants, short description, units...
+        :type pollutant_info: pandas.DataFrame
+
+        :param rank_distribution: Information of the writing process. That argument is a dictionary with the writing
+            process rank as key and another dictionary as value. That other dictionary contains:
+            - shape: Shape to write
+            - x_min: X minimum position to write on the full array.
+            - x_max: X maximum position to write on the full array.
+            - y_min: Y minimum position to write on the full array.
+            - y_max: Y maximum position to write on the full array.
+            - fid_min: Minimum cell ID of a flatten X Y domain.
+            - fid_max: Maximum cell ID of a flatten X Y domain.
+
+            e.g. 24 time steps. 48 vertical levels, 10 x 10
+            {0: {'fid_min': 0, 'y_min': 0, 'y_max': 5, 'fid_max': 50, 'shape': (24, 48, 5, 10), 'x_max': 10, 'x_min': 0},
+            1: {'fid_min': 50, 'y_min': 5, 'y_max': 10, 'fid_max': 100, 'shape': (24, 48, 5, 10), 'x_max': 10, 'x_min': 0}}
+        :type rank_distribution: dict
+        """
         super(DefaultWriter, self).__init__(comm_wolrd, comm_write, netcdf_path, grid, date_array, pollutant_info,
                                             rank_distribution)
 
     def unit_change(self, emissions):
+        """
+        No unit changes.
+
+        :param emissions: Emissions on dataframe.
+        :type emissions: pandas.DataFrame
+
+        :return: Same emissions as input
+        :rtype: pandas.DataFrame
+        """
 
         return emissions
 
     def write_netcdf(self, emissions):
+        """
+        Create a NetCDF following the CF-1.6 conventions
+
+        :param emissions: Emissions to write in the NetCDF with 'FID, level & time step as index and pollutant as
+            columns.
+        :type emissions: pandas.DataFrame
+        """
         from cf_units import Unit
 
         netcdf = Dataset(self.netcdf_path, mode='w', parallel=True, comm=self.comm_write, info=MPI.Info())
@@ -40,6 +91,8 @@ class DefaultWriter(Writer):
             netcdf.createDimension('rlon', len(self.grid.rlon))
             var_dim = ('rlat', 'rlon')
             lat_dim = lon_dim = var_dim
+        else:
+            var_dim = lat_dim = None
 
         netcdf.createDimension('nv', len(self.grid.boundary_latitudes[0, 0]))
 
@@ -159,6 +212,6 @@ class DefaultWriter(Writer):
             mapping.longitude_of_projection_origin = self.grid.attributes['lon_0']
             mapping.standard_parallel = self.grid.attributes['lat_ts']
 
+        netcdf.setncattr('Conventions', 'CF-1.6')
         netcdf.close()
-        print self.netcdf_path
         return True

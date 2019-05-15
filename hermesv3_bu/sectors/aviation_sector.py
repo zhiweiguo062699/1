@@ -294,7 +294,6 @@ class AviationSector(Sector):
                 airport_shapefile = airport_shapefile.loc[self.airport_list_full, :].copy()
                 if not os.path.exists(os.path.dirname(airport_distribution_path)):
                     os.makedirs(os.path.dirname(airport_distribution_path))
-
                 airport_shapefile.to_crs(self.grid_shp.crs, inplace=True)
                 airport_shapefile['area'] = airport_shapefile.area
                 airport_distribution = self.spatial_overlays(airport_shapefile, self.grid_shp, how='intersection')
