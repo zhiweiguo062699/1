@@ -56,15 +56,20 @@ def select_grid(comm, arguments):
 
 
 class Grid(object):
-    """
-    Grid object that contains the information of the output grid.
 
-    :param attributes: Attributes to define the grid
-    :type attributes: dict
-
-
-    """
     def __init__(self, attributes, auxiliary_path, vertical_description_path):
+        """
+        Initialise the Grid class
+
+        :param attributes: Attributes to define the grid
+        :type attributes: dict
+
+        :param auxiliary_path: Path to the folder to store all the needed auxiliary files.
+        :type auxiliary_path: str
+
+        :param vertical_description_path: Path to the file that describes the vertical resolution
+        :type vertical_description_path: str
+        """
         self.attributes = attributes
         self.netcdf_path = os.path.join(auxiliary_path, 'grid', 'grid.nc')
         self.shapefile_path = os.path.join(auxiliary_path, 'grid', 'grid.shp')
