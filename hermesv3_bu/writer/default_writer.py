@@ -40,8 +40,10 @@ class DefaultWriter(Writer):
             - fid_max: Maximum cell ID of a flatten X Y domain.
 
             e.g. 24 time steps. 48 vertical levels, 10 x 10
-            {0: {'fid_min': 0, 'y_min': 0, 'y_max': 5, 'fid_max': 50, 'shape': (24, 48, 5, 10), 'x_max': 10, 'x_min': 0},
-            1: {'fid_min': 50, 'y_min': 5, 'y_max': 10, 'fid_max': 100, 'shape': (24, 48, 5, 10), 'x_max': 10, 'x_min': 0}}
+            {0: {'fid_min': 0, 'y_min': 0, 'y_max': 5, 'fid_max': 50, 'shape': (24, 48, 5, 10), 'x_max': 10,
+                'x_min': 0},
+            1: {'fid_min': 50, 'y_min': 5, 'y_max': 10, 'fid_max': 100, 'shape': (24, 48, 5, 10), 'x_max': 10,
+                'x_min': 0}}
         :type rank_distribution: dict
         """
         super(DefaultWriter, self).__init__(comm_wolrd, comm_write, netcdf_path, grid, date_array, pollutant_info,
