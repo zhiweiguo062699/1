@@ -8,7 +8,6 @@ from grid import Grid
 
 class MercatorGrid(Grid):
 
-
     def __init__(self, auxiliary_path, tstep_num, vertical_description_path, lat_ts, lon_0, nx, ny, inc_x, inc_y, x_0,
                  y_0, earth_radius=6370000.000):
         """

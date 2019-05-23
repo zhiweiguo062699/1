@@ -106,9 +106,9 @@ class Sector(object):
         """
         Read the speciation map.
 
-        The speciation map is the CSV file that contains the relation from the output pollutant and the correspondent input
-        pollutant associated. That file also contains a short description of the output pollutant and the units to be
-        stored.
+        The speciation map is the CSV file that contains the relation from the output pollutant and the correspondent
+        input pollutant associated. That file also contains a short description of the output pollutant and the units to
+        be stored.
 
         e.g.:
         dst,src,description,units
