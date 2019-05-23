@@ -32,6 +32,9 @@ class Sector(object):
         :param source_pollutants: List of input pollutants to take into account.
         :type source_pollutants: list
 
+        :param vertical_levels: List of top level of each vertical layer.
+        :type vertical_levels: list
+
         :param weekly_profiles_path: Path to the CSV file that contains all the weekly profiles. The CSV file must
             contain the following columns [P_week, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday]
             The P_week code have to be the input pollutant.
@@ -79,11 +82,51 @@ class Sector(object):
         self.output_pollutants = self.speciation_map.keys()
 
     def read_speciation_profiles(self, path):
+        """
+        Read all the speciation profiles.
+
+        The CSV must contain the column ID with the identification of that profile. The rest of columns are the output
+        pollutant and the value is the fraction of input pollutant that goes to that output pollutant.
+
+        e.g.:
+        ID,NOx,SOx,CO,NMVOC,PM10,PM25,PMC,CO2
+        default,1,1,1,1,1,1,1,1
+
+        :param path: Path to the CSV that contains the speciation profiles.
+        :type path: str
+
+        :return: Dataframe with the speciation profile and the ID as index.
+        :rtype: pandas.DataFrame
+        """
         dataframe = pd.read_csv(path)
         dataframe.set_index('ID', inplace=True)
         return dataframe
 
     def read_speciation_map(self, path):
+        """
+        Read the speciation map.
+
+        The speciation map is the CSV file that contains the relation from the output pollutant and the correspondent input
+        pollutant associated. That file also contains a short description of the output pollutant and the units to be
+        stored.
+
+        e.g.:
+        dst,src,description,units
+        NOx,nox_no2,desc_no,mol.s-1
+        SOx,so2,desc_so2,mol.s-1
+        CO,co,desc_co,mol.s-1
+        CO2,co2,desc_co2,mol.s-1
+        NMVOC,nmvoc,desc_nmvoc,g.s-1
+        PM10,pm10,desc_pm10,g.s-1
+        PM25,pm25,desc_pm25,g.s-1
+        PMC,,desc_pmc,g.s-1
+
+        :param path: Path to the speciation map file.
+        :type path: str
+
+        :return: Dictionary with the output pollutant as key and the input pollutant as value.
+        :rtype: dict
+        """
         dataframe = pd.read_csv(path)
         if 'PMC' in dataframe['dst'].values and all(element in self.source_pollutants for element in ['pm10', 'pm25']):
             dataframe_aux = dataframe.loc[dataframe['src'].isin(self.source_pollutants), :]
@@ -95,6 +138,25 @@ class Sector(object):
         return dataframe
 
     def read_molecular_weights(self, path):
+        """
+        Read the CSV file that contains the molecular weights
+
+        e.g.:
+        Specie,MW
+        nox_no,30.01
+        nox_no2,46.01
+        co,28.01
+        co2,44.01
+        so2,64.06
+        nh3,17.03
+
+        :param path: Path to the CSV file.
+        :type path: str
+
+        :return: Dictionary with the specie as key and the molecular weight as value.
+        :rtype: dict
+        """
+
         dataframe = pd.read_csv(path)
         dataframe = dataframe.loc[dataframe['Specie'].isin(self.source_pollutants)]
 
@@ -112,8 +174,8 @@ class Sector(object):
         :param sep: Separator of the values. [default -> ',']
         :type sep: str
 
-        :return: Dataframe with the profiles.
-        :rtype: pandas.Dataframe
+        :return: DataFrame with the profiles.
+        :rtype: pandas.DataFrame
         """
         dataframe = pd.read_csv(path, sep=sep)
         return dataframe
@@ -121,12 +183,12 @@ class Sector(object):
     @staticmethod
     def read_monthly_profiles(path):
         """
-        Read the Dataset of the monthly profiles with the month number as columns.
+        Read the DataFrame of the monthly profiles with the month number as columns.
 
         :param path: Path to the file that contains the monthly profiles.
         :type path: str
 
-        :return: Dataset od the monthly profiles.
+        :return: DataFrame of the monthly profiles.
         :rtype: pandas.DataFrame
         """
         if path is None:
@@ -185,16 +247,26 @@ class Sector(object):
 
         return profiles
 
-    def calculate_rebalance_factor(self, profile_array, date):
-        profile = {}
-        for day, factor in enumerate(profile_array):
-            profile[day] = factor
+    def calculate_rebalanced_weekly_profile(self, profile, date):
+        """
+        Correct the weekly profile depending on the date selected.
 
-        # print [hour.date() for hour in date]
+        If we sum the weekday factor of each day of the full month it mus sum 1.
+
+        :param profile: Profile to be corrected.
+            {0: 1.0414, 1: 1.0310, 2: 1.0237, 3: 1.0268, 4: 1.0477, 5: 0.9235, 6: 0.9058}
+        :type profile: dict
+
+        :param date: Date to select the month to evaluate.
+        :type date: datetime.datetime
+
+        :return: Profile already rebalanced.
+        :rtype: dict
+        """
+
         weekdays = self.calculate_weekdays(date)
 
         rebalanced_profile = self.calculate_weekday_factor_full_month(profile, weekdays)
-
         return rebalanced_profile
 
     @staticmethod
@@ -243,6 +315,18 @@ class Sector(object):
         return weekdays_dict
 
     def add_dates(self, dataframe):
+        """
+        Add the 'date' and 'tstep' column to the dataframe.
+
+        The dataframe will be replicated as many times as time steps to calculate.
+
+        :param dataframe: Geodataframe to be extended with the dates.
+        :type dataframe: geopandas.GeoDataFrame
+
+        :return: Geodataframe with the dates. The length of the new dataframe is the length of the input dataframe
+        multiplied by the number of time steps.
+        :rtype: geopandas.GeoDataFrame
+        """
         dataframe = self.add_timezone(dataframe)
         df_list = []
 
@@ -260,6 +344,14 @@ class Sector(object):
 
     @staticmethod
     def add_timezone(dataframe):
+        """
+        Add the timezone os the centroid of each geometry of the input geodataframe.
+
+        :param dataframe: Geodataframe where add the timezone.
+        :type dataframe: geopandas.GeoDataframe
+
+        :return: Geodataframe with the timezone column.
+        :rtype: geopandas.GeoDataframe        """
         from timezonefinder import TimezoneFinder
 
         dataframe = dataframe.to_crs({'init': 'epsg:4326'})
@@ -289,10 +381,16 @@ class Sector(object):
 
     @staticmethod
     def spatial_overlays(df1, df2, how='intersection'):
-        '''Compute overlay intersection of two
-            GeoPandasDataFrames df1 and df2
-            https://github.com/geopandas/geopandas/issues/400
-        '''
+        """
+        Compute overlay intersection of two GeoPandasDataFrames df1 and df2
+
+        https://github.com/geopandas/geopandas/issues/400
+
+        :param df1: GeoDataFrame
+        :param df2: GeoDataFrame
+        :param how: Operation to do
+        :return: GeoDataFrame
+        """
         df1 = df1.copy()
         df2 = df2.copy()
         df1['geometry'] = df1.geometry.buffer(0)

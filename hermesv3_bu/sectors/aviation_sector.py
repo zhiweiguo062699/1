@@ -2,15 +2,12 @@
 
 import sys
 import os
-from timeit import default_timer as gettime
 
 import numpy as np
 import pandas as pd
 import geopandas as gpd
 
 from hermesv3_bu.sectors.sector import Sector
-from hermesv3_bu.io_server.io_shapefile import IoShapefile
-
 
 PHASE_TYPE = {'taxi_out': 'departure', 'pre-taxi_out': 'departure', 'takeoff': 'departure', 'climbout': 'departure',
               'approach': 'arrival', 'taxi_in': 'arrival', 'post-taxi_in': 'arrival', 'landing': 'arrival',
@@ -43,21 +40,57 @@ class AviationSector(Sector):
         :param comm: Communicator for the sector calculation.
         :type comm: MPI.COMM
 
-        :param auxiliary_dir:
-        :param grid_shp:
-        :param date_array:
-        :param source_pollutants:
-        :param vertical_levels:
-        :param airport_list:
-        :param plane_list:
-        :param airport_shapefile_path:
-        :param airport_runways_shapefile_path:
-        :param airport_runways_corners_shapefile_path:
-        :param airport_trajectories_shapefile_path:
-        :param operations_path:
-        :param planes_path:
-        :param times_path:
-        :param ef_dir:
+        :param auxiliary_dir: Path to the directory where the necessary auxiliary files will be created if them are not
+            created yet.
+        :type auxiliary_dir: str
+
+        :param grid_shp: Shapefile with the grid horizontal distribution.
+        :type grid_shp: geopandas.GeoDataFrame
+
+        :param date_array: List of datetimes.
+        :type date_array: list(datetime.datetime, ...)
+
+        :param source_pollutants: List of input pollutants to take into account.
+        :type source_pollutants: list
+
+        :param vertical_levels: List of top level of each vertical layer.
+        :type vertical_levels: list
+
+        :param airport_list: List of airports to take into account.
+        :type airport_list: list
+
+        :param plane_list: List of planes to take into account.
+        :type plane_list: list
+
+        :param airport_shapefile_path: Path to the shapefile that contains the airport polygons.
+        :type airport_shapefile_path: str
+
+        :param airport_runways_shapefile_path: Path to the shapefile that contains the runways lines.
+        :type airport_runways_shapefile_path: str
+
+        :param airport_runways_corners_shapefile_path: Path to the shapefile that contains the runway starting points.
+        :type airport_runways_corners_shapefile_path: str
+
+        :param airport_trajectories_shapefile_path: Path to the shapefile that contains the trajectories lines.
+        :type airport_trajectories_shapefile_path: str
+
+        :param operations_path: Path to the CSV that contains the operations information by month.
+        columns: plane_id, airport_id, operation, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+        :type operations_path: str
+
+        :param planes_path: Path to the CSV that contains the planes information:
+        columns: plane_id, engine_id, engine_n, mtow, apu_id, plane_type
+        :type planes_path: str
+
+        :param times_path: Path to the CSV that contains the times information.
+        columns: airport_id, plane_type, taxi_out, taxi_in, takeoff, climbout, approach, landing, post-taxi_in,
+        pre-taxi_out
+        :type times_path: str
+
+        :param ef_dir: Path to the directory that contains all the emission factors files. That folder must contain the
+        following emission factor files: ef_approach.csv, ef_apu.csv, ef_climbout.csv, ef_landing.csv,
+        ef_landing_wear.csv, ef_takeoff.csv and ef_taxi.csv.
+        :type ef_dir: str
 
         :param weekly_profiles_path: Path to the CSV file that contains all the weekly profiles. The CSV file must
             contain the following columns [P_week, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday]
@@ -493,7 +526,7 @@ class AviationSector(Sector):
             import datetime
             date_np = df.head(1)['date'].values[0]
             date = datetime.datetime.utcfromtimestamp(date_np.astype(int) * 1e-9)
-            profile = self.calculate_rebalance_factor(self.weekly_profiles.loc[df.name[0], :].values, date)
+            profile = self.calculate_rebalanced_weekly_profile(self.weekly_profiles.loc[df.name[0], :].to_dict(), date)
             for weekday in np.unique(df['weekday'].values):
                 df.loc[df['weekday'] == weekday, 'WF'] = profile[weekday]
             return df.loc[:, ['WF']]
@@ -578,7 +611,7 @@ class AviationSector(Sector):
             import datetime
             date_np = df.head(1)['date'].values[0]
             date = datetime.datetime.utcfromtimestamp(date_np.astype(int) * 1e-9)
-            profile = self.calculate_rebalance_factor(self.weekly_profiles.loc[df.name[0], :].values, date)
+            profile = self.calculate_rebalanced_weekly_profile(self.weekly_profiles.loc[df.name[0], :].to_dict(), date)
             for weekday in np.unique(df['weekday'].values):
                 df.loc[df['weekday'] == weekday, 'WF'] = profile[weekday]
             return df.loc[:, ['WF']]
@@ -670,7 +703,7 @@ class AviationSector(Sector):
             import datetime
             date_np = df.head(1)['date'].values[0]
             date = datetime.datetime.utcfromtimestamp(date_np.astype(int) * 1e-9)
-            profile = self.calculate_rebalance_factor(self.weekly_profiles.loc[df.name[0], :].values, date)
+            profile = self.calculate_rebalanced_weekly_profile(self.weekly_profiles.loc[df.name[0], :].to_dict(), date)
             for weekday in np.unique(df['weekday'].values):
                 df.loc[df['weekday'] == weekday, 'WF'] = profile[weekday]
             return df.loc[:, ['WF']]
