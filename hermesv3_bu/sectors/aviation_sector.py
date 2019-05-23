@@ -19,7 +19,7 @@ PHASE_EF_FILE = {'taxi_out': 'ef_taxi.csv', 'pre-taxi_out': 'ef_apu.csv', 'takeo
 
 class AviationSector(Sector):
     """
-    The aviation module calculates divide the emissions into 8 emission phases (4 for departure and 4 for arrival)
+    The aviation module divide the emissions into 9 emission phases (4 for departure and 5 for arrival)
     - Departure:
         - Pre-taxi out
         - Taxi out
@@ -28,6 +28,7 @@ class AviationSector(Sector):
     - Arrival:
         - Final approach
         - Landing
+        - Landing wear
         - Taxi in
         - Post-taxi in
     """
@@ -121,6 +122,7 @@ class AviationSector(Sector):
         super(AviationSector, self).__init__(
             comm, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels, weekly_profiles_path,
             hourly_profiles_path, speciation_map_path, speciation_profiles_path, molecular_weights_path)
+
         if 'hc' in self.source_pollutants:
             for poll in ['nmvoc', 'ch4']:
                 if poll not in self.source_pollutants:
@@ -150,12 +152,27 @@ class AviationSector(Sector):
         self.runway_departure_distribution = self.calculate_runway_distribution(runway_shapefile, 'departure')
 
         self.trajectory_departure_distribution = self.calculate_trajectories_distribution(
-            airport_trajectories_shapefile, vertical_levels, 'departure')
+            airport_trajectories_shapefile, 'departure')
         self.trajectory_arrival_distribution = self.calculate_trajectories_distribution(
-            airport_trajectories_shapefile, vertical_levels, 'arrival')
+            airport_trajectories_shapefile, 'arrival')
         comm.Barrier()
 
     def read_trajectories_shapefile(self, trajectories_path, runways_corners_path, runways_path):
+        """
+        Create a shapefile with 2 geometries: trajectories & staring point
+
+        :param trajectories_path: Path to the trajectories shapefile.
+        :type trajectories_path: str
+
+        :param runways_corners_path: Path to the trajectories starting point path.
+        :type runways_corners_path: str
+
+        :param runways_path: Path to the shapefile that contains the runways and their fraction of use.
+        :type runways_path: str
+
+        :return: GeoDataFrame with the trajectories information, their praction and staring point.
+        :rtype: geopandas.GeoDataFrame
+        """
         trajectories = gpd.read_file(trajectories_path)
 
         corners = gpd.read_file(runways_corners_path).to_crs(trajectories.crs)
@@ -176,6 +193,15 @@ class AviationSector(Sector):
         return trajectories
 
     def read_runway_shapefile(self, airport_runways_shapefile_path):
+        """
+        The master process reads the runway shapefile.
+
+        :param airport_runways_shapefile_path: Path to the shapefile that contains the runways.
+        :type airport_runways_shapefile_path: str
+
+        :return: GeoDataFrame with the runways information.
+        :rtype: geopandas.GeoDataFrame, None
+        """
         if self.comm.rank == 0:
             runway_shapefile = gpd.read_file(airport_runways_shapefile_path)
             runway_shapefile.set_index('airport_id', inplace=True)
@@ -252,6 +278,15 @@ class AviationSector(Sector):
         return operations
 
     def read_planes(self, planes_path):
+        """
+        Read the CSV with the planes information.
+
+        :param planes_path: Path to the CSV file that contains the planes information.
+        :type planes_path: str
+
+        :return: Dataframe with the planes information
+        :rtype: pandas.DataFrame
+        """
         check = False
         dataframe = pd.read_csv(planes_path)
         dataframe = dataframe.loc[dataframe['plane_id'].isin(self.plane_list)]
@@ -264,6 +299,15 @@ class AviationSector(Sector):
         return dataframe
 
     def read_times_info(self, times_path):
+        """
+        Read the CSV file that contains the time spent on each phase.
+
+        :param times_path: Path to the CSV file that contains the time spent on each phase.
+        :type times_path: str
+
+        :return: Dataframe with the times of each phase
+        :rtype: pandas.DataFrame
+        """
         dataframe = pd.read_csv(times_path)
         dataframe = dataframe.loc[dataframe['airport_id'].isin(self.airport_list)]
         dataframe.set_index(['airport_id', 'plane_type'], inplace=True)
@@ -319,6 +363,18 @@ class AviationSector(Sector):
         return shp_airport_list
 
     def calculate_airport_distribution(self, airport_shapefile):
+        """
+        Calculate the location and portion for the emissions that have to be distributed on the airport polygon.
+
+        It only need to be calculated once. the second execution will read the auxiliary file already created.
+        All the emissions that have to be distributed on the airport polygon goes to the surface layer.
+
+        :param airport_shapefile: Shapefile with the airport polygon geometries.
+        :type airport_shapefile: geopandas.GeoDataFrame
+
+        :return: DataFrame with the location (FID) and fraction for each airport.
+        :rtype: pandas.DataFrame
+        """
         print 'AIRPORT DISTRIBUTION'
         airport_distribution_path = os.path.join(self.auxiliray_dir, 'aviation', 'airport_distribution.csv')
 
@@ -346,6 +402,21 @@ class AviationSector(Sector):
         return airport_distribution
 
     def calculate_runway_distribution(self, runway_shapefile, phase_type):
+        """
+        Calculate the location and portion for the emissions that have to be distributed on the runway lines.
+
+        It only need to be calculated once. the second execution will read the auxiliary file already created.
+        All the emissions that have to be distributed on the runway line goes to the surface layer.
+
+        :param runway_shapefile: Shapefile with the runway line geometries.
+        :type runway_shapefile: geopandas.GeoDataFrame
+
+        :param phase_type: Phase type to distribute. Arrival or Departure.
+        :type phase_type: str
+
+        :return: DataFrame with the location (FID) and fraction for each airport.
+        :rtype: pandas.DataFrame
+        """
         def get_intersection_length(row):
             intersection = row.get('geometry_x').intersection(row.get('geometry_y'))
             return intersection.length
@@ -396,7 +467,22 @@ class AviationSector(Sector):
 
         return runway_shapefile
 
-    def calculate_trajectories_distribution(self, airport_trajectories_shapefile, vertical_levels, phase_type):
+    def calculate_trajectories_distribution(self, airport_trajectories_shapefile, phase_type):
+        """
+        Calculate the location and portion for the emissions that have to be distributed on the trajectories lines.
+
+        It only need to be calculated once. the second execution will read the auxiliary file already created.
+        That emissions have to be distributed also vertically.
+
+        :param airport_trajectories_shapefile: Shapefile with the trajectories information.
+        :type airport_trajectories_shapefile: geopandas.GeoDataFrame
+
+        :param phase_type: 'arrival' or 'departure' to indicate teh type of approach.
+        :type phase_type: str
+
+        :return: DataFrame with the location (FID & level) and fraction for each airport.
+        :rtype: pandas.DataFrame
+        """
         def get_vertical_intersection_length(row):
             circle = row.get('start_point').buffer(row.get('circle_radious'))
             return row.get('src_geometry').intersection(circle).length
@@ -440,7 +526,7 @@ class AviationSector(Sector):
                 # VERTICAL DISTRIBUTION
                 airport_trajectories_shapefile['length'] = airport_trajectories_shapefile['geometry'].length
                 trajectories_distr = []
-                for level, v_lev in enumerate(vertical_levels):
+                for level, v_lev in enumerate(self.vertical_levels):
                     dataframe = airport_trajectories_shapefile.copy()
                     dataframe.rename(columns={'geometry': 'src_geometry'}, inplace=True)
                     dataframe['layer'] = level
@@ -486,6 +572,15 @@ class AviationSector(Sector):
         return trajectories_distr
 
     def get_main_engine_emission(self, phase):
+        """
+        Calculate the main engine emissions for the given phase.
+
+        :param phase: Phase to calculate.
+        :type phase: str
+
+        :return: Dataframe with the emissions of the phase py airport.
+        :rtype: pandas.DataFrame
+        """
         def get_e(df):
             """
             Number of engines associated to each airport
@@ -580,6 +675,15 @@ class AviationSector(Sector):
         return dataframe
 
     def get_tyre_and_brake_wear_emission(self, phase):
+        """
+        Calculate the tyre and brake wear emissions for the given phase.
+
+        :param phase: Phase to calculate.
+        :type phase: str
+
+        :return: Dataframe with the emissions of the phase py airport.
+        :rtype: pandas.DataFrame
+        """
         def get_mtow(df):
             """
             Maximum take-off weight associated to aircraft
@@ -665,7 +769,16 @@ class AviationSector(Sector):
 
         return dataframe
 
-    def get_auxiliar_power_unit_emission(self, phase):
+    def get_auxiliary_power_unit_emission(self, phase):
+        """
+        Calculate the auxiliary power unit (APU) emissions for the given phase.
+
+        :param phase: Phase to calculate.
+        :type phase: str
+
+        :return: Dataframe with the emissions of the phase py airport.
+        :rtype: pandas.DataFrame
+        """
         def get_t(df):
             """
             Time spent by each aircraft to complete tha selected phase (s)
@@ -756,6 +869,18 @@ class AviationSector(Sector):
         return dataframe
 
     def distribute(self, dataframe, distribution):
+        """
+        Distributes the airport emissions by the given distribution.
+
+        :param dataframe: Emissions by airport.
+        :type dataframe: pandas.DataFrame
+
+        :param distribution: Involved cells by airport.
+        :type distribution: pandas.DataFrame
+
+        :return: Emissions distributed by cell (FID)
+        :rtype: pandas.DataFrame
+        """
         pollutants = dataframe.columns.values
         dataframe.reset_index(inplace=True)
         distribution.reset_index(inplace=True)
@@ -768,6 +893,12 @@ class AviationSector(Sector):
         return dataframe
 
     def calculate_emissions(self):
+        """
+        Main function to calculate the emissions for the Landing and take off airport emissions.
+
+        :return: Airport emissions distributed by cell (FID), layer and time step.
+        :rtype: pandas.DataFrame
+        """
         print 'READY TO CALCULATE'
         taxi_out = self.get_main_engine_emission('taxi_out')
         taxi_in = self.get_main_engine_emission('taxi_in')
@@ -778,8 +909,8 @@ class AviationSector(Sector):
 
         landing_wear = self.get_tyre_and_brake_wear_emission('landing_wear')
 
-        post_taxi_in = self.get_auxiliar_power_unit_emission('post-taxi_in')
-        pre_taxi_out = self.get_auxiliar_power_unit_emission('pre-taxi_out')
+        post_taxi_in = self.get_auxiliary_power_unit_emission('post-taxi_in')
+        pre_taxi_out = self.get_auxiliary_power_unit_emission('pre-taxi_out')
 
         airport_emissions = pd.concat([pre_taxi_out, taxi_out, taxi_in, post_taxi_in])
         airport_emissions = airport_emissions.groupby(['airport_id', 'tstep']).sum()
