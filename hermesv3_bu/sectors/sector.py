@@ -11,8 +11,8 @@ from mpi4py import MPI
 class Sector(object):
 
     def __init__(self, comm, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
-                 weekly_profiles_path, hourly_profiles_path, speciation_map_path, speciation_profiles_path,
-                 molecular_weights_path):
+                 monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
+                 speciation_profiles_path, molecular_weights_path):
         """
         Initialize the main sector class with the common arguments and methods.
 
@@ -35,14 +35,17 @@ class Sector(object):
         :param vertical_levels: List of top level of each vertical layer.
         :type vertical_levels: list
 
+        :param monthly_profiles_path: Path to the CSV file that contains all the monthly profiles. The CSV file must
+            contain the following columns [P_month, January, February, March, April, May, June, July, August, September,
+            October, November, December]
+        :type monthly_profiles_path: str
+
         :param weekly_profiles_path: Path to the CSV file that contains all the weekly profiles. The CSV file must
             contain the following columns [P_week, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday]
-            The P_week code have to be the input pollutant.
         :type weekly_profiles_path: str
 
         :param hourly_profiles_path: Path to the CSV file that contains all the hourly profiles. The CSV file must
             contain the following columns [P_hour, 0, 1, 2, 3, ..., 22, 23]
-            The P_week code have to be the input pollutant.
         :type hourly_profiles_path: str
 
         :param speciation_map_path: Path to the CSV file that contains the speciation map. The CSV file must contain
@@ -71,6 +74,7 @@ class Sector(object):
         self.vertical_levels = vertical_levels
 
         # Reading temporal profiles
+        self.monthly_profiles = self.read_monthly_profiles(monthly_profiles_path)
         self.weekly_profiles = self.read_weekly_profiles(weekly_profiles_path)
         self.hourly_profiles = self.read_hourly_profiles(hourly_profiles_path)
 
@@ -199,7 +203,7 @@ class Sector(object):
             columns={'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6, 'July': 7,
                      'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12},
             inplace=True)
-
+        profiles.set_index('P_month', inplace=True)
         return profiles
 
     @staticmethod
@@ -244,6 +248,7 @@ class Sector(object):
                      '17': 17, '18': 18, '19': 19, '20': 20, '21': 21, '22': 22, '23': 23}, inplace=True)
         profiles.columns = profiles.columns.astype(int)
         profiles.rename(columns={-1: 'P_hour'}, inplace=True)
+        profiles.set_index('P_hour', inplace=True)
 
         return profiles
 

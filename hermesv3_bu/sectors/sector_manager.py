@@ -12,7 +12,6 @@ class SectorManager(object):
         for sector, sector_procs in self.sector_list.iteritems():
             if sector == 'aviation' and comm_world.Get_rank() in sector_procs:
                 print '{0} -> {1}, {2}'.format(comm_world.Get_rank(), sector, sector_procs)
-                exit()
                 from hermesv3_bu.sectors.aviation_sector import AviationSector
                 self.sector = AviationSector(comm_world.Split(color, comm_world.Get_rank() - sector_procs[0]),
                                              arguments.auxiliary_files_path, grid.shapefile, clip,
@@ -28,7 +27,26 @@ class SectorManager(object):
                                              arguments.molecular_weights)
             elif sector == 'shipping_port' and comm_world.Get_rank() in sector_procs:
                 print '{0} -> {1}, {2}'.format(comm_world.Get_rank(), sector, sector_procs)
-                exit()
+                from hermesv3_bu.sectors.shipping_port_sector import ShippingPortSector
+                self.sector = ShippingPortSector(comm_world.Split(color, comm_world.Get_rank() - sector_procs[0]),
+                                                 arguments.auxiliary_files_path, grid.shapefile, clip, date_array,
+                                                 arguments.shipping_port_source_pollutants,
+                                                 grid.vertical_desctiption,
+                                                 arguments.vessel_list,
+                                                 arguments.port_list,
+                                                 arguments.hoteling_shapefile_path,
+                                                 arguments.maneuvering_shapefile_path,
+                                                 arguments.shipping_port_ef_path,
+                                                 arguments.shipping_port_engine_percent_path,
+                                                 arguments.shipping_port_tonnage_path,
+                                                 arguments.shipping_port_load_factor_path,
+                                                 arguments.shipping_port_power_path,
+                                                 arguments.shipping_port_monthly_profiles,
+                                                 arguments.shipping_port_weekly_profiles,
+                                                 arguments.shipping_port_hourly_profiles,
+                                                 arguments.speciation_map,
+                                                 arguments.shipping_port_speciation_profiles,
+                                                 arguments.molecular_weights,)
             color += 1
 
     def run(self):

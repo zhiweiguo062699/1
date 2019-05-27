@@ -120,8 +120,9 @@ class AviationSector(Sector):
         """
 
         super(AviationSector, self).__init__(
-            comm, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels, weekly_profiles_path,
-            hourly_profiles_path, speciation_map_path, speciation_profiles_path, molecular_weights_path)
+            comm, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels, None,
+            weekly_profiles_path, hourly_profiles_path, speciation_map_path, speciation_profiles_path,
+            molecular_weights_path)
 
         if 'hc' in self.source_pollutants:
             for poll in ['nmvoc', 'ch4']:

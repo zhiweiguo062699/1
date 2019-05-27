@@ -208,6 +208,22 @@ class Config(ArgParser):
         p.add_argument('--aviation_hourly_profiles', required=False, help='...')
         p.add_argument('--aviation_speciation_profiles', required=False, help='...')
 
+        # ***** SHIPPING PORT SECTOR *****
+        p.add('--shipping_port_source_pollutants', required=False, help='...')
+        p.add('--vessel_list', required=False, help='...')
+        p.add('--port_list', required=False, help='...')
+        p.add('--hoteling_shapefile_path', required=False, help='...')
+        p.add('--maneuvering_shapefile_path', required=False, help='...')
+        p.add('--shipping_port_ef_path', required=False, help='...')
+        p.add('--shipping_port_engine_percent_path', required=False, help='...')
+        p.add('--shipping_port_tonnage_path', required=False, help='...')
+        p.add('--shipping_port_load_factor_path', required=False, help='...')
+        p.add('--shipping_port_power_path', required=False, help='...')
+        p.add('--shipping_port_monthly_profiles', required=False, help='...')
+        p.add('--shipping_port_weekly_profiles', required=False, help='...')
+        p.add('--shipping_port_hourly_profiles', required=False, help='...')
+        p.add('--shipping_port_speciation_profiles', required=False, help='...')
+
         arguments = p.parse_args()
 
         for item in vars(arguments):
@@ -257,6 +273,10 @@ class Config(ArgParser):
         arguments.airport_list = self._parse_list(arguments.airport_list)
         arguments.plane_list = self._parse_list(arguments.plane_list)
         arguments.aviation_source_pollutants = self._parse_list(arguments.aviation_source_pollutants)
+
+        arguments.shipping_port_source_pollutants = self._parse_list(arguments.shipping_port_source_pollutants)
+        arguments.vessel_list = self._parse_list(arguments.vessel_list)
+        arguments.port_list = self._parse_list(arguments.port_list)
 
         return arguments
 
