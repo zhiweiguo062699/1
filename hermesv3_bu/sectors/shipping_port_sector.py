@@ -194,7 +194,7 @@ class ShippingPortSector(Sector):
             else:
                 engine = 'AE'
             aux1 = self.engine_percent.loc[(self.engine_percent['Type_vessel'] == df.name) &
-                                          (self.engine_percent['Engine'] == engine), ['Engine_fuel', 'Factor']]
+                                           (self.engine_percent['Engine'] == engine), ['Engine_fuel', 'Factor']]
             aux2 = self.ef_engine.loc[(self.ef_engine['Engine'] == engine) &
                                       (self.ef_engine['Engine_fuel'].isin(aux1['Engine_fuel'].values)),
                                       ['Engine_fuel', 'EF_{0}'.format(pollutant)]]
@@ -228,16 +228,18 @@ class ShippingPortSector(Sector):
         manoeuvring = pd.DataFrame(index=constants.index)
         hoteling = pd.DataFrame(index=constants.index)
         for pollutant in self.source_pollutants:
-            manoeuvring['{0}'.format(pollutant)] = constants['P'] * constants['N'] * constants['LF_mm'] * \
-                                                   constants['T_m'] * constants['EF_m_{0}'.format(pollutant)]
-            hoteling['{0}'.format(pollutant)] = constants['P'] * constants['N'] * constants['LF_hm'] * \
-                                                constants['T_h'] * constants['EF_m_{0}'.format(pollutant)]
-            manoeuvring['{0}'.format(pollutant)] += constants['P'] * constants['Rae'] * constants['N'] * \
-                                                    constants['LF_ma'] * constants['T_m'] * \
-                                                    constants['EF_a_{0}'.format(pollutant)]
-            hoteling['{0}'.format(pollutant)] += constants['P'] * constants['Rae'] * constants['N'] * \
-                                                 constants['LF_ha'] * constants['T_h'] * \
-                                                 constants['EF_a_{0}'.format(pollutant)]
+            manoeuvring['{0}'.format(pollutant)] = \
+                constants['P'] * constants['N'] * constants['LF_mm'] * constants['T_m'] * \
+                constants['EF_m_{0}'.format(pollutant)]
+            hoteling['{0}'.format(pollutant)] = \
+                constants['P'] * constants['N'] * constants['LF_hm'] * constants['T_h'] * \
+                constants['EF_m_{0}'.format(pollutant)]
+            manoeuvring['{0}'.format(pollutant)] += \
+                constants['P'] * constants['Rae'] * constants['N'] * constants['LF_ma'] * constants['T_m'] * \
+                constants['EF_a_{0}'.format(pollutant)]
+            hoteling['{0}'.format(pollutant)] += \
+                constants['P'] * constants['Rae'] * constants['N'] * constants['LF_ha'] * constants['T_h'] * \
+                constants['EF_a_{0}'.format(pollutant)]
 
         return [manoeuvring, hoteling]
 
@@ -280,11 +282,6 @@ class ShippingPortSector(Sector):
                                                                       df.name)
             df['WF'] = weekly_profile[df.name.weekday()]
             return df.loc[:, ['WF']]
-            #weekly_profile = self.weekly_profiles.loc['default', xrange(7)].values.T
-            # weekday_factor = self.calculate_rebalance_factor(weekly_profile, df.name)
-            #
-            # df['WF'] = weekday_factor
-            # return df.loc[:, ['WF']]
 
         def get_hf(df):
             hourly_profile = self.hourly_profiles.loc['default', :].to_dict()
