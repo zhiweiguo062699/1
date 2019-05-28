@@ -377,7 +377,7 @@ class AviationSector(Sector):
         :rtype: pandas.DataFrame
         """
         print 'AIRPORT DISTRIBUTION'
-        airport_distribution_path = os.path.join(self.auxiliray_dir, 'aviation', 'airport_distribution.csv')
+        airport_distribution_path = os.path.join(self.auxiliary_dir, 'aviation', 'airport_distribution.csv')
 
         if not os.path.exists(airport_distribution_path):
             if self.comm.rank == 0:
@@ -430,7 +430,7 @@ class AviationSector(Sector):
         print 'RUNWAY DISTRIBUTION'
 
         runway_distribution_path = os.path.join(
-            self.auxiliray_dir, 'aviation', 'runway_{0}_distribution.csv'.format(phase_type))
+            self.auxiliary_dir, 'aviation', 'runway_{0}_distribution.csv'.format(phase_type))
 
         if not os.path.exists(runway_distribution_path):
             if self.comm.rank == 0:
@@ -509,7 +509,7 @@ class AviationSector(Sector):
 
         print 'TRAJECTORIES DISTRIBUTION'
         trajectories_distribution_path = os.path.join(
-            self.auxiliray_dir, 'aviation', 'trajectories_{0}_distribution.csv'.format(phase_type))
+            self.auxiliary_dir, 'aviation', 'trajectories_{0}_distribution.csv'.format(phase_type))
 
         if not os.path.exists(trajectories_distribution_path):
             if self.comm.rank == 0:

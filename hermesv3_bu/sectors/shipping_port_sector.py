@@ -338,7 +338,7 @@ class ShippingPortSector(Sector):
 
         dataframe.drop(columns=['src_inter_fraction', 'idx1', 'geometry'], inplace=True)
         dataframe['layer'] = 0
-
+        dataframe = dataframe.loc[:, ~dataframe.columns.duplicated()]
         dataframe = dataframe.groupby(['FID', 'layer', 'tstep']).sum()
 
         return dataframe

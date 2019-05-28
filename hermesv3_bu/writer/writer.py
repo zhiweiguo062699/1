@@ -49,6 +49,7 @@ def select_writer(arguments, grid, date_array):
     comm_write = comm_world.Split(color, comm_world.Get_rank())
 
     pollutant_info = pd.read_csv(arguments.speciation_map, usecols=['dst', 'description', 'units'], index_col='dst')
+    pollutant_info = pollutant_info.loc[~pollutant_info.index.duplicated(keep='first')]
 
     if arguments.output_model == 'DEFAULT':
         from hermesv3_bu.writer.default_writer import DefaultWriter

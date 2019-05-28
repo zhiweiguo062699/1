@@ -1,15 +1,127 @@
 #!/usr/bin/env python
 
 import sys
-import os
-
+from mpi4py import MPI
 
 from hermesv3_bu.io_server.io_server import IoServer
 
 
 class IoNetcdf(IoServer):
-    def __init__(self):
-        super(IoNetcdf, self).__init__()
+    def __init__(self, comm):
+        if comm is None:
+            comm = MPI.COMM_WORLD
+        super(IoNetcdf, self).__init__(comm)
+
+    def get_data_from_netcdf(self, netcdf_path, var_name, date_type, date, geometry_df):
+        """
+        Read for extract a NetCDF variable in the desired points.
+
+        :param netcdf_path: Path to the NetCDF that contains the data to extract.
+        :type netcdf_path: str
+
+        :param var_name: Name of the NetCDF variable to extract.
+        :type var_name: str
+
+        :param date_type: Option to set if we want to extract a 'daily' variable or a 'yearly' one.
+        :type date_type: str
+
+        :param date: Date of the day to extract.
+        :type date: datetime.date
+
+        :param geometry_df: GeoDataframe with the point where extract the variables.
+        :type geometry_df: geopandas.GeoDataframe
+
+        :return: GeoDataframe with the data in the desired points.
+        :rtype: geopandas.GeoDataframe
+        """
+        import numpy as np
+        import geopandas as gpd
+        from netCDF4 import Dataset
+        from shapely.geometry import Point
+        from cf_units import num2date, CALENDAR_STANDARD
+
+        nc = Dataset(netcdf_path, mode='r')
+        lat_o = nc.variables['latitude'][:]
+        lon_o = nc.variables['longitude'][:]
+
+        if date_type == 'daily':
+            time = nc.variables['time']
+            # From time array to list of dates.
+            time_array = num2date(time[:], time.units, CALENDAR_STANDARD)
+            time_array = np.array([aux.date() for aux in time_array])
+            i_time = np.where(time_array == date)[0][0]
+        elif date_type == 'yearly':
+            i_time = 0
+
+        # Find the index to read all the necessary information but avoiding to read as many unused data as we can
+        i_min, i_max, j_min, j_max = self.find_lonlat_index(
+            lon_o, lat_o, geometry_df['c_lon'].min(), geometry_df['c_lon'].max(),
+            geometry_df['c_lat'].min(), geometry_df['c_lat'].max())
+
+        # Clips the lat lons
+        lon_o = lon_o[i_min:i_max]
+        lat_o = lat_o[j_min:j_max]
+
+        # From 1D to 2D
+        lat = np.array([lat_o[:]] * len(lon_o[:])).T.flatten()
+        lon = np.array([lon_o[:]] * len(lat_o[:])).flatten()
+        del lat_o, lon_o
+
+        # Reads the tas variable of the xone and the times needed.
+        var = nc.variables[var_name][i_time, j_min:j_max, i_min:i_max]
+        nc.close()
+
+        var_df = gpd.GeoDataFrame(var.flatten().T, columns=[var_name], crs={'init': 'epsg:4326'},
+                                  geometry=[Point(xy) for xy in zip(lon, lat)])
+        var_df.loc[:, 'REC'] = var_df.index
+
+        return var_df
+
+    @staticmethod
+    def find_lonlat_index(lon, lat, lon_min, lon_max, lat_min, lat_max):
+        """
+        Find the NetCDF index to extract all the data avoiding the maximum of unused data.
+
+        :param lon: Longitudes array from the NetCDF.
+        :type lon: numpy.array
+
+        :param lat: Latitude array from the NetCDF.
+        :type lat: numpy.array
+
+        :param lon_min: Minimum longitude of the point for the needed date.
+        :type lon_min float
+
+        :param lon_max: Maximum longitude of the point for the needed date.
+        :type lon_max: float
+
+        :param lat_min: Minimum latitude of the point for the needed date.
+        :type lat_min: float
+
+        :param lat_max: Maximum latitude of the point for the needed date.
+        :type lat_max: float
+
+        :return: Tuple with the four index of the NetCDF
+        :rtype: tuple
+        """
+        import numpy as np
+
+        aux = lon - lon_min
+        aux[aux > 0] = np.nan
+        i_min = np.where(aux == np.nanmax(aux))[0][0]
+
+        aux = lon - lon_max
+        aux[aux < 0] = np.nan
+        i_max = np.where(aux == np.nanmin(aux))[0][0]
+
+        aux = lat - lat_min
+        aux[aux > 0] = np.nan
+        j_max = np.where(aux == np.nanmax(aux))[0][0]
+
+        aux = lat - lat_max
+        aux[aux < 0] = np.nan
+        j_min = np.where(aux == np.nanmin(aux))[0][0]
+
+        return i_min, i_max + 1, j_min, j_max + 1
 
 
 def write_coords_netcdf(netcdf_path, center_latitudes, center_longitudes, data_list, levels=None, date=None, hours=None,
@@ -249,3 +361,5 @@ def write_coords_netcdf(netcdf_path, center_latitudes, center_longitudes, data_l
         netcdf.setncatts(global_attributes)
 
     netcdf.close()
+
+

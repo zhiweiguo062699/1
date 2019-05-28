@@ -209,20 +209,33 @@ class Config(ArgParser):
         p.add_argument('--aviation_speciation_profiles', required=False, help='...')
 
         # ***** SHIPPING PORT SECTOR *****
-        p.add('--shipping_port_source_pollutants', required=False, help='...')
-        p.add('--vessel_list', required=False, help='...')
-        p.add('--port_list', required=False, help='...')
-        p.add('--hoteling_shapefile_path', required=False, help='...')
-        p.add('--maneuvering_shapefile_path', required=False, help='...')
-        p.add('--shipping_port_ef_path', required=False, help='...')
-        p.add('--shipping_port_engine_percent_path', required=False, help='...')
-        p.add('--shipping_port_tonnage_path', required=False, help='...')
-        p.add('--shipping_port_load_factor_path', required=False, help='...')
-        p.add('--shipping_port_power_path', required=False, help='...')
-        p.add('--shipping_port_monthly_profiles', required=False, help='...')
-        p.add('--shipping_port_weekly_profiles', required=False, help='...')
-        p.add('--shipping_port_hourly_profiles', required=False, help='...')
-        p.add('--shipping_port_speciation_profiles', required=False, help='...')
+        p.add_argument('--shipping_port_source_pollutants', required=False, help='...')
+        p.add_argument('--vessel_list', required=False, help='...')
+        p.add_argument('--port_list', required=False, help='...')
+        p.add_argument('--hoteling_shapefile_path', required=False, help='...')
+        p.add_argument('--maneuvering_shapefile_path', required=False, help='...')
+        p.add_argument('--shipping_port_ef_path', required=False, help='...')
+        p.add_argument('--shipping_port_engine_percent_path', required=False, help='...')
+        p.add_argument('--shipping_port_tonnage_path', required=False, help='...')
+        p.add_argument('--shipping_port_load_factor_path', required=False, help='...')
+        p.add_argument('--shipping_port_power_path', required=False, help='...')
+        p.add_argument('--shipping_port_monthly_profiles', required=False, help='...')
+        p.add_argument('--shipping_port_weekly_profiles', required=False, help='...')
+        p.add_argument('--shipping_port_hourly_profiles', required=False, help='...')
+        p.add_argument('--shipping_port_speciation_profiles', required=False, help='...')
+
+        # ***** LIVESTOCK SECTOR *****
+        p.add_argument('--livestock_source_pollutants', required=False, help='...')
+        p.add_argument('--animal_list', required=False, help='...')
+        p.add_argument('--gridded_livestock', required=False, help='...')
+        p.add_argument('--correction_split_factors', required=False, help='...')
+        p.add_argument('--denominator_yearly_factor_dir', required=False, help='...')
+        p.add_argument('--livestock_ef_files_dir', required=False, help='...')
+        p.add_argument('--livestock_monthly_profiles', required=False, help='...')
+        p.add_argument('--livestock_weekly_profiles', required=False, help='...')
+        p.add_argument('--livestock_hourly_profiles', required=False, help='...')
+        p.add_argument('--livestock_speciation_map', required=False, help='...')
+        p.add_argument('--livestock_speciation_profiles', required=False, help='...')
 
         arguments = p.parse_args()
 
@@ -270,13 +283,19 @@ class Config(ArgParser):
         arguments.do_crop_fertilizers = self._parse_bool(arguments.do_crop_fertilizers)
         arguments.do_agricultural_machinery = self._parse_bool(arguments.do_agricultural_machinery)
 
+        # Aviation
         arguments.airport_list = self._parse_list(arguments.airport_list)
         arguments.plane_list = self._parse_list(arguments.plane_list)
         arguments.aviation_source_pollutants = self._parse_list(arguments.aviation_source_pollutants)
 
+        # Shipping Port
         arguments.shipping_port_source_pollutants = self._parse_list(arguments.shipping_port_source_pollutants)
         arguments.vessel_list = self._parse_list(arguments.vessel_list)
         arguments.port_list = self._parse_list(arguments.port_list)
+
+        # Livestock
+        arguments.livestock_source_pollutants = self._parse_list(arguments.livestock_source_pollutants)
+        arguments.animal_list = self._parse_list(arguments.animal_list)
 
         return arguments
 

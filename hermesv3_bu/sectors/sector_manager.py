@@ -10,43 +10,42 @@ class SectorManager(object):
 
         color = 10
         for sector, sector_procs in self.sector_list.iteritems():
+            print '{0} -> {1}, {2}'.format(comm_world.Get_rank(), sector, sector_procs)
             if sector == 'aviation' and comm_world.Get_rank() in sector_procs:
-                print '{0} -> {1}, {2}'.format(comm_world.Get_rank(), sector, sector_procs)
                 from hermesv3_bu.sectors.aviation_sector import AviationSector
-                self.sector = AviationSector(comm_world.Split(color, comm_world.Get_rank() - sector_procs[0]),
-                                             arguments.auxiliary_files_path, grid.shapefile, clip,
-                                             date_array, arguments.aviation_source_pollutants,
-                                             grid.vertical_desctiption, arguments.airport_list, arguments.plane_list,
-                                             arguments.airport_shapefile_path, arguments.airport_runways_shapefile_path,
-                                             arguments.airport_runways_corners_shapefile_path,
-                                             arguments.airport_trajectories_shapefile_path,
-                                             arguments.airport_operations_path, arguments.planes_path,
-                                             arguments.airport_times_path, arguments.airport_ef_dir,
-                                             arguments.aviation_weekly_profiles, arguments.aviation_hourly_profiles,
-                                             arguments.speciation_map, arguments.aviation_speciation_profiles,
-                                             arguments.molecular_weights)
+                self.sector = AviationSector(
+                    comm_world.Split(color, comm_world.Get_rank() - sector_procs[0]), arguments.auxiliary_files_path,
+                    grid.shapefile, clip, date_array, arguments.aviation_source_pollutants, grid.vertical_desctiption,
+                    arguments.airport_list, arguments.plane_list, arguments.airport_shapefile_path,
+                    arguments.airport_runways_shapefile_path, arguments.airport_runways_corners_shapefile_path,
+                    arguments.airport_trajectories_shapefile_path, arguments.airport_operations_path,
+                    arguments.planes_path, arguments.airport_times_path, arguments.airport_ef_dir,
+                    arguments.aviation_weekly_profiles, arguments.aviation_hourly_profiles, arguments.speciation_map,
+                    arguments.aviation_speciation_profiles, arguments.molecular_weights)
             elif sector == 'shipping_port' and comm_world.Get_rank() in sector_procs:
-                print '{0} -> {1}, {2}'.format(comm_world.Get_rank(), sector, sector_procs)
                 from hermesv3_bu.sectors.shipping_port_sector import ShippingPortSector
-                self.sector = ShippingPortSector(comm_world.Split(color, comm_world.Get_rank() - sector_procs[0]),
-                                                 arguments.auxiliary_files_path, grid.shapefile, clip, date_array,
-                                                 arguments.shipping_port_source_pollutants,
-                                                 grid.vertical_desctiption,
-                                                 arguments.vessel_list,
-                                                 arguments.port_list,
-                                                 arguments.hoteling_shapefile_path,
-                                                 arguments.maneuvering_shapefile_path,
-                                                 arguments.shipping_port_ef_path,
-                                                 arguments.shipping_port_engine_percent_path,
-                                                 arguments.shipping_port_tonnage_path,
-                                                 arguments.shipping_port_load_factor_path,
-                                                 arguments.shipping_port_power_path,
-                                                 arguments.shipping_port_monthly_profiles,
-                                                 arguments.shipping_port_weekly_profiles,
-                                                 arguments.shipping_port_hourly_profiles,
-                                                 arguments.speciation_map,
-                                                 arguments.shipping_port_speciation_profiles,
-                                                 arguments.molecular_weights,)
+                self.sector = ShippingPortSector(
+                    comm_world.Split(color, comm_world.Get_rank() - sector_procs[0]), arguments.auxiliary_files_path,
+                    grid.shapefile, clip, date_array, arguments.shipping_port_source_pollutants,
+                    grid.vertical_desctiption, arguments.vessel_list, arguments.port_list,
+                    arguments.hoteling_shapefile_path, arguments.maneuvering_shapefile_path,
+                    arguments.shipping_port_ef_path, arguments.shipping_port_engine_percent_path,
+                    arguments.shipping_port_tonnage_path, arguments.shipping_port_load_factor_path,
+                    arguments.shipping_port_power_path, arguments.shipping_port_monthly_profiles,
+                    arguments.shipping_port_weekly_profiles, arguments.shipping_port_hourly_profiles,
+                    arguments.speciation_map, arguments.shipping_port_speciation_profiles, arguments.molecular_weights)
+            elif sector == 'livestock' and comm_world.Get_rank() in sector_procs:
+                print 'Livestock'
+                from hermesv3_bu.sectors.livestock_sector import LivestockSector
+                self.sector = LivestockSector(
+                    comm_world.Split(color, comm_world.Get_rank() - sector_procs[0]), arguments.auxiliary_files_path,
+                    grid.shapefile, clip, date_array, arguments.livestock_source_pollutants, grid.vertical_desctiption,
+                    arguments.animal_list, arguments.gridded_livestock, arguments.correction_split_factors,
+                    arguments.temperature_daily_files_path, arguments.wind_speed_daily_files_path,
+                    arguments.denominator_yearly_factor_dir, arguments.livestock_ef_files_dir,
+                    arguments.livestock_monthly_profiles, arguments.livestock_weekly_profiles,
+                    arguments.livestock_hourly_profiles, arguments.speciation_map,
+                    arguments.livestock_speciation_profiles, arguments.molecular_weights, arguments.nut_shapefile_prov)
             color += 1
 
     def run(self):

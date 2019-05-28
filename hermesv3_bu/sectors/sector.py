@@ -65,7 +65,7 @@ class Sector(object):
 
         """
         self.comm = comm
-        self.auxiliray_dir = auxiliary_dir
+        self.auxiliary_dir = auxiliary_dir
         self.grid_shp = grid_shp
         self.clip = clip
         self.date_array = date_array
@@ -385,6 +385,39 @@ class Sector(object):
         return dataframe
 
     @staticmethod
+    def add_nut_code(shapefile, nut_shapefile_path, nut_value='ORDER06'):
+        """
+        Add 'nut_code' column into the shapefile based on the 'nut_value' column of the 'nut_shapefile_path' shapefile.
+
+        The elements that are not into any NUT will be dropped.
+        If an element belongs to two NUTs will be set the fist one that appear in the 'nut_shapefile_path' shapefile.
+
+        :param shapefile: Shapefile where add the NUT code.
+        :type shapefile: geopandas.GeoDataframe
+
+        :param nut_shapefile_path: Path to the shapefile with the polygons that contains the NUT code into the
+            'nut_value' column.
+        :type nut_shapefile_path: str
+
+        :param nut_value: Column name of the NUT codes.
+        :type nut_value: str
+
+        :return: Shapefile with the 'nut_code' column set.
+        :rtype: geopandas.GeoDataframe
+        """
+        nut_shapefile = gpd.read_file(nut_shapefile_path).to_crs(shapefile.crs)
+        shapefile = gpd.sjoin(shapefile, nut_shapefile.loc[:, [nut_value, 'geometry']], how='left', op='intersects')
+
+        shapefile = shapefile[~shapefile.index.duplicated(keep='first')]
+        shapefile.drop('index_right', axis=1, inplace=True)
+
+        shapefile.rename(columns={nut_value: 'nut_code'}, inplace=True)
+        shapefile.loc[shapefile['nut_code'].isna(), 'nut_code'] = -999
+        shapefile['nut_code'] = shapefile['nut_code'].astype(np.int16)
+
+        return shapefile
+
+    @staticmethod
     def spatial_overlays(df1, df2, how='intersection'):
         """
         Compute overlay intersection of two GeoPandasDataFrames df1 and df2
@@ -439,6 +472,20 @@ class Sector(object):
             df1.drop(['bbox', 'histreg', 'new_g'], axis=1, inplace=True)
             return df1
 
+    @staticmethod
+    def nearest(row, geom_union, df1, df2, geom1_col='geometry', geom2_col='geometry', src_column=None):
+        """Finds the nearest point and return the corresponding value from specified column.
+        https://automating-gis-processes.github.io/2017/lessons/L3/nearest-neighbour.html#nearest-points-using-geopandas
+        """
+        from shapely.ops import nearest_points
+
+        # Find the geometry that is closest
+        nearest = df2[geom2_col] == nearest_points(row[geom1_col], geom_union)[1]
+        # Get the corresponding value from df2 (matching is based on the geometry)
+        value = df2[nearest][src_column].get_values()[0]
+
+        return value
+
     def speciate(self, dataframe, code):
         print('Speciation')
         new_dataframe = pd.DataFrame(index=dataframe.index, data=None)
@@ -461,3 +508,6 @@ class Sector(object):
                      (dataframe['pm25'] / self.molecular_weights['pm25'])) * \
                     self.speciation_profile.loc[code, out_pollutant]
         return new_dataframe
+
+    def get_output_pollutants(self, input_pollutant):
+        return [outs for outs, ints in self.speciation_map.iteritems() if ints == input_pollutant]
