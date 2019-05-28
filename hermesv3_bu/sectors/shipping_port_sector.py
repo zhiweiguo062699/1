@@ -164,8 +164,10 @@ class ShippingPortSector(Sector):
             aux.rename(columns={'GT_{0}'.format(df.name): 'GT'}, inplace=True)
             aux['vessel'] = df.name
             aux.set_index(['code', 'vessel'], inplace=True)
-            aux['P'] = np.power(aux['GT'], self.power_values.loc[self.power_values['Type_vessel'] == df.name, 'GT_exp'].values[0])
-            df['P'] = aux['P'].multiply(self.power_values.loc[self.power_values['Type_vessel'] == df.name, 'Value'].values[0])
+            aux['P'] = np.power(aux['GT'], self.power_values.loc[self.power_values['Type_vessel'] == df.name,
+                                                                 'GT_exp'].values[0])
+            df['P'] = aux['P'].multiply(self.power_values.loc[self.power_values['Type_vessel'] == df.name,
+                                                              'Value'].values[0])
             return df.loc[:, ['P']]
 
         def get_rae(df):
@@ -173,7 +175,8 @@ class ShippingPortSector(Sector):
             return df.loc[:, ['Rae']]
 
         def get_t(df, phase):
-            df['T'] = self.load_factor.loc[(self.load_factor['Type_vessel'] == df.name) & (self.load_factor['Phase'] == phase), 'time'].values[0]
+            df['T'] = self.load_factor.loc[(self.load_factor['Type_vessel'] == df.name) &
+                                           (self.load_factor['Phase'] == phase), 'time'].values[0]
             return df.loc[:, ['T']]
 
         def get_lf(df, phase, engine):
@@ -181,7 +184,8 @@ class ShippingPortSector(Sector):
                 col_name = 'LF_ME'
             else:
                 col_name = 'LF_AE'
-            df['LF'] = self.load_factor.loc[(self.load_factor['Type_vessel'] == df.name) & (self.load_factor['Phase'] == phase), col_name].values[0]
+            df['LF'] = self.load_factor.loc[(self.load_factor['Type_vessel'] == df.name) &
+                                            (self.load_factor['Phase'] == phase), col_name].values[0]
             return df.loc[:, ['LF']]
 
         def get_ef(df, engine, pollutant):
@@ -200,7 +204,8 @@ class ShippingPortSector(Sector):
             df['EF'] = aux['value'].sum()
             return df.loc[:, ['EF']]
 
-        dataframe = pd.DataFrame(index=pd.MultiIndex.from_product([self.port_list, self.vessel_list], names=['code', 'vessel']))
+        dataframe = pd.DataFrame(index=pd.MultiIndex.from_product([self.port_list, self.vessel_list],
+                                                                  names=['code', 'vessel']))
         dataframe['N'] = dataframe.groupby('vessel').apply(get_n)
         dataframe['P'] = dataframe.groupby('vessel').apply(get_p)
         dataframe['Rae'] = dataframe.groupby('vessel').apply(get_rae)
@@ -211,8 +216,10 @@ class ShippingPortSector(Sector):
         dataframe['T_m'] = dataframe.groupby('vessel').apply(lambda x: get_t(x, 'manoeuvring'))
         dataframe['T_h'] = dataframe.groupby('vessel').apply(lambda x: get_t(x, 'hoteling'))
         for pollutant in self.source_pollutants:
-            dataframe['EF_m_{0}'.format(pollutant)] = dataframe.groupby('vessel').apply(lambda x: get_ef(x, 'main', pollutant))
-            dataframe['EF_a_{0}'.format(pollutant)] = dataframe.groupby('vessel').apply(lambda x: get_ef(x, 'aux', pollutant))
+            dataframe['EF_m_{0}'.format(pollutant)] = dataframe.groupby('vessel').apply(
+                lambda x: get_ef(x, 'main', pollutant))
+            dataframe['EF_a_{0}'.format(pollutant)] = dataframe.groupby('vessel').apply(
+                lambda x: get_ef(x, 'aux', pollutant))
 
         return dataframe
 
@@ -221,10 +228,16 @@ class ShippingPortSector(Sector):
         manoeuvring = pd.DataFrame(index=constants.index)
         hoteling = pd.DataFrame(index=constants.index)
         for pollutant in self.source_pollutants:
-            manoeuvring['{0}'.format(pollutant)] = constants['P'] * constants['N'] * constants['LF_mm'] * constants['T_m'] * constants['EF_m_{0}'.format(pollutant)]
-            hoteling['{0}'.format(pollutant)] = constants['P'] * constants['N'] * constants['LF_hm'] * constants['T_h'] * constants['EF_m_{0}'.format(pollutant)]
-            manoeuvring['{0}'.format(pollutant)] += constants['P'] * constants['Rae'] * constants['N'] * constants['LF_ma'] * constants['T_m'] * constants['EF_a_{0}'.format(pollutant)]
-            hoteling['{0}'.format(pollutant)] += constants['P'] * constants['Rae'] * constants['N'] * constants['LF_ha'] * constants['T_h'] * constants['EF_a_{0}'.format(pollutant)]
+            manoeuvring['{0}'.format(pollutant)] = constants['P'] * constants['N'] * constants['LF_mm'] * \
+                                                   constants['T_m'] * constants['EF_m_{0}'.format(pollutant)]
+            hoteling['{0}'.format(pollutant)] = constants['P'] * constants['N'] * constants['LF_hm'] * \
+                                                constants['T_h'] * constants['EF_m_{0}'.format(pollutant)]
+            manoeuvring['{0}'.format(pollutant)] += constants['P'] * constants['Rae'] * constants['N'] * \
+                                                    constants['LF_ma'] * constants['T_m'] * \
+                                                    constants['EF_a_{0}'.format(pollutant)]
+            hoteling['{0}'.format(pollutant)] += constants['P'] * constants['Rae'] * constants['N'] * \
+                                                 constants['LF_ha'] * constants['T_h'] * \
+                                                 constants['EF_a_{0}'.format(pollutant)]
 
         return [manoeuvring, hoteling]
 
