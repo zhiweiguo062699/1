@@ -100,6 +100,8 @@ class ShippingPortSector(Sector):
         """
         Read the DataFrame of the monthly profiles with the month number as columns.
 
+        Overwrites the method of the super class.
+
         :param path: Path to the file that contains the monthly profiles.
         :type path: str
 
@@ -117,6 +119,20 @@ class ShippingPortSector(Sector):
         return profiles
 
     def add_timezone(self, dataframe, shapefile_path):
+        """
+        Add the timezone os the centroid of each geometry of the input shapefile.
+
+        Overwrites the method of the super class.
+
+        :param dataframe: DataFrame where add the timezone.
+        :type dataframe: pandas.DataFrame
+
+        :param shapefile_path: Path to the shapefile that contains the port geometries.
+        :type shapefile_path: str
+
+        :return: DataFrame with the timezone.
+        :rtype: pandas.DataFrame
+        """
         from timezonefinder import TimezoneFinder
 
         shapefile = gpd.read_file(shapefile_path)
@@ -133,6 +149,21 @@ class ShippingPortSector(Sector):
         return dataframe
 
     def add_dates(self, dataframe):
+        """
+        Add the 'date' and 'tstep' column to the dataframe.
+
+        Overwrites the method of the super class.
+
+        The dataframe will be replicated as many times as time steps to calculate.
+
+        :param dataframe: Geodataframe to be extended with the dates.
+        :type dataframe: geopandas.GeoDataFrame
+
+        :return: DataFrame with the dates. The length of the new dataframe is the length of the input dataframe
+            multiplied by the number of time steps.
+        :rtype: pandas.DataFrame
+
+        """
         dataframe.reset_index(inplace=True)
         df_list = []
         for tstep, date in enumerate(self.date_array):
@@ -152,7 +183,33 @@ class ShippingPortSector(Sector):
         return dataframe
 
     def get_constants(self):
+        """
+        Create a dataframe with all the needed constants for each port & vessel.
+
+        - N:
+        - P:
+        - Rae:
+        - LF_mm:
+        - LF_hm:
+        - LF_ma:
+        - LF_ha:
+        - T_m:
+        - T_h:
+        - EF_<pollutant>: Emission factor for each pollutant. Units:
+        :return:
+        """
+        # TODO Add units to EF
+        # TODO Add constants description
         def get_n(df):
+            """
+            Get the N value (XXXXXX) depending on the vessel type.
+
+            :param df: Dataframe where find their N value. df.name is the vessel type.
+            :type df: pandas.Dataframe
+
+            :return: DataFrame with whe N column.
+            :rtype: pandas.DataFrame
+            """
             aux = self.tonnage.loc[:, ['N_{0}'.format(df.name)]].reset_index()
             aux['vessel'] = df.name
             aux.set_index(['code', 'vessel'], inplace=True)
@@ -160,6 +217,15 @@ class ShippingPortSector(Sector):
             return df.loc[:, ['N']]
 
         def get_p(df):
+            """
+            Get the P value (XXXXXX) depending on the vessel type.
+
+            :param df: Dataframe where find their P value. df.name is the vessel type.
+            :type df: pandas.Dataframe
+
+            :return: DataFrame with whe P column.
+            :rtype: pandas.DataFrame
+            """
             aux = self.tonnage.loc[:, ['GT_{0}'.format(df.name)]].reset_index()
             aux.rename(columns={'GT_{0}'.format(df.name): 'GT'}, inplace=True)
             aux['vessel'] = df.name
@@ -171,15 +237,51 @@ class ShippingPortSector(Sector):
             return df.loc[:, ['P']]
 
         def get_rae(df):
+            """
+            Get the Rae value (XXXXXX) depending on the vessel type.
+
+            :param df: Dataframe where find their Rae value. df.name is the vessel type.
+            :type df: pandas.Dataframe
+
+            :return: DataFrame with whe Rae column.
+            :rtype: pandas.DataFrame
+            """
             df['Rae'] = self.power_values.loc[self.power_values['Type_vessel'] == df.name, 'Ratio_AE'].values[0]
             return df.loc[:, ['Rae']]
 
         def get_t(df, phase):
+            """
+            Get the T value (XXXXXX) for the selected phase depending on the vessel type.
+
+            :param df: Dataframe where find their N value. df.name is the vessel type.
+            :type df: pandas.Dataframe
+
+            :param phase: Phase type to select the T_<phase> value. 'manoeuvring' or 'hoteling'.
+            :type phase: str
+
+            :return: DataFrame with whe T_<phase> column.
+            :rtype: pandas.DataFrame
+            """
             df['T'] = self.load_factor.loc[(self.load_factor['Type_vessel'] == df.name) &
                                            (self.load_factor['Phase'] == phase), 'time'].values[0]
             return df.loc[:, ['T']]
 
         def get_lf(df, phase, engine):
+            """
+            Get the LF value (XXXXXX) for the selected phase and engine depending on the vessel type.
+
+            :param df: Dataframe where find their N value. df.name is the vessel type.
+            :type df: pandas.Dataframe
+
+            :param phase: Phase type to select the T_<phase><engine> value. 'manoeuvring' or 'hoteling'.
+            :type phase: str
+
+            :param engine: Engine type to select the T_<phase><engine> value. 'main' or 'aux'.
+            :type engine: str
+
+            :return: DataFrame with whe T_<phase><engine> column.
+            :rtype: pandas.DataFrame
+            """
             if engine == 'main':
                 col_name = 'LF_ME'
             else:
@@ -188,7 +290,23 @@ class ShippingPortSector(Sector):
                                             (self.load_factor['Phase'] == phase), col_name].values[0]
             return df.loc[:, ['LF']]
 
-        def get_ef(df, engine, pollutant):
+        def get_ef(df, engine, poll):
+            """
+            Get the EF value (Emission Factor) for the selected pollutant and engine depending on the vessel type.
+
+            :param df: Dataframe where find their N value. df.name is the vessel type.
+            :type df: pandas.Dataframe
+
+            :param poll: Pollutant to select the emission factor value.
+            :type poll: str
+
+            :param engine: Engine type to select the T_<phase><engine> value. 'main' or 'aux'.
+            :type engine: str
+
+            :return: DataFrame with whe T_<phase><engine> column.
+            :rtype: pandas.DataFrame
+            """
+
             if engine == 'main':
                 engine = 'ME'
             else:
@@ -197,10 +315,10 @@ class ShippingPortSector(Sector):
                                            (self.engine_percent['Engine'] == engine), ['Engine_fuel', 'Factor']]
             aux2 = self.ef_engine.loc[(self.ef_engine['Engine'] == engine) &
                                       (self.ef_engine['Engine_fuel'].isin(aux1['Engine_fuel'].values)),
-                                      ['Engine_fuel', 'EF_{0}'.format(pollutant)]]
+                                      ['Engine_fuel', 'EF_{0}'.format(poll)]]
 
             aux = pd.merge(aux1, aux2, on='Engine_fuel')
-            aux['value'] = aux['Factor'] * aux['EF_{0}'.format(pollutant)]
+            aux['value'] = aux['Factor'] * aux['EF_{0}'.format(poll)]
             df['EF'] = aux['value'].sum()
             return df.loc[:, ['EF']]
 
@@ -224,6 +342,12 @@ class ShippingPortSector(Sector):
         return dataframe
 
     def calculate_yearly_emissions_by_port_vessel(self):
+        """
+        Calculate the yearly emissions by port and vessel for manoeuvring and hoteling phases.
+
+        :return: Manoeuvring and hoteling yearly emissions by port and vessel.
+        :rtype: tuple
+        """
         constants = self.get_constants()
         manoeuvring = pd.DataFrame(index=constants.index)
         hoteling = pd.DataFrame(index=constants.index)
@@ -241,18 +365,44 @@ class ShippingPortSector(Sector):
                 constants['P'] * constants['Rae'] * constants['N'] * constants['LF_ha'] * constants['T_h'] * \
                 constants['EF_a_{0}'.format(pollutant)]
 
-        return [manoeuvring, hoteling]
+        return manoeuvring, hoteling
 
-    def dates_to_month_weekday_hour(self, dataframe):
+    @staticmethod
+    def dates_to_month_weekday_hour(dataframe):
+        """
+        Add 'month', 'weekday' and 'hour' columns to the given dataframe.
+
+        :param dataframe: DataFrame where add the 'month', 'weekday' and 'hour' columns.
+        :type dataframe: pandas.DataFrame
+
+        :return: DataFrame with the 'month', 'weekday' and 'hour' columns.
+        :rtype: pandas.DataFrame
+        """
         dataframe['month'] = dataframe['date'].dt.month
         dataframe['weekday'] = dataframe['date'].dt.weekday
         dataframe['hour'] = dataframe['date'].dt.hour
 
-        # dataframe.drop('date', axis=1, inplace=True)
         return dataframe
 
     def calculate_monthly_emissions_by_port(self, dataframe):
+        """
+        Calculate the monthly emissions by port.
+
+        :param dataframe: DataFrame with the yearly emissions by port and vessel.
+        :type dataframe: pandas.DataFrame
+
+        :return:
+        """
         def get_mf(df):
+            """
+            Get the Monthly Factor for the given dataframe depending on the vessel and the month.
+
+            :param df: DataFrame where find the monthly factor. df.name is (vessel, month)
+            :type df: pandas.DataFrame
+
+            :return: DataFrame with only the MF column.
+            :rtype: pandas.DataFrame
+            """
             vessel = df.name[0]
             month = df.name[1]
 
@@ -277,13 +427,40 @@ class ShippingPortSector(Sector):
         return dataframe
 
     def calculate_hourly_emissions_by_port(self, dataframe):
+        """
+        Calcualte the hourly emissions by port.
+
+        :param dataframe: DataFrame with the Monthly emissions by port.
+        :type dataframe: pandas.DataFrame
+
+        :return: Hourly emissions DataFrame
+        :rtype: pandas.DataFrame
+        """
         def get_wf(df):
+            """
+            Get the Weekly Factor for the given dataframe depending on the date.
+
+            :param df: DataFrame where find the weekly factor. df.name is the date.
+            :type df: pandas.DataFrame
+
+            :return: DataFrame with only the WF column.
+            :rtype: pandas.DataFrame
+            """
             weekly_profile = self.calculate_rebalanced_weekly_profile(self.weekly_profiles.loc['default', :].to_dict(),
                                                                       df.name)
             df['WF'] = weekly_profile[df.name.weekday()]
             return df.loc[:, ['WF']]
 
         def get_hf(df):
+            """
+            Get the Hourly Factor for the given dataframe depending on the hour.
+
+            :param df: DataFrame where find the hourly factor. df.name is the hour.
+            :type df: pandas.DataFrame
+
+            :return: DataFrame with only the HF column.
+            :rtype: pandas.DataFrame
+            """
             hourly_profile = self.hourly_profiles.loc['default', :].to_dict()
             hour_factor = hourly_profile[df.name]
 
@@ -303,6 +480,17 @@ class ShippingPortSector(Sector):
         return dataframe
 
     def to_port_geometry(self, dataframe, shapefile_path):
+        """
+        Add the geometry to the emissions based on the weight of the ports.
+
+        :param dataframe: DataFrame with the hourly emissions.
+        :type dataframe: padas.DataFrame
+
+        :param shapefile_path: Path to the shapefile with the port geometries and their weights.
+        :type shapefile_path: str
+
+        :return:
+        """
         def normalize_weight(df):
             df['Weight'] = df['Weight'] / df['Weight'].sum()
             return df.loc[:, ['Weight']]
@@ -324,6 +512,15 @@ class ShippingPortSector(Sector):
         return dataframe
 
     def to_grid_geometry(self, dataframe):
+        """
+        Regrid the emissions from port geometries to grid geometries.
+
+        :param dataframe: DataFrame with the hourly emissions distributed by port.
+        :type dataframe: geopandas.GeoDataFrame
+
+        :return: DataFrame with the hourly emissions distributed by grid cell.
+        :rtype: geopandas.GeoDataFrame
+        """
         dataframe.reset_index(inplace=True)
         dataframe.drop(columns=['code'], inplace=True)
 
@@ -344,7 +541,13 @@ class ShippingPortSector(Sector):
         return dataframe
 
     def calculate_emissions(self):
-        [manoeuvring, hoteling] = self.calculate_yearly_emissions_by_port_vessel()
+        """
+        Main function to calculate the shipping port emissions.
+
+        :return: Shipping port emissions with 'FID', 'layer' and 'tstep' index.
+        :rtype: padas.DataFrame
+        """
+        manoeuvring, hoteling = self.calculate_yearly_emissions_by_port_vessel()
         # print manoeuvring.reset_index().groupby('code').sum()
         # print hoteling.reset_index().groupby('code').sum()
         manoeuvring = self.add_timezone(manoeuvring, self.maneuvering_shapefile_path)
@@ -362,6 +565,7 @@ class ShippingPortSector(Sector):
         manoeuvring = self.calculate_hourly_emissions_by_port(manoeuvring)
         hoteling = self.calculate_hourly_emissions_by_port(hoteling)
 
+        # TODO pre-calculate distribution during initialization.
         manoeuvring = self.to_port_geometry(manoeuvring, self.maneuvering_shapefile_path)
         hoteling = self.to_port_geometry(hoteling, self.hoteling_shapefile_path)
 

@@ -229,7 +229,7 @@ class LivestockSector(Sector):
 
     def create_animals_shapefile_src_resolution(self, gridded_livestock_path):
         """
-        Create the animal shapefile in the same resolution as the rasters have.
+        Create the animal shapefile in the same resolution as the raster have.
 
         It will return a complete shapefile with the amount of animals of the animal list.
         That shapefile will contain as many columns as animal types of the list ant the 'CELL_ID' as index.
@@ -247,10 +247,6 @@ class LivestockSector(Sector):
         :return: Shapefile with the amount of each animal of the animal list in the source resolution.
         :rtype: geopandas.GeoDataframe
         """
-
-        # TODO change Raster by IORaster
-        # TODO read shapefile from IOShapefile
-
         animal_distribution = None
         # For each one of the animals of the animal list
         for animal in self.animal_list:
@@ -259,24 +255,14 @@ class LivestockSector(Sector):
                                                     '{0}.shp'.format(animal))
             if not os.path.exists(animal_distribution_path):
                 # Create clipped raster file
-                animal_df = IoRaster(self.comm).clip_raster_with_shapefile_poly(
+                clipped_raster_path = IoRaster(self.comm).clip_raster_with_shapefile_poly(
                     gridded_livestock_path.replace('<animal>', animal), self.clip.shapefile,
                     os.path.join(self.auxiliary_dir, 'livestock', 'animal_distribution', animal,
                                  '{0}_clip.tiff'.format(animal)))
-                # animal_df = Raster(
-                #     Raster(gridded_livestock_path.replace('<animal>', animal)).clip_raster_with_shapefile(
-                #         clip_path, os.path.join(self.auxiliary_dir, 'livestock', 'animal_distribution', animal,
-                #                                 '{0}_clip.tiff'.format(animal))))
-                # Clipped raster to shapefile
-                animal_df = IoRaster(self.comm).to_shapefile(
-                    os.path.join(self.auxiliary_dir, 'livestock', 'animal_distribution', animal,
-                                 '{0}_clip.tiff'.format(animal)),
-                    animal_distribution_path, write=True
-                )
-                # animal_df = animal_df.to_shapefile(out_path=animal_distribution_path, write=True)
+
+                animal_df = IoRaster(self.comm).to_shapefile(clipped_raster_path, animal_distribution_path, write=True)
             else:
                 animal_df = IoShapefile(self.comm).read_shapefile(animal_distribution_path)
-                # animal_df = gpd.read_file(animal_distribution_path)
 
             animal_df.rename(columns={'data': animal}, inplace=True)
             animal_df.set_index('CELL_ID', inplace=True)
@@ -291,7 +277,6 @@ class LivestockSector(Sector):
                 # Adding new cell geometries that have not appear in the previous animals
                 animal_distribution['geometry'] = animal_distribution['geometry'].fillna(animal_df['geometry'])
 
-        # TODO Check if it is redundant. Each shapefile must delete empty values.
         # Removing empty data
         animal_distribution = animal_distribution.loc[(animal_distribution[self.animal_list] != 0).any(axis=1), :]
 
@@ -874,7 +859,11 @@ class LivestockSector(Sector):
                 warn("WARNING: '{0}' cannot be calculated because 'pm10' or/and 'pm25' ".format(pmc_name) +
                      "are not in the livestock_source_pollutants list")
 
-        # TODO raise warning when appear a input pollutant tha won't be calculated
+        not_pollutants = [poll for poll in self.source_pollutants
+                          if poll not in ['nh3', 'nox_no', 'nh3', 'nmvoc', 'pm10', 'pm25']]
+        if len(not_pollutants) > 0:
+            if self.comm.Get_rank() == 0:
+                warn('The pollutants {0} cannot be calculated on the Livestock sector'.format(not_pollutants))
 
         return out_df
 
