@@ -137,4 +137,3 @@ class Log(object):
         self._write_csv_times_log_file()
         self.log.flush()
         self.log.close()
-

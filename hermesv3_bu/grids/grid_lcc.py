@@ -11,8 +11,8 @@ from hermesv3_bu.logger.log import Log
 
 class LccGrid(Grid):
 
-    def __init__(self, logger, auxiliary_path, tstep_num, vertical_description_path, lat_1, lat_2, lon_0, lat_0,  nx, ny, inc_x,
-                 inc_y, x_0, y_0, earth_radius=6370000.000):
+    def __init__(self, logger, auxiliary_path, tstep_num, vertical_description_path, lat_1, lat_2, lon_0, lat_0,  nx,
+                 ny, inc_x, inc_y, x_0, y_0, earth_radius=6370000.000):
         """
         Lambert Conformal Conic (LCC) grid object that contains all the information to do a lcc output.
 

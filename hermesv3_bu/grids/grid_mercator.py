@@ -10,8 +10,8 @@ from hermesv3_bu.logger.log import Log
 
 class MercatorGrid(Grid):
 
-    def __init__(self, logger, auxiliary_path, tstep_num, vertical_description_path, lat_ts, lon_0, nx, ny, inc_x, inc_y, x_0,
-                 y_0, earth_radius=6370000.000):
+    def __init__(self, logger, auxiliary_path, tstep_num, vertical_description_path, lat_ts, lon_0, nx, ny, inc_x,
+                 inc_y, x_0, y_0, earth_radius=6370000.000):
         """
         Mercator grid object that contains all the information to do a mercator output.
 

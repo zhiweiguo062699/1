@@ -361,5 +361,3 @@ def write_coords_netcdf(netcdf_path, center_latitudes, center_longitudes, data_l
         netcdf.setncatts(global_attributes)
 
     netcdf.close()
-
-

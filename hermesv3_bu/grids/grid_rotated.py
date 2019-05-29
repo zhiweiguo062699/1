@@ -10,8 +10,8 @@ from hermesv3_bu.logger.log import Log
 
 
 class RotatedGrid(Grid):
-    def __init__(self, logger, auxiliary_path, tstep_num, vertical_description_path, centre_lat, centre_lon, west_boundary,
-                 south_boundary, inc_rlat, inc_rlon):
+    def __init__(self, logger, auxiliary_path, tstep_num, vertical_description_path, centre_lat, centre_lon,
+                 west_boundary, south_boundary, inc_rlat, inc_rlon):
         """
 
         :param logger: Logger.

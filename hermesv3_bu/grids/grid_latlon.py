@@ -29,8 +29,8 @@ from hermesv3_bu.logger.log import Log
 
 class LatLonGrid(Grid):
 
-    def __init__(self, logger, auxiliary_path, tstep_num, vertical_description_path, inc_lat, inc_lon, lat_orig, lon_orig,
-                 n_lat, n_lon):
+    def __init__(self, logger, auxiliary_path, tstep_num, vertical_description_path, inc_lat, inc_lon, lat_orig,
+                 lon_orig, n_lat, n_lon):
         """
         Regional regular lat-lon grid object that contains all the information to do a global output.
 

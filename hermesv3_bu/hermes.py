@@ -24,7 +24,7 @@ class Hermes(object):
         self.arguments = config.arguments
         self.logger = Log(self.comm, self.arguments)
         self.grid = select_grid(self.comm, self.logger, self.arguments)
-        self.clip = select_clip(self.comm, self.arguments.auxiliary_files_path, self.arguments.clipping, self.grid)
+        self.clip = select_clip(self.comm, self.logger, self.arguments.auxiliary_files_path, self.arguments.clipping, self.grid)
         self.date_array = [self.arguments.start_date + timedelta(hours=hour) for hour in
                            xrange(self.arguments.output_timestep_num)]
 
