@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import timeit
 from grid import Grid
 import numpy as np
 import math
@@ -26,10 +27,12 @@ class RotatedGrid(Grid):
         :param inc_rlat:
         :param inc_rlon:
         """
+        spent_time = timeit.default_timer()
 
         self.rlat = None
         self.rlon = None
 
+        logger.write_log('Rotated grid selected.')
         self.grid_type = 'Rotated'
         attributes = {'new_pole_longitude_degrees': -180 + centre_lon, 'new_pole_latitude_degrees': centre_lat,
                       'centre_lat': centre_lat, 'centre_lon': centre_lon, 'west_boundary': west_boundary,
@@ -41,6 +44,7 @@ class RotatedGrid(Grid):
         super(RotatedGrid, self).__init__(logger, attributes, auxiliary_path, vertical_description_path)
 
         self.shape = (tstep_num, len(self.vertical_desctiption), len(self.rlat), len(self.rlon))
+        self.logger.write_time_log('RotatedGrid', '__init__', timeit.default_timer() - spent_time, 3)
 
     def create_regular_rotated(self):
         """
@@ -49,6 +53,8 @@ class RotatedGrid(Grid):
         :return: center_latitudes, center_longitudes, corner_latitudes, corner_longitudes
         :rtype: tuple
         """
+        spent_time = timeit.default_timer()
+
         center_latitudes = np.arange(self.attributes['south_boundary'], self.attributes['south_boundary'] +
                                      (self.attributes['n_lat'] * self.attributes['inc_rlat']),
                                      self.attributes['inc_rlat'], dtype=np.float)
@@ -60,12 +66,14 @@ class RotatedGrid(Grid):
                                               inverse=True)
         corner_longitudes = self.create_bounds(center_longitudes, self.attributes['inc_rlon'], number_vertices=4)
 
+        self.logger.write_time_log('RotatedGrid', 'create_regular_rotated', timeit.default_timer() - spent_time, 3)
         return center_latitudes, center_longitudes, corner_latitudes, corner_longitudes
 
     def create_coords(self):
         """
         Create the coordinates for a rotated domain.
         """
+        spent_time = timeit.default_timer()
         # Create rotated coordinates
         (self.rlat, self.rlon, br_lats_single, br_lons_single) = self.create_regular_rotated()
 
@@ -81,6 +89,9 @@ class RotatedGrid(Grid):
         # Rotated to Lat-Lon
         self.boundary_longitudes, self.boundary_latitudes = self.rotated2latlon(b_lons, b_lats)
         self.center_longitudes, self.center_latitudes = self.rotated2latlon(c_lons, c_lats)
+
+        self.logger.write_time_log('RotatedGrid', 'create_coords', timeit.default_timer() - spent_time, 3)
+        return True
 
     def rotated2latlon(self, lon_deg, lat_deg, lon_min=-180):
         """
@@ -98,6 +109,7 @@ class RotatedGrid(Grid):
         :return: Unrotated coordinates. Longitudes, Latitudes
         :rtype: tuple(numpy.array, numpy.array)
         """
+        spent_time = timeit.default_timer()
         degrees_to_radians = math.pi / 180.
         # radians_to_degrees = 180. / math.pi
 
@@ -142,6 +154,8 @@ class RotatedGrid(Grid):
         almd[almd > (lon_min + 360)] -= 360
         almd[almd < lon_min] += 360
 
+        self.logger.write_time_log('RotatedGrid', 'rotated2latlon', timeit.default_timer() - spent_time, 3)
+
         return almd, aphd
 
     def write_netcdf(self):
@@ -149,6 +163,7 @@ class RotatedGrid(Grid):
         Write a rotated grid NetCDF with empty data
         """
         from hermesv3_bu.io_server.io_netcdf import write_coords_netcdf
+        spent_time = timeit.default_timer()
         if not os.path.exists(self.netcdf_path):
             if not os.path.exists(os.path.dirname(self.netcdf_path)):
                 os.makedirs(os.path.dirname(self.netcdf_path))
@@ -160,3 +175,6 @@ class RotatedGrid(Grid):
                                 rotated=True, rotated_lats=self.rlat, rotated_lons=self.rlon,
                                 north_pole_lat=90 - self.attributes['new_pole_latitude_degrees'],
                                 north_pole_lon=self.attributes['new_pole_longitude_degrees'])
+        self.logger.write_log("\tRotated grid write at '{0}'".format(self.netcdf_path), 3)
+        self.logger.write_time_log('RotatedGrid', 'write_netcdf', timeit.default_timer() - spent_time, 3)
+        return True

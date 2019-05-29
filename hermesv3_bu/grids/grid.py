@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import timeit
 import numpy as np
 
 from hermesv3_bu.logger.log import Log
@@ -21,6 +22,7 @@ def select_grid(comm, logger, arguments):
     :return: Desired output grid.
     :rtype: Grid
     """
+    spent_time = timeit.default_timer()
     if comm.Get_rank() == 0:
         if arguments.domain_type == 'regular':
             from hermesv3_bu.grids.grid_latlon import LatLonGrid
@@ -56,7 +58,7 @@ def select_grid(comm, logger, arguments):
         grid = None
 
     grid = comm.bcast(grid, root=0)
-
+    logger.write_time_log('Grid', 'select_grid', timeit.default_timer() - spent_time)
     return grid
 
 
@@ -78,6 +80,7 @@ class Grid(object):
         :param vertical_description_path: Path to the file that describes the vertical resolution
         :type vertical_description_path: str
         """
+        spent_time = timeit.default_timer()
         self.logger = logger
         self.attributes = attributes
         self.netcdf_path = os.path.join(auxiliary_path, 'grid', 'grid.nc')
@@ -94,8 +97,9 @@ class Grid(object):
         self.vertical_desctiption = self.get_vertical_description(vertical_description_path)
         self.shapefile = self.create_shapefile()
 
-    @staticmethod
-    def get_vertical_description(path):
+        logger.write_time_log('Grid', '__init__', timeit.default_timer() - spent_time)
+
+    def get_vertical_description(self, path):
         """
         Extract the vertical description of the desired output.
 
@@ -106,10 +110,11 @@ class Grid(object):
         :rtype: list
         """
         import pandas as pd
+        spent_time = timeit.default_timer()
         df = pd.read_csv(path, sep=',')
 
         heights = df.height_magl.values
-
+        self.logger.write_time_log('Grid', 'get_vertical_description', timeit.default_timer() - spent_time, 3)
         return heights
 
     def write_netcdf(self):
@@ -124,8 +129,7 @@ class Grid(object):
         """
         pass
 
-    @staticmethod
-    def create_bounds(coordinates, inc, number_vertices=2, inverse=False):
+    def create_bounds(self, coordinates, inc, number_vertices=2, inverse=False):
         """
         Calculate the vertices coordinates.
 
@@ -145,7 +149,7 @@ class Grid(object):
         :return: Array with as many elements as vertices for each value of coords.
         :rtype: numpy.array
         """
-
+        spent_time = timeit.default_timer()
         # Create new arrays moving the centers half increment less and more.
         coords_left = coordinates - inc / 2
         coords_right = coordinates + inc / 2
@@ -165,7 +169,7 @@ class Grid(object):
                 bound_coords = np.dstack((coords_left, coords_right, coords_right, coords_left))
         else:
             raise ValueError('ERROR: The number of vertices of the boundaries must be 2 or 4.')
-
+        self.logger.write_time_log('Grid', 'create_bounds', timeit.default_timer() - spent_time, 3)
         return bound_coords
 
     def create_shapefile(self):
@@ -178,6 +182,7 @@ class Grid(object):
         import geopandas as gpd
         import pandas as pd
         from shapely.geometry import Polygon
+        spent_time = timeit.default_timer()
 
         if not os.path.exists(self.shapefile_path):
             if not os.path.exists(os.path.dirname(self.shapefile_path)):
@@ -242,5 +247,6 @@ class Grid(object):
         else:
             gdf = gpd.read_file(self.shapefile_path)
             gdf.set_index('FID', inplace=True)
+        self.logger.write_time_log('Grid', 'create_shapefile', timeit.default_timer() - spent_time, 2)
 
         return gdf

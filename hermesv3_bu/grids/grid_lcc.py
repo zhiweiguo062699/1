@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import os
-import sys
+import timeit
 import numpy as np
 from pyproj import Proj
 from grid import Grid
@@ -62,6 +62,8 @@ class LccGrid(Grid):
         Default = 6370000.000
         :type earth_radius: float
         """
+        spent_time = timeit.default_timer()
+        logger.write_log('Lambert Conformal Conic grid selected.')
         self.grid_type = 'Lambert Conformal Conic'
 
         # UTM coordinates
@@ -78,11 +80,15 @@ class LccGrid(Grid):
 
         self.shape = (tstep_num, len(self.vertical_desctiption), ny, nx)
 
+        self.logger.write_time_log('LccGrid', '__init__', timeit.default_timer() - spent_time)
+
     def write_netcdf(self):
         """
         Write a lambert conformal conic grid NetCDF with empty data
         """
         from hermesv3_bu.io_server.io_netcdf import write_coords_netcdf
+        spent_time = timeit.default_timer()
+
         if not os.path.exists(self.netcdf_path):
             if not os.path.exists(os.path.dirname(self.netcdf_path)):
                 os.makedirs(os.path.dirname(self.netcdf_path))
@@ -94,11 +100,15 @@ class LccGrid(Grid):
                                 lat_1_2="{0}, {1}".format(self.attributes['lat_1'], self.attributes['lat_2']),
                                 lon_0=self.attributes['lon_0'], lat_0=self.attributes['lat_0'])
 
+        self.logger.write_log("\tLambert Conformal Conic grid write at '{0}'".format(self.netcdf_path), 3)
+        self.logger.write_time_log('LccGrid', 'write_netcdf', timeit.default_timer() - spent_time, 3)
+        return True
+
     def create_coords(self):
         """
         Create the coordinates for a lambert conformal conic domain.
         """
-
+        spent_time = timeit.default_timer()
         # Create a regular grid in metres (Two 1D arrays)
         self.x = np.arange(self.attributes['x_0'], self.attributes['x_0'] + self.attributes['inc_x'] *
                            self.attributes['nx'], self.attributes['inc_x'], dtype=np.float)
@@ -131,3 +141,6 @@ class LccGrid(Grid):
         # UTM to LCC
         self.center_longitudes, self.center_latitudes = projection(x, y, inverse=True)
         self.boundary_longitudes, self.boundary_latitudes = projection(x_b, y_b, inverse=True)
+
+        self.logger.write_time_log('LccGrid', 'create_coords', timeit.default_timer() - spent_time, 2)
+        return True

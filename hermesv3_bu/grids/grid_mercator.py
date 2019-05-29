@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import timeit
 import numpy as np
 from pyproj import Proj
 from grid import Grid
@@ -51,6 +52,9 @@ class MercatorGrid(Grid):
         Default = 6370000.000
         :type earth_radius: float
         """
+        spent_time = timeit.default_timer()
+
+        logger.write_log('Mercator grid selected.')
         self.grid_type = 'Mercator'
         attributes = {'lat_ts': lat_ts, 'lon_0': lon_0, 'nx': nx, 'ny': ny, 'inc_x': inc_x, 'inc_y': inc_y,
                       'x_0': x_0 + (inc_x / 2), 'y_0': y_0 + (inc_y / 2), 'earth_radius': earth_radius,
@@ -65,12 +69,14 @@ class MercatorGrid(Grid):
         super(MercatorGrid, self).__init__(logger, attributes, auxiliary_path, vertical_description_path)
 
         self.shape = (tstep_num, len(self.vertical_desctiption), ny, nx)
+        self.logger.write_time_log('MercatorGrid', '__init__', timeit.default_timer() - spent_time, 3)
 
     def write_netcdf(self):
         """
         Write a mercator grid NetCDF with empty data
         """
         from hermesv3_bu.io_server.io_netcdf import write_coords_netcdf
+        spent_time = timeit.default_timer()
         if not os.path.exists(self.netcdf_path):
             if not os.path.exists(os.path.dirname(self.netcdf_path)):
                 os.makedirs(os.path.dirname(self.netcdf_path))
@@ -82,11 +88,15 @@ class MercatorGrid(Grid):
                                 boundary_longitudes=self.boundary_longitudes,
                                 mercator=True, lcc_x=self.x, lcc_y=self.y, lon_0=self.attributes['lon_0'],
                                 lat_ts=self.attributes['lat_ts'])
+        self.logger.write_log("\tMercator grid write at '{0}'".format(self.netcdf_path), 3)
+        self.logger.write_time_log('MercatorGrid', 'write_netcdf', timeit.default_timer() - spent_time, 3)
+        return True
 
     def create_coords(self):
         """
         Create the coordinates for a mercator domain.
         """
+        spent_time = timeit.default_timer()
         # Create a regular grid in metres (Two 1D arrays)
         self.x = np.arange(self.attributes['x_0'], self.attributes['x_0'] + self.attributes['inc_x'] *
                            self.attributes['nx'], self.attributes['inc_x'], dtype=np.float)
@@ -107,3 +117,7 @@ class MercatorGrid(Grid):
         # UTM to Mercator
         self.center_longitudes, self.center_latitudes = projection(x, y, inverse=True)
         self.boundary_longitudes, self.boundary_latitudes = projection(x_b, y_b, inverse=True)
+
+        self.logger.write_time_log('MercatorGrid', 'create_coords', timeit.default_timer() - spent_time, 3)
+
+        return True

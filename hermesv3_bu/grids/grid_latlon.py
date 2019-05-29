@@ -19,7 +19,7 @@
 
 
 import os
-import sys
+import timeit
 
 import numpy as np
 from hermesv3_bu.grids.grid import Grid
@@ -64,6 +64,8 @@ class LatLonGrid(Grid):
         :param n_lon: Number of cells on the latitude direction.
         :type n_lon = int
         """
+        spent_time = timeit.default_timer()
+        logger.write_log('Regular Lat-Lon grid selected.')
         self.grid_type = 'Regular Lat-Lon'
         attributes = {'inc_lat': inc_lat, 'inc_lon': inc_lon, 'lat_orig': lat_orig, 'lon_orig': lon_orig,
                       'n_lat': n_lat, 'n_lon': n_lon, 'crs': {'init': 'epsg:4326'}}
@@ -72,10 +74,13 @@ class LatLonGrid(Grid):
 
         self.shape = (tstep_num, len(self.vertical_desctiption), n_lat, n_lon)
 
+        self.logger.write_time_log('LatLonGrid', '__init__', timeit.default_timer() - spent_time)
+
     def create_coords(self):
         """
         Create the coordinates for a global domain.
         """
+        spent_time = timeit.default_timer()
         # From corner latitude /longitude to center ones
         lat_c_orig = self.attributes['lat_orig'] + (self.attributes['inc_lat'] / 2)
         self.center_latitudes = np.linspace(
@@ -94,10 +99,13 @@ class LatLonGrid(Grid):
         self.boundary_latitudes = self.boundary_latitudes.reshape((1,) + self.boundary_latitudes.shape)
         self.boundary_longitudes = self.boundary_longitudes.reshape((1,) + self.boundary_longitudes.shape)
 
+        self.logger.write_time_log('LatLonGrid', 'create_coords', timeit.default_timer() - spent_time, 2)
+
     def write_netcdf(self):
         """
         Write a regular lat-lon grid NetCDF with empty data
         """
+        spent_time = timeit.default_timer()
         if not os.path.exists(self.netcdf_path):
             if not os.path.exists(os.path.dirname(self.netcdf_path)):
                 os.makedirs(os.path.dirname(self.netcdf_path))
@@ -108,6 +116,5 @@ class LatLonGrid(Grid):
                                 boundary_longitudes=self.boundary_longitudes,
                                 regular_latlon=True)
 
-
-if __name__ == '__main__':
-    pass
+        self.logger.write_log("\tRegular Lat-Lon grid write at '{0}'".format(self.netcdf_path), 3)
+        self.logger.write_time_log('LatLonGrid', 'write_netcdf', timeit.default_timer() - spent_time, 3)

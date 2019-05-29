@@ -48,7 +48,7 @@ class Log(object):
 
         self.df_times = pd.DataFrame(columns=['Class', 'Function', comm.Get_rank()])
 
-    def write_log(self, message, message_level):
+    def write_log(self, message, message_level=1):
         """
         Write the log message.
 
@@ -57,7 +57,7 @@ class Log(object):
         :param message: Message to write.
         :type message: str
 
-        :param message_level: Importance of the message. From 1 (bottom) to 3 (top).
+        :param message_level: Importance of the message. From 1 (bottom) to 3 (top). Default 1
         :type message_level: int
 
         :return: True if everything is ok.
@@ -73,7 +73,7 @@ class Log(object):
                 self.log_refresh = self.refresh_rate[0]
         return True
 
-    def write_csv_times_log_file(self, rank=0):
+    def _write_csv_times_log_file(self, rank=0):
         """
         Write the times log CSV file.
 
@@ -87,6 +87,7 @@ class Log(object):
         if self.comm.Get_rank() == rank:
             df_merged = reduce(lambda left, right: pd.merge(left, right, on=['Class', 'Function'], how='outer'),
                                data_frames)
+            df_merged = df_merged.groupby(['Class', 'Function']).sum()
             df_merged['min'] = df_merged.loc[:, range(self.comm.Get_size())].min(axis=1)
             df_merged['max'] = df_merged.loc[:, range(self.comm.Get_size())].max(axis=1)
             df_merged['mean'] = df_merged.loc[:, range(self.comm.Get_size())].mean(axis=1)
@@ -96,7 +97,7 @@ class Log(object):
         self.comm.Barrier()
         return True
 
-    def write_time_log(self, class_name, function_name, time, message_level):
+    def write_time_log(self, class_name, function_name, time, message_level=1):
         """
         Add times to be written. Master process will write that log every times_log_refresh received messages.
 
@@ -109,7 +110,7 @@ class Log(object):
         :param time: Time spent in the function.
         :type time: float
 
-        :param message_level: Importance of the message. From 1 (bottom) to 3 (top).
+        :param message_level: Importance of the message. From 1 (bottom) to 3 (top). Default 1
         :type message_level: int
 
         :return: True if everything is ok.
@@ -123,7 +124,7 @@ class Log(object):
                 self.time_log_refresh -= 1
             if self.time_log_refresh == 0:
 
-                self.write_csv_times_log_file()
+                self._write_csv_times_log_file()
                 self.time_log_refresh = self.refresh_rate[0]
         return True
 
@@ -133,7 +134,7 @@ class Log(object):
 
         :return:
         """
-        self.write_csv_times_log_file()
+        self._write_csv_times_log_file()
         self.log.flush()
         self.log.close()
 
