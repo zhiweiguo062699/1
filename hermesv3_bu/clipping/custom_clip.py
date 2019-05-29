@@ -4,11 +4,24 @@ import sys
 import os
 import geopandas as gpd
 from hermesv3_bu.clipping.clip import Clip
+from hermesv3_bu.logger.log import Log
 
 
 class CustomClip(Clip):
-    def __init__(self, auxiliary_path, points_str):
-        super(CustomClip, self).__init__(auxiliary_path)
+    def __init__(self, logger, auxiliary_path, points_str):
+        """
+        Initialise the Custom Clip class
+
+        :param logger: Logger
+        :type logger: Log
+
+        :param auxiliary_path: Path to the auxiliary directory.
+        :type auxiliary_path: str
+
+        :param points_str: List of points in string format.
+        :type points_str: str
+        """
+        super(CustomClip, self).__init__(logger, auxiliary_path)
         self.clip_type = 'Custom clip'
         self.shapefile = self.create_clip(points_str)
 

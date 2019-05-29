@@ -4,11 +4,24 @@ import sys
 import os
 import geopandas as gpd
 from hermesv3_bu.clipping.clip import Clip
+from hermesv3_bu.logger.log import Log
 
 
 class ShapefileClip(Clip):
-    def __init__(self, auxiliary_path, clip_input_path):
-        super(ShapefileClip, self).__init__(auxiliary_path)
+    def __init__(self, logger, auxiliary_path, clip_input_path):
+        """
+        Initialise the Shapefile Clip class
+
+        :param logger: Logger
+        :type logger: Log
+
+        :param auxiliary_path: Path to the auxiliary directory.
+        :type auxiliary_path: str
+
+        :param clip_input_path: Path to the shapefile.
+        :type clip_input_path: str
+        """
+        super(ShapefileClip, self).__init__(logger, auxiliary_path)
         self.clip_type = 'Shapefile clip'
         self.shapefile = self.create_clip(clip_input_path)
 
