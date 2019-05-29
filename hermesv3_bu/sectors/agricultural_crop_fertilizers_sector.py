@@ -49,7 +49,6 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
         # self.crop_distribution = IoShapefile().split_shapefile(self.crop_distribution)
         # self.crop_distribution.set_index('FID', inplace=True, drop=False)
 
-
         if settings.rank == 0:
             self.crop_distribution = self.get_crops_by_dst_cell(
                 os.path.join(auxiliary_dir, 'crops', 'crops.shp'),
@@ -107,11 +106,6 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
         return f_by_nut
 
     def get_ef_by_crop(self):
-        if settings.log_level_3:
-            st_time = gettime()
-        else:
-            st_time = None
-
         total_crop_df = self.gridded_constants.loc[:, ['FID', 'geometry', 'nut_code']]
         for crop in self.element_list:
             crop_ef = self.gridded_constants.loc[:, ['FID', 'geometry', 'nut_code']].copy()
@@ -158,14 +152,13 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
         dst_shapefile['involved_area'] = intersection.groupby('FID')['area'].sum()
         intersection_with_dst_areas = pd.merge(intersection, dst_shapefile.loc[:, ['FID', 'involved_area']],
                                                how='left', on='FID')
-        intersection_with_dst_areas['involved_area'] = intersection_with_dst_areas['area'] / \
-                                                       intersection_with_dst_areas['involved_area']
+        intersection_with_dst_areas['involved_area'] = \
+            intersection_with_dst_areas['area'] / intersection_with_dst_areas['involved_area']
 
-        intersection_with_dst_areas[value] = intersection_with_dst_areas[value] * \
-                                             intersection_with_dst_areas['involved_area']
+        intersection_with_dst_areas[value] = \
+            intersection_with_dst_areas[value] * intersection_with_dst_areas['involved_area']
         dst_shapefile[value] = intersection_with_dst_areas.groupby('FID')[value].sum()
         dst_shapefile.drop('involved_area', axis=1, inplace=True)
-
 
         return dst_shapefile
 
@@ -263,11 +256,6 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
         return self.crop_distribution
 
     def calculate_nh3_emissions(self, day, daily_inputs):
-        if settings.log_level_3:
-            st_time = gettime()
-        else:
-            st_time = None
-
         import math
         daily_inputs['exp'] = np.exp(daily_inputs['tas'].multiply(0.0223) + daily_inputs['sfcWind'].multiply(0.0419))
         daily_inputs.drop(['tas', 'sfcWind'], axis=1, inplace=True)
