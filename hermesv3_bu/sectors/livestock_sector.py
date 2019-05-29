@@ -234,11 +234,11 @@ class LivestockSector(Sector):
         That shapefile will contain as many columns as animal types of the list ant the 'CELL_ID' as index.
 
         Each one of the animal distributions will be stored separately in folders following the example path
-        '<auxiliary_dir>/livestock/animal_distribution/<animal>/<animal>.shp'
-        
+        <auxiliary_dir>/livestock/animal_distribution/<animal>/<animal>.shp
+
         Will be created also the clipped raster (TIFF) following the example path
-        '<auxiliary_dir>/livestock/animal_distribution/<animal>/<animal>_clip.tiff'
-        
+        <auxiliary_dir>/livestock/animal_distribution/<animal>/<animal>_clip.tiff
+
         :param gridded_livestock_path: Path to the Raster (TIFF) that contains the animal distribution.
             '<animal>' will be replaced by each animal of the animal list.
         :type gridded_livestock_path: str
@@ -950,7 +950,6 @@ class LivestockSector(Sector):
                 distribution['weekday'] = distribution['date'].dt.weekday
 
                 distribution[out_p] = distribution.groupby(['month', 'weekday'])['date', out_p].apply(distribute_weekly)
-                    # lambda x: x.multiply(daily_profile[x.name]))
 
                 distribution.drop(columns=['month', 'weekday'], axis=1, inplace=True)
             # Hourly distribution
@@ -980,4 +979,3 @@ class LivestockSector(Sector):
 
         print 'Livestock sum \n{0}'.format(animals_df.sum())
         return animals_df
-

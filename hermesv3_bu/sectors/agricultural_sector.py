@@ -46,7 +46,8 @@ class AgriculturalSector(object):
         animal_dist_list = []
         if self.rank == 0:
             for small_grid in grid_shp_list:
-                animal_dist_list.append(src_shp.loc[src_shp.intersects(small_grid.to_crs(src_shp.crs).geometry.unary_union), :])
+                animal_dist_list.append(src_shp.loc[src_shp.intersects(
+                    small_grid.to_crs(src_shp.crs).geometry.unary_union), :])
             grid_shp = pd.concat(grid_shp_list)
             grid_shp = np.array_split(grid_shp, self.size)
         else:
@@ -61,8 +62,6 @@ class AgriculturalSector(object):
 
     def calculate_num_days(self):
         import numpy as np
-        from datetime import date
-
 
         day_array = [hour.date() for hour in self.date_array]
         days, num_days = np.unique(day_array, return_counts=True)
@@ -283,7 +282,8 @@ class AgriculturalSector(object):
                 aux = 0
                 for landuse, weight in landuse_weight_list:
                     try:
-                        aux += land_use_by_nut.loc[(land_use_by_nut['land_use'] == int(landuse)) & (land_use_by_nut['NUT'] == nut), 'area'].values[0] * float(weight)
+                        aux += land_use_by_nut.loc[(land_use_by_nut['land_use'] == int(landuse)) &
+                                                   (land_use_by_nut['NUT'] == nut), 'area'].values[0] * float(weight)
                     except IndexError:
                         # TODO understand better that error
                         pass
@@ -341,8 +341,8 @@ class AgriculturalSector(object):
         crop_distribution = crop_distribution.to_crs(self.grid_shp.crs)
         crop_distribution['src_inter_fraction'] = crop_distribution.geometry.area
         crop_distribution = self.spatial_overlays(crop_distribution, self.grid_shp, how='intersection')
-        crop_distribution['src_inter_fraction'] = crop_distribution.geometry.area / \
-                                                  crop_distribution['src_inter_fraction']
+        crop_distribution['src_inter_fraction'] = \
+            crop_distribution.geometry.area / crop_distribution['src_inter_fraction']
 
         crop_distribution[self.element_list] = crop_distribution.loc[:, self.element_list].multiply(
             crop_distribution["src_inter_fraction"], axis="index")
@@ -505,7 +505,6 @@ class AgriculturalSector(object):
         var_df = gpd.GeoDataFrame(var.flatten().T, columns=[var_name], crs={'init': 'epsg:4326'},
                                   geometry=[Point(xy) for xy in zip(lon, lat)])
         var_df.loc[:, 'REC'] = var_df.index
-
 
         return var_df
 

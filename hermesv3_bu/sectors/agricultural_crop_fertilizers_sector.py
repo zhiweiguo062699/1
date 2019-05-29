@@ -273,20 +273,19 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
 
             try:
                 thau_2 = float(thau_2)
-                sum = (beta_1 / (sigma_1 * math.sqrt(2 * math.pi))) * \
-                      math.exp((float(int(day.strftime('%j')) - thau_1) ** 2) / (-2 * (sigma_1 ** 2)))
-                sum += (beta_2 / (sigma_2 * math.sqrt(2 * math.pi))) * \
-                       math.exp((float(int(day.strftime('%j')) - thau_2) ** 2) / (-2 * (sigma_2 ** 2)))
-                sum += (beta_3 / (sigma_3 * math.sqrt(2 * math.pi))) * \
-                       math.exp((float(int(day.strftime('%j')) - thau_3) ** 2) / (-2 * (sigma_3 ** 2)))
+                sum = (beta_1 / (sigma_1 * math.sqrt(2 * math.pi))) * math.exp(
+                    (float(int(day.strftime('%j')) - thau_1) ** 2) / (-2 * (sigma_1 ** 2)))
+                sum += (beta_2 / (sigma_2 * math.sqrt(2 * math.pi))) * math.exp(
+                    (float(int(day.strftime('%j')) - thau_2) ** 2) / (-2 * (sigma_2 ** 2)))
+                sum += (beta_3 / (sigma_3 * math.sqrt(2 * math.pi))) * math.exp(
+                    (float(int(day.strftime('%j')) - thau_3) ** 2) / (-2 * (sigma_3 ** 2)))
             except ValueError:
-                aux = (beta_1 / (sigma_1 * math.sqrt(2 * math.pi))) * \
-                      math.exp((float(int(day.strftime('%j')) - thau_1) ** 2) / (-2 * (sigma_1 ** 2)))
-                aux += (beta_3 / (sigma_3 * math.sqrt(2 * math.pi))) * \
-                       math.exp((float(int(day.strftime('%j')) - thau_3) ** 2) / (-2 * (sigma_3 ** 2)))
-                sum = (beta_2 / (sigma_2 * math.sqrt(2 * math.pi))) * \
-                      np.exp(((int(day.strftime('%j')) - daily_inputs[thau_2]).astype(np.float64)) ** 2 /
-                             (-2 * (sigma_2 ** 2)))
+                aux = (beta_1 / (sigma_1 * math.sqrt(2 * math.pi))) * math.exp(
+                    (float(int(day.strftime('%j')) - thau_1) ** 2) / (-2 * (sigma_1 ** 2)))
+                aux += (beta_3 / (sigma_3 * math.sqrt(2 * math.pi))) * math.exp(
+                    (float(int(day.strftime('%j')) - thau_3) ** 2) / (-2 * (sigma_3 ** 2)))
+                sum = (beta_2 / (sigma_2 * math.sqrt(2 * math.pi))) * np.exp(
+                    ((int(day.strftime('%j')) - daily_inputs[thau_2]).astype(np.float64)) ** 2 / (-2 * (sigma_2 ** 2)))
                 sum += aux
             daily_inputs['FD_{0}'.format(crop)] = daily_inputs['exp'].multiply(sum)
 
