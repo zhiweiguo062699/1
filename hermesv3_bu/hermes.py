@@ -10,29 +10,28 @@ from hermesv3_bu.grids.grid import select_grid
 from hermesv3_bu.clipping.clip import select_clip
 from hermesv3_bu.writer.writer import select_writer
 from hermesv3_bu.sectors.sector_manager import SectorManager
+from hermesv3_bu.logger.log import Log
 
 
 class Hermes(object):
     """
     Interface class for HERMESv3.
     """
-    def __init__(self, config, new_date=None):
+    def __init__(self, config):
 
-        comm_world = MPI.COMM_WORLD
+        self.comm = MPI.COMM_WORLD
 
         self.arguments = config.arguments
 
-        # updating starting date
-        if new_date is not None:
-            self.arguments.start_date = new_date
+        self.logger = Log(self.comm, self.arguments)
 
-        self.grid = select_grid(comm_world, self.arguments)
+        self.grid = select_grid(self.comm, self.arguments)
 
-        self.clip = select_clip(comm_world, self.arguments.auxiliary_files_path, self.arguments.clipping, self.grid)
+        self.clip = select_clip(self.comm, self.arguments.auxiliary_files_path, self.arguments.clipping, self.grid)
         self.date_array = [self.arguments.start_date + timedelta(hours=hour) for hour in
                            xrange(self.arguments.output_timestep_num)]
 
-        self.sector_manager = SectorManager(comm_world, self.grid, self.clip, self.date_array, self.arguments)
+        self.sector_manager = SectorManager(self.comm, self.grid, self.clip, self.date_array, self.arguments)
 
         self.writer = select_writer(self.arguments, self.grid, self.date_array)
 
@@ -46,6 +45,9 @@ class Hermes(object):
 
         self.writer.write(emis)
 
+        self.comm.Barrier()
+        self.logger.finish_logs()
+
         if self.arguments.start_date < self.arguments.end_date:
             return self.arguments.start_date + timedelta(days=1)
 
@@ -55,7 +57,7 @@ class Hermes(object):
 def run():
     date = Hermes(Config()).main()
     while date is not None:
-        date = Hermes(Config(), new_date=date).main()
+        date = Hermes(Config(new_date=date)).main()
     sys.exit(0)
 
 

@@ -25,9 +25,17 @@ from mpi4py import MPI
 
 class Config(ArgParser):
     """
-    Initialization of the arguments that the parser can handle.
+    Configuration arguments class.
     """
-    def __init__(self):
+    def __init__(self, new_date=None):
+        """
+        Read and parse all the arguments.
+
+        :param new_date: Starting date for simulation loop day.
+        :type new_date: datetime.datetime
+        """
+        self.new_date = new_date
+
         super(Config, self).__init__()
         self.arguments = self.read_arguments()
 
@@ -362,8 +370,7 @@ class Config(ArgParser):
             print '/t Using False as default'
             return False
 
-    @staticmethod
-    def _parse_start_date(str_date):
+    def _parse_start_date(self, str_date):
         """
         Parse the date form string to datetime.
         It accepts several ways to introduce the date:
@@ -377,9 +384,12 @@ class Config(ArgParser):
         :rtype: datetime.datetime
         """
         from datetime import datetime
+
+        if self.new_date is not None:
+            return self.new_date
+
         format_types = ['%Y%m%d', '%Y%m%d%H', '%Y%m%d.%H', '%Y/%m/%d_%H:%M:%S', '%Y-%m-%d_%H:%M:%S',
                         '%Y/%m/%d %H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y/%m/%d_%H', '%Y-%m-%d_%H', '%Y/%m/%d']
-
         date = None
         for date_format in format_types:
             try:
