@@ -5,10 +5,27 @@ from grid import Grid
 import numpy as np
 import math
 
+from hermesv3_bu.logger.log import Log
+
 
 class RotatedGrid(Grid):
-    def __init__(self, auxiliary_path, tstep_num, vertical_description_path, centre_lat, centre_lon, west_boundary,
+    def __init__(self, logger, auxiliary_path, tstep_num, vertical_description_path, centre_lat, centre_lon, west_boundary,
                  south_boundary, inc_rlat, inc_rlon):
+        """
+
+        :param logger: Logger.
+        :type logger: Log
+
+        :param auxiliary_path:
+        :param tstep_num:
+        :param vertical_description_path:
+        :param centre_lat:
+        :param centre_lon:
+        :param west_boundary:
+        :param south_boundary:
+        :param inc_rlat:
+        :param inc_rlon:
+        """
 
         self.rlat = None
         self.rlon = None
@@ -21,7 +38,7 @@ class RotatedGrid(Grid):
                       'n_lon': int((abs(west_boundary) / inc_rlon) * 2 + 1), 'crs': {'init': 'epsg:4326'}}
 
         # Initialises with parent class
-        super(RotatedGrid, self).__init__(attributes, auxiliary_path, vertical_description_path)
+        super(RotatedGrid, self).__init__(logger, attributes, auxiliary_path, vertical_description_path)
 
         self.shape = (tstep_num, len(self.vertical_desctiption), len(self.rlat), len(self.rlon))
 

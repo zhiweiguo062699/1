@@ -24,14 +24,18 @@ import sys
 import numpy as np
 from hermesv3_bu.grids.grid import Grid
 from hermesv3_bu.io_server.io_netcdf import write_coords_netcdf
+from hermesv3_bu.logger.log import Log
 
 
 class LatLonGrid(Grid):
 
-    def __init__(self, auxiliary_path, tstep_num, vertical_description_path, inc_lat, inc_lon, lat_orig, lon_orig,
+    def __init__(self, logger, auxiliary_path, tstep_num, vertical_description_path, inc_lat, inc_lon, lat_orig, lon_orig,
                  n_lat, n_lon):
         """
         Regional regular lat-lon grid object that contains all the information to do a global output.
+
+        :param logger: Logger.
+        :type logger: Log
 
         :param auxiliary_path: Path to the folder to store all the needed auxiliary files.
         :type auxiliary_path: str
@@ -64,7 +68,7 @@ class LatLonGrid(Grid):
         attributes = {'inc_lat': inc_lat, 'inc_lon': inc_lon, 'lat_orig': lat_orig, 'lon_orig': lon_orig,
                       'n_lat': n_lat, 'n_lon': n_lon, 'crs': {'init': 'epsg:4326'}}
         # Initialize the class using parent
-        super(LatLonGrid, self).__init__(attributes, auxiliary_path, vertical_description_path)
+        super(LatLonGrid, self).__init__(logger, attributes, auxiliary_path, vertical_description_path)
 
         self.shape = (tstep_num, len(self.vertical_desctiption), n_lat, n_lon)
 

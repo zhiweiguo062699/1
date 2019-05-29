@@ -4,14 +4,18 @@ import os
 import numpy as np
 from pyproj import Proj
 from grid import Grid
+from hermesv3_bu.logger.log import Log
 
 
 class MercatorGrid(Grid):
 
-    def __init__(self, auxiliary_path, tstep_num, vertical_description_path, lat_ts, lon_0, nx, ny, inc_x, inc_y, x_0,
+    def __init__(self, logger, auxiliary_path, tstep_num, vertical_description_path, lat_ts, lon_0, nx, ny, inc_x, inc_y, x_0,
                  y_0, earth_radius=6370000.000):
         """
         Mercator grid object that contains all the information to do a mercator output.
+
+        :param logger: Logger.
+        :type logger: Log
 
         :param auxiliary_path: Path to the folder to store all the needed auxiliary files.
         :type auxiliary_path: str
@@ -58,7 +62,7 @@ class MercatorGrid(Grid):
         self.y = None
 
         # Initialises with parent class
-        super(MercatorGrid, self).__init__(attributes, auxiliary_path, vertical_description_path)
+        super(MercatorGrid, self).__init__(logger, attributes, auxiliary_path, vertical_description_path)
 
         self.shape = (tstep_num, len(self.vertical_desctiption), ny, nx)
 
