@@ -6,6 +6,11 @@ from timeit import default_timer as gettime
 from warnings import warn
 from mpi4py import MPI
 import rasterio
+from rasterio.mask import mask
+import geopandas as gpd
+import pandas as pd
+import numpy as np
+
 
 from hermesv3_bu.io_server.io_server import IoServer
 
@@ -22,8 +27,27 @@ class IoRaster(IoServer):
     def read_raster(self):
         pass
 
-    def clip_raster_with_shapefile(self, raster_path, shape_path, clipped_raster_path):
+    def clip_raster_with_shapefile(self, raster_path, shape_path, clipped_raster_path, rank=0):
+        """
+        Clip a raster using given shapefile path.
 
+        The clip is performed only by the selected rank process.
+
+        :param raster_path: Path to the raster to clip.
+        :type raster_path: str
+
+        :param shape_path: Path to the shapefile with the polygons where clip the input raster.
+        :type shape_path: str
+
+        :param clipped_raster_path: Place to store the clipped raster.
+        :type clipped_raster_path: str
+
+        :param rank: Rank who have to do the work. Default 0
+        :type rank: int
+
+        :return: Path where is stored the clipped raster.
+        :rtype: str
+        """
         def getFeatures(gdf):
             """
             https://automating-gis-processes.github.io/CSC18/lessons/L6/clipping-raster.html
@@ -31,9 +55,7 @@ class IoRaster(IoServer):
             import json
             return [json.loads(gdf.to_json())['features'][0]['geometry']]
 
-        import geopandas as gpd
-        from rasterio.mask import mask
-        if self.comm.Get_rank() == 0:
+        if self.comm.Get_rank() == rank:
             data = rasterio.open(raster_path)
             geo = gpd.read_file(shape_path)
             if len(geo) > 1:
@@ -41,7 +63,7 @@ class IoRaster(IoServer):
             geo = geo.to_crs(crs=data.crs.data)
             coords = getFeatures(geo)
 
-            out_img, out_transform = mask(raster=data, shapes=coords, crop=True)
+            out_img, out_transform = mask(data, shapes=coords, crop=True)
             out_meta = data.meta.copy()
 
             out_meta.update({
@@ -58,17 +80,38 @@ class IoRaster(IoServer):
 
         return clipped_raster_path
 
-    def clip_raster_with_shapefile_poly(self, raster_path, geo, clipped_raster_path, nodata=0):
+    def clip_raster_with_shapefile_poly(self, raster_path, geo, clipped_raster_path, rank=0, nodata=0):
+        """
+        Clip a raster using given shapefile.
+
+        The clip is performed only by the master (rank 0) process.
+
+        :param raster_path: Path to the raster to clip.
+        :type raster_path: str
+
+        :param geo: Shapefile with the polygons where clip the input raster.
+        :type geo: geopandas.GeoDataFrame
+
+        :param clipped_raster_path: Place to store the clipped raster.
+        :type clipped_raster_path: str
+
+        :param rank: Rank who have to do the work. Default 0
+        :type rank: int
+
+        :param nodata: Value for the no data elements. Default 0
+        :type nodata: float
+
+        :return: Path where is stored the clipped raster.
+        :rtype: str
+        """
         def get_features(gdf):
             """
             https://automating-gis-processes.github.io/CSC18/lessons/L6/clipping-raster.html
             Function to parse features from GeoDataFrame in such a manner that rasterio wants them"""
             import json
             return [json.loads(gdf.to_json())['features'][0]['geometry']]
-        import geopandas as gpd
-        from rasterio.mask import mask
 
-        if self.comm.Get_rank() == 0:
+        if self.comm.Get_rank() == rank:
             data = rasterio.open(raster_path)
 
             if len(geo) > 1:
@@ -95,19 +138,24 @@ class IoRaster(IoServer):
 
         return clipped_raster_path
 
+    def to_shapefile(self, raster_path, out_path=None, write=False, crs=None, rank=0, nodata=0):
+        """
 
-    def to_shapefile(self, raster_path, out_path=None, write=False, crs=None, nodata=0):
-        import geopandas as gpd
-        import pandas as pd
-        import numpy as np
+        :param raster_path:
+        :param out_path:
+        :param write:
+        :param crs:
+        :param rank:
+        :param nodata:
+        :return:
+        """
         from shapely.geometry import Polygon
         from hermesv3_bu.grids.grid import Grid
 
-        if self.comm.Get_rank() == 0:
+        if self.comm.Get_rank() == rank:
             ds = rasterio.open(raster_path)
 
             grid_info = ds.transform
-            # grid_info = ds.affine.Affine
 
             lons = np.arange(ds.width) * grid_info[0] + grid_info[2]
             lats = np.arange(ds.height) * grid_info[4] + grid_info[5]
@@ -135,7 +183,6 @@ class IoRaster(IoServer):
             df['p4'] = zip(df.b_lon_4, df.b_lat_4)
             del df['b_lat_4'], df['b_lon_4']
 
-            # list_points = df.as_matrix()
             list_points = df.values
 
             del df['p1'], df['p2'], df['p3'], df['p4']
@@ -143,11 +190,8 @@ class IoRaster(IoServer):
             data = ds.read(1).flatten()
 
             geometry = [Polygon(list(points)) for points in list_points]
-
             gdf = gpd.GeoDataFrame(data, columns=['data'], crs=ds.crs, geometry=geometry)
-
             gdf.loc[:, 'CELL_ID'] = xrange(len(gdf))
-
             gdf = gdf[gdf['data'] != nodata]
 
             if crs is not None:
@@ -165,162 +209,11 @@ class IoRaster(IoServer):
 
         return gdf
 
-    def clip_raster_with_shapefile_serie(self, raster_path, shape_path, clipped_raster_path):
-        def get_features(gdf):
-            """
-            https://automating-gis-processes.github.io/CSC18/lessons/L6/clipping-raster.html
-            Function to parse features from GeoDataFrame in such a manner that rasterio wants them"""
-            import json
-            return [json.loads(gdf.to_json())['features'][0]['geometry']]
-
-        import geopandas as gpd
-        from rasterio.mask import mask
-
-        data = rasterio.open(raster_path)
-        geo = gpd.read_file(shape_path)
-        if len(geo) > 1:
-            geo = gpd.GeoDataFrame(geometry=[geo.geometry.unary_union], crs=geo.crs)
-        geo = geo.to_crs(crs=data.crs.data)
-        coords = get_features(geo)
-
-        out_img, out_transform = mask(raster=data, shapes=coords, crop=True)
-        out_meta = data.meta.copy()
-
-        out_meta.update(
-            {
-                "driver": "GTiff",
-                "height": out_img.shape[1],
-                "width": out_img.shape[2],
-                "transform": out_transform,
-                "crs": data.crs
-            })
-        if not os.path.exists(os.path.dirname(clipped_raster_path)):
-            os.makedirs(os.path.dirname(clipped_raster_path))
-        dst = rasterio.open(clipped_raster_path, "w", **out_meta)
-        dst.write(out_img)
-
-        return clipped_raster_path
-
-    def clip_raster_with_shapefile_poly_serie(self, raster_path, geo, clipped_raster_path, nodata=0):
-        def get_features(gdf):
-            """
-            https://automating-gis-processes.github.io/CSC18/lessons/L6/clipping-raster.html
-            Function to parse features from GeoDataFrame in such a manner that rasterio wants them"""
-            import json
-            return [json.loads(gdf.to_json())['features'][0]['geometry']]
-
-        import geopandas as gpd
-        from rasterio.mask import mask
-
-        if settings.log_level_3:
-            st_time = gettime()
-        else:
-            st_time = None
-        data = rasterio.open(raster_path)
-
-        if len(geo) > 1:
-            geo = gpd.GeoDataFrame(geometry=[geo.geometry.unary_union], crs=geo.crs)
-        geo = geo.to_crs(crs=data.crs.data)
-        coords = get_features(geo)
-
-        out_img, out_transform = mask(raster=data, shapes=coords, crop=True, all_touched=True, nodata=nodata)
-        out_meta = data.meta.copy()
-
-        out_meta.update({
-            "driver": "GTiff",
-            "height": out_img.shape[1],
-            "width": out_img.shape[2],
-            "transform": out_transform,
-            "crs": data.crs})
-        if not os.path.exists(os.path.dirname(clipped_raster_path)):
-            os.makedirs(os.path.dirname(clipped_raster_path))
-        dst = rasterio.open(clipped_raster_path, "w", **out_meta)
-        dst.write(out_img)
-
-        return clipped_raster_path
-
-    def to_shapefile_serie(self, raster_path, out_path=None, write=False, crs=None, nodata=0):
-        import geopandas as gpd
-        import pandas as pd
-        import numpy as np
-        from shapely.geometry import Polygon
-        from hermesv3_bu.grids.grid import Grid
-
-        ds = rasterio.open(raster_path)
-
-        # if nodata is None:
-        #     nodata = ds.nodata
-
-        grid_info = ds.transform
-        # grid_info = ds.affine.Affine
-
-        lons = np.arange(ds.width) * grid_info[1] + grid_info[0]
-        lats = np.arange(ds.height) * grid_info[5] + grid_info[3]
-
-        # 1D to 2D
-        c_lats = np.array([lats] * len(lons)).T.flatten()
-        c_lons = np.array([lons] * len(lats)).flatten()
-        del lons, lats
-
-        b_lons = Grid.create_bounds(c_lons, grid_info[1], number_vertices=4) + grid_info[1]/2
-        b_lats = Grid.create_bounds(c_lats, grid_info[1], number_vertices=4, inverse=True) + grid_info[5]/2
-
-        df_lats = pd.DataFrame(b_lats[0], columns=['b_lat_1', 'b_lat_2', 'b_lat_3', 'b_lat_4'])
-        df_lons = pd.DataFrame(b_lons[0], columns=['b_lon_1', 'b_lon_2', 'b_lon_3', 'b_lon_4'])
-        df = pd.concat([df_lats, df_lons], axis=1)
-
-        del df_lats, df_lons, b_lats, b_lons
-
-        df['p1'] = zip(df.b_lon_1, df.b_lat_1)
-        del df['b_lat_1'], df['b_lon_1']
-        df['p2'] = zip(df.b_lon_2, df.b_lat_2)
-        del df['b_lat_2'], df['b_lon_2']
-        df['p3'] = zip(df.b_lon_3, df.b_lat_3)
-        del df['b_lat_3'], df['b_lon_3']
-        df['p4'] = zip(df.b_lon_4, df.b_lat_4)
-        del df['b_lat_4'], df['b_lon_4']
-
-        # list_points = df.as_matrix()
-        list_points = df.values
-
-        del df['p1'], df['p2'], df['p3'], df['p4']
-
-        data = ds.read(1)
-        mask = ds.read_masks(1) == 0
-        # print data
-        # print mask
-        # print type(mask)
-        # sys.exit(1)
-        data[mask] = 0
-        # print data.sum()
-        # sys.exit(1)
-
-        geometry = [Polygon(list(points)) for points in list_points]
-
-        gdf = gpd.GeoDataFrame(data.flatten(), columns=['data'], crs=ds.crs, geometry=geometry)
-
-        gdf.loc[:, 'CELL_ID'] = xrange(len(gdf))
-
-        gdf = gdf[gdf['data'] != nodata]
-
-        if crs is not None:
-            gdf = gdf.to_crs(crs)
-
-        if write:
-            if not os.path.exists(os.path.dirname(out_path)):
-                os.makedirs(os.path.dirname(out_path))
-            gdf.to_file(out_path)
-
-        return gdf
-
-    def value_to_shapefile(self, raster_path, value, out_path=None, crs=None):
-        import pandas as pd
-        import geopandas as gpd
-        import numpy as np
+    def value_to_shapefile(self, raster_path, value, out_path=None, crs=None, rank=0):
         from hermesv3_bu.grids.grid import Grid
         from shapely.geometry import Polygon
 
-        if self.comm.Get_rank() == 0:
+        if self.comm.Get_rank() == rank:
             ds = rasterio.open(raster_path)
             data = ds.read(1).flatten()
 
@@ -346,10 +239,6 @@ class IoRaster(IoServer):
             data = data[index]
 
             df = df[~df.index.isin(index)]
-            # print df
-            # sys.exit()
-            #
-            # df = df.loc[index, :]
 
             df['p1'] = zip(df.b_lon_1, df.b_lat_1)
             del df['b_lat_1'], df['b_lon_1']

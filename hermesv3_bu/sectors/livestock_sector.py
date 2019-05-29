@@ -19,8 +19,7 @@ TAU = 170
 
 class LivestockSector(Sector):
     """
-    Class that contains all the information and methods to calculate the livestock emissions
-
+    Class that contains all the information and methods to calculate the livestock emissions.
     """
     def __init__(self, comm, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels, animal_list,
                  gridded_livestock_path, correction_split_factors_path, temperature_dir, wind_speed_dir,
@@ -362,8 +361,6 @@ class LivestockSector(Sector):
         :return: Dataframe with the nut_code column and all the animal subtype percentages.
         :rtype : pandas.Dataframe
         """
-        # TODO Read on master? init?
-
         splitting_factors_list = []
         for animal in self.animal_list:
             correction_split_factors = pd.read_csv(correction_split_factors_path.replace('<animal>', animal))

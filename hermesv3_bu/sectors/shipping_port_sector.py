@@ -198,8 +198,7 @@ class ShippingPortSector(Sector):
         - EF_<pollutant>: Emission factor for each pollutant. Units:
         :return:
         """
-        # TODO Add units to EF
-        # TODO Add constants description
+        # TODO Add constants description and Units
         def get_n(df):
             """
             Get the N value (XXXXXX) depending on the vessel type.
