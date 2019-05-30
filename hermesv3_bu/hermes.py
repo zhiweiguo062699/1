@@ -19,7 +19,7 @@ class Hermes(object):
     Interface class for HERMESv3.
     """
     def __init__(self, config):
-        spent_time = timeit.default_timer()
+        self.initial_time = timeit.default_timer()
         self.comm = MPI.COMM_WORLD
 
         self.arguments = config.arguments
@@ -36,9 +36,9 @@ class Hermes(object):
         self.sector_manager = SectorManager(
             self.comm, self.logger, self.grid, self.clip, self.date_array, self.arguments)
 
-        self.writer = select_writer(self.arguments, self.grid, self.date_array)
+        self.writer = select_writer(self.logger, self.arguments, self.grid, self.date_array)
 
-        self.logger.write_time_log('Hermes', '__init__', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('Hermes', '__init__', timeit.default_timer() - self.initial_time)
 
     def main(self):
         """
@@ -51,6 +51,9 @@ class Hermes(object):
         self.writer.write(emis)
 
         self.comm.Barrier()
+
+        self.logger.write_log('***** HERMES simulation finished succesful *****')
+        self.logger.write_time_log('Hermes', 'TOTAL', timeit.default_timer() - self.initial_time)
         self.logger.finish_logs()
 
         if self.arguments.start_date < self.arguments.end_date:

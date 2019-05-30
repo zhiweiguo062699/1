@@ -5,13 +5,18 @@ import numpy as np
 import pandas as pd
 from mpi4py import MPI
 from warnings import warn
+import timeit
+from hermesv3_bu.logger.log import Log
 
 CHUNKING = True
 
 
-def select_writer(arguments, grid, date_array):
+def select_writer(logger, arguments, grid, date_array):
     """
     Select the writer depending on the arguments passed to HERMESv3_BU
+
+    :param logger: Logger
+    :type logger: Log
 
     :param arguments: Arguments passed to HERMESv3_BU
     :type arguments: Namespace
@@ -25,7 +30,7 @@ def select_writer(arguments, grid, date_array):
     :return: Selected writer.
     :rtype: Writer
     """
-
+    spent_time = timeit.default_timer()
     comm_world = MPI.COMM_WORLD
 
     if grid.shape[2] % 2 == 0:
@@ -39,7 +44,7 @@ def select_writer(arguments, grid, date_array):
 
         arguments.writing_processors = min((comm_world.Get_size(), max_procs))
 
-    rank_distribution = get_distribution(arguments.writing_processors, grid.shape)
+    rank_distribution = get_distribution(logger, arguments.writing_processors, grid.shape)
 
     if comm_world.Get_rank() < arguments.writing_processors:
         color = 99
@@ -53,14 +58,19 @@ def select_writer(arguments, grid, date_array):
 
     if arguments.output_model == 'DEFAULT':
         from hermesv3_bu.writer.default_writer import DefaultWriter
-        writer = DefaultWriter(comm_world, comm_write, arguments.output_name, grid, date_array, pollutant_info,
+        writer = DefaultWriter(comm_world, comm_write, logger, arguments.output_name, grid, date_array, pollutant_info,
                                rank_distribution)
+    logger.write_time_log('Writer', 'select_writer', timeit.default_timer() - spent_time)
 
     return writer
 
 
-def get_distribution(processors, shape):
+def get_distribution(logger, processors, shape):
     """
+    Calculate the process distribution for writing.
+
+    :param logger: Logger
+    :type logger: Log
 
     :param processors: Number of writing processors.
     :type processors: int
@@ -85,6 +95,7 @@ def get_distribution(processors, shape):
             'x_min': 0}}
     :rtype rank_distribution: dict
     """
+    spent_time = timeit.default_timer()
     fid_dist = {}
     total_rows = shape[2]
 
@@ -114,20 +125,24 @@ def get_distribution(processors, shape):
         }
 
         rows_sum += rows
-
+    logger.write_time_log('Writer', 'get_distribution', timeit.default_timer() - spent_time)
     return fid_dist
 
 
 class Writer(object):
-    def __init__(self, comm_world, comm_write, netcdf_path, grid, date_array, pollutant_info, rank_distribution):
+    def __init__(self, comm_world, comm_write, logger, netcdf_path, grid, date_array, pollutant_info,
+                 rank_distribution):
         """
         Initialise the Writer class.
 
-        :param comm_wolrd: Global communicator for all the calculation process
-        :type comm_wolrd: MPI.COMM
+        :param comm_world: Global communicator for all the calculation process
+        :type comm_world: MPI.COMM
 
         :param comm_write: Sector communicator.
         :type comm_write: MPI.Intracomm
+
+        :param logger: Logger
+        :type logger: Log
 
         :param netcdf_path: Path to the output NetCDF file-
         :type netcdf_path: str
@@ -158,14 +173,16 @@ class Writer(object):
                 'x_min': 0}}
         :type rank_distribution: dict
         """
-
+        spent_time = timeit.default_timer()
         self.comm_world = comm_world
         self.comm_write = comm_write
+        self.logger = logger
         self.netcdf_path = netcdf_path
         self.grid = grid
         self.date_array = date_array
         self.pollutant_info = pollutant_info
         self.rank_distribution = rank_distribution
+        self.logger.write_time_log('Writer', '__init__', timeit.default_timer() - spent_time)
 
     def gather_emissions(self, emissions):
         """
@@ -180,6 +197,7 @@ class Writer(object):
             None.
         :rtype: pandas.DataFrame
         """
+        spent_time = timeit.default_timer()
         # Sending
         requests = []
         for w_rank, info in self.rank_distribution.iteritems():
@@ -199,6 +217,7 @@ class Writer(object):
             new_emissions = None
 
         self.comm_world.Barrier()
+        self.logger.write_time_log('Writer', 'gather_emissions', timeit.default_timer() - spent_time)
 
         return new_emissions
 
@@ -212,6 +231,7 @@ class Writer(object):
         :return: 4D array with the emissions to be written.
         :rtype: numpy.array
         """
+        spent_time = timeit.default_timer()
         var_name = dataframe.columns.values[0]
         shape = self.rank_distribution[self.comm_write.Get_rank()]['shape']
         dataframe.reset_index(inplace=True)
@@ -220,6 +240,8 @@ class Writer(object):
 
         for (layer, tstep), aux_df in dataframe.groupby(['layer', 'tstep']):
             data[tstep, layer, aux_df['FID']] = aux_df[var_name]
+        self.logger.write_time_log('Writer', 'dataframe_to_array', timeit.default_timer() - spent_time)
+
         return data.reshape(shape)
 
     def write(self, emissions):
@@ -232,10 +254,13 @@ class Writer(object):
         :return: True if everything finish OK.
         :rtype: bool
         """
+        spent_time = timeit.default_timer()
         emissions = self.unit_change(emissions)
         emissions = self.gather_emissions(emissions)
         if self.comm_world.Get_rank() in self.rank_distribution.iterkeys():
             self.write_netcdf(emissions)
 
         self.comm_world.Barrier()
+        self.logger.write_time_log('Writer', 'write', timeit.default_timer() - spent_time)
+
         return True
