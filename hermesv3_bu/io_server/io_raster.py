@@ -177,7 +177,7 @@ class IoRaster(IoServer):
                 bound_coords = np.dstack((coords_left, coords_right, coords_right, coords_left))
         else:
             raise ValueError('ERROR: The number of vertices of the boundaries must be 2 or 4.')
-        #self.logger.write_time_log('IoRaster', 'create_bounds', timeit.default_timer() - spent_time, 3)
+        # self.logger.write_time_log('IoRaster', 'create_bounds', timeit.default_timer() - spent_time, 3)
         return bound_coords
 
     def to_shapefile(self, raster_path, out_path=None, write=False, crs=None, rank=0, nodata=0):

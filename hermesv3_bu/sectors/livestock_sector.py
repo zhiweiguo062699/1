@@ -983,7 +983,8 @@ class LivestockSector(Sector):
 
         distribution['hour'] = distribution['date'].dt.hour
         for out_p in self.output_pollutants:
-            self.logger.write_log('\t\t\tDistributing {0} emissions to hourly resolution'.format(out_p), message_level=3)
+            self.logger.write_log('\t\t\tDistributing {0} emissions to hourly resolution'.format(out_p),
+                                  message_level=3)
             if out_p.lower() == 'pmc':
                 in_p = 'pmc'
             else:

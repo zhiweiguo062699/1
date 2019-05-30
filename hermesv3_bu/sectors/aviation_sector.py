@@ -447,6 +447,7 @@ class AviationSector(Sector):
         :rtype: pandas.DataFrame
         """
         spent_time = timeit.default_timer()
+
         def get_intersection_length(row):
             intersection = row.get('geometry_x').intersection(row.get('geometry_y'))
             return intersection.length
@@ -516,6 +517,7 @@ class AviationSector(Sector):
         :rtype: pandas.DataFrame
         """
         spent_time = timeit.default_timer()
+
         def get_vertical_intersection_length(row):
             circle = row.get('start_point').buffer(row.get('circle_radious'))
             return row.get('src_geometry').intersection(circle).length
@@ -618,6 +620,7 @@ class AviationSector(Sector):
         :rtype: pandas.DataFrame
         """
         spent_time = timeit.default_timer()
+
         def get_e(df):
             """
             Number of engines associated to each airport
@@ -722,6 +725,7 @@ class AviationSector(Sector):
         :rtype: pandas.DataFrame
         """
         spent_time = timeit.default_timer()
+
         def get_mtow(df):
             """
             Maximum take-off weight associated to aircraft
@@ -819,6 +823,7 @@ class AviationSector(Sector):
         :rtype: pandas.DataFrame
         """
         spent_time = timeit.default_timer()
+
         def get_t(df):
             """
             Time spent by each aircraft to complete tha selected phase (s)

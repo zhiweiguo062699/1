@@ -10,9 +10,10 @@ from hermesv3_bu.logger.log import Log
 
 class ShippingPortSector(Sector):
     def __init__(self, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
-                 vessel_list, port_list, hoteling_shapefile_path, maneuvering_shapefile_path, ef_dir, engine_percent_path,
-                 tonnage_path, load_factor_path, power_path, monthly_profiles_path, weekly_profiles_path,
-                 hourly_profiles_path, speciation_map_path, speciation_profiles_path, molecular_weights_path):
+                 vessel_list, port_list, hoteling_shapefile_path, maneuvering_shapefile_path, ef_dir,
+                 engine_percent_path, tonnage_path, load_factor_path, power_path, monthly_profiles_path,
+                 weekly_profiles_path, hourly_profiles_path, speciation_map_path, speciation_profiles_path,
+                 molecular_weights_path):
         """
         Initialise the Shipping port sectopr class
 
@@ -216,6 +217,7 @@ class ShippingPortSector(Sector):
         """
         # TODO Add constants description and Units
         spent_time = timeit.default_timer()
+        
         def get_n(df):
             """
             Get the N value (XXXXXX) depending on the vessel type.
