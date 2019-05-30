@@ -48,8 +48,11 @@ class Hermes(object):
 
         emis = self.sector_manager.run()
 
-        self.writer.write(emis)
+        waiting_time = timeit.default_timer()
+        self.comm.Barrier()
+        self.logger.write_time_log('Hermes', 'Waiting_to_write', timeit.default_timer() - waiting_time)
 
+        self.writer.write(emis)
         self.comm.Barrier()
 
         self.logger.write_log('***** HERMES simulation finished succesful *****')

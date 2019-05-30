@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import numpy as np
 import pandas as pd
 
 
@@ -92,6 +93,7 @@ class Log(object):
             df_merged['max'] = df_merged.loc[:, range(self.comm.Get_size())].max(axis=1)
             df_merged['mean'] = df_merged.loc[:, range(self.comm.Get_size())].mean(axis=1)
 
+            df_merged = df_merged.replace(0.0, np.NaN)
             df_merged.to_csv(self.time_log_path)
 
         self.comm.Barrier()
