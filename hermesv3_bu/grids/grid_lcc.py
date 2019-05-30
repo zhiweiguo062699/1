@@ -77,9 +77,7 @@ class LccGrid(Grid):
 
         # Initialises with parent class
         super(LccGrid, self).__init__(logger, attributes, auxiliary_path, vertical_description_path)
-
         self.shape = (tstep_num, len(self.vertical_desctiption), ny, nx)
-
         self.logger.write_time_log('LccGrid', '__init__', timeit.default_timer() - spent_time)
 
     def write_netcdf(self):

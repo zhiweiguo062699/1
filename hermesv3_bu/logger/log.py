@@ -119,13 +119,12 @@ class Log(object):
         if message_level <= self.log_level:
             self.df_times = self.df_times.append(
                 {'Class': class_name, 'Function': function_name, self.comm.Get_rank(): time}, ignore_index=True)
-
-            if self.time_log_refresh > 0:
-                self.time_log_refresh -= 1
-            if self.time_log_refresh == 0:
-
-                self._write_csv_times_log_file()
-                self.time_log_refresh = self.refresh_rate[0]
+            # if self.time_log_refresh > 0:
+            #     self.time_log_refresh -= 1
+            # if self.time_log_refresh == 0:
+            #
+            #     self._write_csv_times_log_file()
+            #     self.time_log_refresh = self.refresh_rate[0]
         return True
 
     def finish_logs(self):

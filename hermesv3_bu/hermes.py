@@ -30,8 +30,11 @@ class Hermes(object):
                                 self.grid)
         self.date_array = [self.arguments.start_date + timedelta(hours=hour) for hour in
                            xrange(self.arguments.output_timestep_num)]
+        self.logger.write_log('Dates to simulate: {0}'.format(
+            [aux_date.strftime("%Y/%m/%d, %H:%M:%S") for aux_date in self.date_array]), message_level=2)
 
-        self.sector_manager = SectorManager(self.comm, self.grid, self.clip, self.date_array, self.arguments)
+        self.sector_manager = SectorManager(
+            self.comm, self.logger, self.grid, self.clip, self.date_array, self.arguments)
 
         self.writer = select_writer(self.arguments, self.grid, self.date_array)
 

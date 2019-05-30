@@ -4,16 +4,23 @@ from hermesv3_bu.sectors.sector import Sector
 import pandas as pd
 import geopandas as gpd
 import numpy as np
+import timeit
+from hermesv3_bu.logger.log import Log
 
 
 class ShippingPortSector(Sector):
-    def __init__(self, comm, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels, vessel_list,
-                 port_list, hoteling_shapefile_path, maneuvering_shapefile_path, ef_dir, engine_percent_path,
+    def __init__(self, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+                 vessel_list, port_list, hoteling_shapefile_path, maneuvering_shapefile_path, ef_dir, engine_percent_path,
                  tonnage_path, load_factor_path, power_path, monthly_profiles_path, weekly_profiles_path,
                  hourly_profiles_path, speciation_map_path, speciation_profiles_path, molecular_weights_path):
         """
+        Initialise the Shipping port sectopr class
+
         :param comm: Communicator for the sector calculation.
         :type comm: MPI.COMM
+
+        :param logger: Logger
+        :type logger: Log
 
         :param auxiliary_dir: Path to the directory where the necessary auxiliary files will be created if them are not
             created yet.
@@ -70,10 +77,12 @@ class ShippingPortSector(Sector):
             file must contain the 'Specie' and 'MW' columns.
         :type molecular_weights_path: str
         """
+        spent_time = timeit.default_timer()
+        logger.write_log('===== SHIPPING PORT SECTOR =====')
         super(ShippingPortSector, self).__init__(
-            comm, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels, monthly_profiles_path,
-            weekly_profiles_path, hourly_profiles_path, speciation_map_path, speciation_profiles_path,
-            molecular_weights_path)
+            comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+            monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
+            speciation_profiles_path, molecular_weights_path)
 
         self.ef_engine = self.read_profiles(ef_dir)
 
@@ -94,9 +103,9 @@ class ShippingPortSector(Sector):
         self.tonnage.set_index('code', inplace=True)
         self.load_factor = self.read_profiles(load_factor_path)
         self.power_values = self.read_profiles(power_path)
+        self.logger.write_time_log('ShippingPortSector', '__init__', timeit.default_timer() - spent_time)
 
-    @staticmethod
-    def read_monthly_profiles(path):
+    def read_monthly_profiles(self, path):
         """
         Read the DataFrame of the monthly profiles with the month number as columns.
 
@@ -108,14 +117,18 @@ class ShippingPortSector(Sector):
         :return: DataFrame of the monthly profiles.
         :rtype: pandas.DataFrame
         """
+        spent_time = timeit.default_timer()
         if path is None:
-            return None
-        profiles = pd.read_csv(path)
+            profiles = None
+        else:
+            profiles = pd.read_csv(path)
 
-        profiles.rename(
-            columns={'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6, 'July': 7,
-                     'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12},
-            inplace=True)
+            profiles.rename(
+                columns={'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6, 'July': 7,
+                         'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12},
+                inplace=True)
+        self.logger.write_time_log('ShippingPortSector', 'read_monthly_profiles', timeit.default_timer() - spent_time)
+
         return profiles
 
     def add_timezone(self, dataframe, shapefile_path):
@@ -134,7 +147,7 @@ class ShippingPortSector(Sector):
         :rtype: pandas.DataFrame
         """
         from timezonefinder import TimezoneFinder
-
+        spent_time = timeit.default_timer()
         shapefile = gpd.read_file(shapefile_path)
         shapefile = shapefile.loc[:, ['code', 'geometry']]
         shapefile.drop_duplicates('code', keep='first', inplace=True)
@@ -145,6 +158,7 @@ class ShippingPortSector(Sector):
         dataframe.reset_index(inplace=True)
         dataframe = pd.merge(dataframe, shapefile.loc[:, ['code', 'timezone']], on='code')
         dataframe.set_index(['code', 'vessel'], inplace=True)
+        self.logger.write_time_log('ShippingPortSector', 'add_timezone', timeit.default_timer() - spent_time)
 
         return dataframe
 
@@ -164,6 +178,7 @@ class ShippingPortSector(Sector):
         :rtype: pandas.DataFrame
 
         """
+        spent_time = timeit.default_timer()
         dataframe.reset_index(inplace=True)
         df_list = []
         for tstep, date in enumerate(self.date_array):
@@ -179,6 +194,7 @@ class ShippingPortSector(Sector):
         dataframe.drop('date_utc', axis=1, inplace=True)
         dataframe.set_index(['code', 'vessel', 'tstep'], inplace=True)
         # del dataframe['date_utc']
+        self.logger.write_time_log('ShippingPortSector', 'add_dates', timeit.default_timer() - spent_time)
 
         return dataframe
 
@@ -199,6 +215,7 @@ class ShippingPortSector(Sector):
         :return:
         """
         # TODO Add constants description and Units
+        spent_time = timeit.default_timer()
         def get_n(df):
             """
             Get the N value (XXXXXX) depending on the vessel type.
@@ -337,6 +354,7 @@ class ShippingPortSector(Sector):
                 lambda x: get_ef(x, 'main', pollutant))
             dataframe['EF_a_{0}'.format(pollutant)] = dataframe.groupby('vessel').apply(
                 lambda x: get_ef(x, 'aux', pollutant))
+        self.logger.write_time_log('ShippingPortSector', 'get_constants', timeit.default_timer() - spent_time)
 
         return dataframe
 
@@ -347,6 +365,7 @@ class ShippingPortSector(Sector):
         :return: Manoeuvring and hoteling yearly emissions by port and vessel.
         :rtype: tuple
         """
+        spent_time = timeit.default_timer()
         constants = self.get_constants()
         manoeuvring = pd.DataFrame(index=constants.index)
         hoteling = pd.DataFrame(index=constants.index)
@@ -363,11 +382,12 @@ class ShippingPortSector(Sector):
             hoteling['{0}'.format(pollutant)] += \
                 constants['P'] * constants['Rae'] * constants['N'] * constants['LF_ha'] * constants['T_h'] * \
                 constants['EF_a_{0}'.format(pollutant)]
+        self.logger.write_time_log('ShippingPortSector', 'calculate_yearly_emissions_by_port_vessel',
+                                   timeit.default_timer() - spent_time)
 
         return manoeuvring, hoteling
 
-    @staticmethod
-    def dates_to_month_weekday_hour(dataframe):
+    def dates_to_month_weekday_hour(self, dataframe):
         """
         Add 'month', 'weekday' and 'hour' columns to the given dataframe.
 
@@ -377,9 +397,12 @@ class ShippingPortSector(Sector):
         :return: DataFrame with the 'month', 'weekday' and 'hour' columns.
         :rtype: pandas.DataFrame
         """
+        spent_time = timeit.default_timer()
         dataframe['month'] = dataframe['date'].dt.month
         dataframe['weekday'] = dataframe['date'].dt.weekday
         dataframe['hour'] = dataframe['date'].dt.hour
+        self.logger.write_time_log('ShippingPortSector', 'dates_to_month_weekday_hour',
+                                   timeit.default_timer() - spent_time)
 
         return dataframe
 
@@ -392,6 +415,8 @@ class ShippingPortSector(Sector):
 
         :return:
         """
+        spent_time = timeit.default_timer()
+
         def get_mf(df):
             """
             Get the Monthly Factor for the given dataframe depending on the vessel and the month.
@@ -422,6 +447,8 @@ class ShippingPortSector(Sector):
         operations['hour'] = 'max'
         operations['date'] = 'max'
         dataframe = dataframe.groupby(level=['code', 'tstep']).agg(operations)
+        self.logger.write_time_log('ShippingPortSector', 'calculate_monthly_emissions_by_port',
+                                   timeit.default_timer() - spent_time)
 
         return dataframe
 
@@ -435,6 +462,8 @@ class ShippingPortSector(Sector):
         :return: Hourly emissions DataFrame
         :rtype: pandas.DataFrame
         """
+        spent_time = timeit.default_timer()
+
         def get_wf(df):
             """
             Get the Weekly Factor for the given dataframe depending on the date.
@@ -475,6 +504,8 @@ class ShippingPortSector(Sector):
         dataframe['HF'] = dataframe.groupby('hour').apply(get_hf)
         dataframe[self.source_pollutants] = dataframe[self.source_pollutants].multiply(dataframe['HF'], axis=0)
         dataframe.drop(columns=['hour', 'HF'], inplace=True)
+        self.logger.write_time_log('ShippingPortSector', 'calculate_hourly_emissions_by_port',
+                                   timeit.default_timer() - spent_time)
 
         return dataframe
 
@@ -490,6 +521,8 @@ class ShippingPortSector(Sector):
 
         :return:
         """
+        spent_time = timeit.default_timer()
+
         def normalize_weight(df):
             df['Weight'] = df['Weight'] / df['Weight'].sum()
             return df.loc[:, ['Weight']]
@@ -507,6 +540,7 @@ class ShippingPortSector(Sector):
 
         dataframe[self.source_pollutants] = dataframe[self.source_pollutants].multiply(dataframe['Weight'], axis=0)
         dataframe.drop(columns=['Weight'], inplace=True)
+        self.logger.write_time_log('ShippingPortSector', 'to_port_geometry', timeit.default_timer() - spent_time)
 
         return dataframe
 
@@ -520,6 +554,8 @@ class ShippingPortSector(Sector):
         :return: DataFrame with the hourly emissions distributed by grid cell.
         :rtype: geopandas.GeoDataFrame
         """
+        spent_time = timeit.default_timer()
+
         dataframe.reset_index(inplace=True)
         dataframe.drop(columns=['code'], inplace=True)
 
@@ -536,6 +572,7 @@ class ShippingPortSector(Sector):
         dataframe['layer'] = 0
         dataframe = dataframe.loc[:, ~dataframe.columns.duplicated()]
         dataframe = dataframe.groupby(['FID', 'layer', 'tstep']).sum()
+        self.logger.write_time_log('ShippingPortSector', 'to_grid_geometry', timeit.default_timer() - spent_time)
 
         return dataframe
 
@@ -546,6 +583,10 @@ class ShippingPortSector(Sector):
         :return: Shipping port emissions with 'FID', 'layer' and 'tstep' index.
         :rtype: padas.DataFrame
         """
+        spent_time = timeit.default_timer()
+        self.logger.write_log('\tCalculating emissions')
+
+        self.logger.write_log('\t\tCalculating yearly emissions', message_level=2)
         manoeuvring, hoteling = self.calculate_yearly_emissions_by_port_vessel()
         # print manoeuvring.reset_index().groupby('code').sum()
         # print hoteling.reset_index().groupby('code').sum()
@@ -558,13 +599,19 @@ class ShippingPortSector(Sector):
         manoeuvring = self.dates_to_month_weekday_hour(manoeuvring)
         hoteling = self.dates_to_month_weekday_hour(hoteling)
 
+        self.logger.write_log('\t\tCalculating monthly emissions', message_level=2)
+
         manoeuvring = self.calculate_monthly_emissions_by_port(manoeuvring)
         hoteling = self.calculate_monthly_emissions_by_port(hoteling)
+
+        self.logger.write_log('\t\tCalculating hourly emissions', message_level=2)
 
         manoeuvring = self.calculate_hourly_emissions_by_port(manoeuvring)
         hoteling = self.calculate_hourly_emissions_by_port(hoteling)
 
         # TODO pre-calculate distribution during initialization.
+        self.logger.write_log('\t\tDistributing emissions', message_level=2)
+
         manoeuvring = self.to_port_geometry(manoeuvring, self.maneuvering_shapefile_path)
         hoteling = self.to_port_geometry(hoteling, self.hoteling_shapefile_path)
 
@@ -576,4 +623,6 @@ class ShippingPortSector(Sector):
 
         dataframe = self.speciate(dataframe, 'default')
 
+        self.logger.write_log('\t\tShipping port emissions calculated', message_level=2)
+        self.logger.write_time_log('ShippingPortSector', 'calculate_emissions', timeit.default_timer() - spent_time)
         return dataframe

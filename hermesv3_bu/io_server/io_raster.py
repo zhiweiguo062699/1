@@ -2,7 +2,7 @@
 
 import sys
 import os
-from timeit import default_timer as gettime
+import timeit
 from warnings import warn
 from mpi4py import MPI
 import rasterio
@@ -138,6 +138,48 @@ class IoRaster(IoServer):
 
         return clipped_raster_path
 
+    def create_bounds(self, coordinates, inc, number_vertices=2, inverse=False):
+        """
+        Calculate the vertices coordinates.
+
+        :param coordinates: Coordinates in degrees (latitude or longitude)
+        :type coordinates: numpy.array
+
+        :param inc: Increment between center values.
+        :type inc: float
+
+        :param number_vertices: Non mandatory parameter that informs the number of vertices that must have the
+                boundaries (by default 2).
+        :type number_vertices: int
+
+        :param inverse: For some grid latitudes.
+        :type inverse: bool
+
+        :return: Array with as many elements as vertices for each value of coords.
+        :rtype: numpy.array
+        """
+        spent_time = timeit.default_timer()
+        # Create new arrays moving the centers half increment less and more.
+        coords_left = coordinates - inc / 2
+        coords_right = coordinates + inc / 2
+
+        # Defining the number of corners needed. 2 to regular grids and 4 for irregular ones.
+        if number_vertices == 2:
+            # Create an array of N arrays of 2 elements to store the floor and the ceil values for each cell
+            bound_coords = np.dstack((coords_left, coords_right))
+            bound_coords = bound_coords.reshape((len(coordinates), number_vertices))
+        elif number_vertices == 4:
+            # Create an array of N arrays of 4 elements to store the corner values for each cell
+            # It can be stored in clockwise starting form the left-top element, or in inverse mode.
+            if inverse:
+                bound_coords = np.dstack((coords_left, coords_left, coords_right, coords_right))
+            else:
+                bound_coords = np.dstack((coords_left, coords_right, coords_right, coords_left))
+        else:
+            raise ValueError('ERROR: The number of vertices of the boundaries must be 2 or 4.')
+        #self.logger.write_time_log('IoRaster', 'create_bounds', timeit.default_timer() - spent_time, 3)
+        return bound_coords
+
     def to_shapefile(self, raster_path, out_path=None, write=False, crs=None, rank=0, nodata=0):
         """
 
@@ -165,8 +207,8 @@ class IoRaster(IoServer):
             c_lons = np.array([lons] * len(lats)).flatten()
             del lons, lats
 
-            b_lons = Grid.create_bounds(c_lons, grid_info[0], number_vertices=4) + grid_info[0]/2
-            b_lats = Grid.create_bounds(c_lats, grid_info[4], number_vertices=4, inverse=True) + grid_info[4]/2
+            b_lons = self.create_bounds(c_lons, grid_info[0], number_vertices=4) + grid_info[0]/2
+            b_lats = self.create_bounds(c_lats, grid_info[4], number_vertices=4, inverse=True) + grid_info[4]/2
 
             df_lats = pd.DataFrame(b_lats[0], columns=['b_lat_1', 'b_lat_2', 'b_lat_3', 'b_lat_4'])
             df_lons = pd.DataFrame(b_lons[0], columns=['b_lon_1', 'b_lon_2', 'b_lon_3', 'b_lon_4'])

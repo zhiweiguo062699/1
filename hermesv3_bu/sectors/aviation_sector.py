@@ -2,7 +2,8 @@
 
 import sys
 import os
-
+import timeit
+from hermesv3_bu.logger.log import Log
 import numpy as np
 import pandas as pd
 import geopandas as gpd
@@ -32,7 +33,7 @@ class AviationSector(Sector):
         - Taxi in
         - Post-taxi in
     """
-    def __init__(self, comm, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+    def __init__(self, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
                  airport_list, plane_list, airport_shapefile_path, airport_runways_shapefile_path,
                  airport_runways_corners_shapefile_path, airport_trajectories_shapefile_path, operations_path,
                  planes_path, times_path, ef_dir, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
@@ -40,6 +41,9 @@ class AviationSector(Sector):
         """
         :param comm: Communicator for the sector calculation.
         :type comm: MPI.COMM
+
+        :param logger: Logger
+        :type logger: Log
 
         :param auxiliary_dir: Path to the directory where the necessary auxiliary files will be created if them are not
             created yet.
@@ -118,9 +122,10 @@ class AviationSector(Sector):
             file must contain the 'Specie' and 'MW' columns.
         :type molecular_weights_path: str
         """
-
+        spent_time = timeit.default_timer()
+        logger.write_log('===== AVIATION SECTOR =====')
         super(AviationSector, self).__init__(
-            comm, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels, None,
+            comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels, None,
             weekly_profiles_path, hourly_profiles_path, speciation_map_path, speciation_profiles_path,
             molecular_weights_path)
 
@@ -157,6 +162,7 @@ class AviationSector(Sector):
         self.trajectory_arrival_distribution = self.calculate_trajectories_distribution(
             airport_trajectories_shapefile, 'arrival')
         comm.Barrier()
+        self.logger.write_time_log('AviationSector', '__init__', timeit.default_timer() - spent_time)
 
     def read_trajectories_shapefile(self, trajectories_path, runways_corners_path, runways_path):
         """
@@ -174,6 +180,7 @@ class AviationSector(Sector):
         :return: GeoDataFrame with the trajectories information, their praction and staring point.
         :rtype: geopandas.GeoDataFrame
         """
+        spent_time = timeit.default_timer()
         trajectories = gpd.read_file(trajectories_path)
 
         corners = gpd.read_file(runways_corners_path).to_crs(trajectories.crs)
@@ -190,6 +197,7 @@ class AviationSector(Sector):
 
         trajectories.drop(columns=['arrival_f', 'departure_f'], inplace=True)
         trajectories.set_index(['runway_id', 'operation'], inplace=True)
+        self.logger.write_time_log('AviationSector', 'read_trajectories_shapefile', timeit.default_timer() - spent_time)
 
         return trajectories
 
@@ -203,7 +211,8 @@ class AviationSector(Sector):
         :return: GeoDataFrame with the runways information.
         :rtype: geopandas.GeoDataFrame, None
         """
-        if self.comm.rank == 0:
+        spent_time = timeit.default_timer()
+        if self.comm.Get_rank() == 0:
             runway_shapefile = gpd.read_file(airport_runways_shapefile_path)
             runway_shapefile.set_index('airport_id', inplace=True)
             runway_shapefile = runway_shapefile.loc[self.airport_list_full, :]
@@ -212,11 +221,11 @@ class AviationSector(Sector):
             runway_shapefile.rename(columns={'approach_f': 'arrival_f', 'climbout_f': 'departure_f'}, inplace=True)
         else:
             runway_shapefile = None
+        self.logger.write_time_log('AviationSector', 'read_runway_shapefile', timeit.default_timer() - spent_time)
 
         return runway_shapefile
 
-    @staticmethod
-    def read_hourly_profiles(path):
+    def read_hourly_profiles(self, path):
         """
         Read the Dataset of the hourly profiles with the hours (int) as columns.
 
@@ -228,17 +237,22 @@ class AviationSector(Sector):
         :return: Dataset od the monthly profiles.
         :rtype: pandas.DataFrame
         """
+        spent_time = timeit.default_timer()
         if path is None:
-            return None
-        profiles = pd.read_csv(path)
-        profiles.rename(
-            columns={"operation": -3, "day_type": -2, 'P_hour': -1, '00': 0, '01': 1, '02': 2, '03': 3, '04': 4,
-                     '05': 5, '06': 6, '07': 7, '08': 8, '09': 9, '10': 10, '11': 11, '12': 12, '13': 13, '14': 14,
-                     '15': 15, '16': 16, '17': 17, '18': 18, '19': 19, '20': 20, '21': 21, '22': 22, '23': 23},
-            inplace=True)
-        profiles.columns = profiles.columns.astype(int)
-        profiles.rename(columns={-1: 'P_hour', -3: "operation", -2: "day_type"}, inplace=True)
-        profiles.set_index(["P_hour", "operation", "day_type"], inplace=True)
+            profiles = None
+        else:
+            profiles = pd.read_csv(path)
+            profiles.rename(
+                columns={"operation": -3, "day_type": -2, 'P_hour': -1, '00': 0, '01': 1, '02': 2, '03': 3, '04': 4,
+                         '05': 5, '06': 6, '07': 7, '08': 8, '09': 9, '10': 10, '11': 11, '12': 12, '13': 13, '14': 14,
+                         '15': 15, '16': 16, '17': 17, '18': 18, '19': 19, '20': 20, '21': 21, '22': 22, '23': 23},
+                inplace=True)
+            profiles.columns = profiles.columns.astype(int)
+            profiles.rename(columns={-1: 'P_hour', -3: "operation", -2: "day_type"}, inplace=True)
+            profiles.set_index(["P_hour", "operation", "day_type"], inplace=True)
+
+        self.logger.write_time_log('AviationSector', 'read_hourly_profiles', timeit.default_timer() - spent_time)
+
         return profiles
 
     def read_operations_update_plane_list(self, operations_csv_path):
@@ -257,11 +271,11 @@ class AviationSector(Sector):
             and phase.
         :rtype: pandas.DataFrame
         """
+        spent_time = timeit.default_timer()
         check = False
         operations = pd.read_csv(operations_csv_path)
 
         if check:
-            print 'CHECKINNNNNG'
             for index, aux_operations in operations.groupby(['airport_id', 'plane_id', 'operation']):
                 if len(aux_operations) > 1:
                     print index, len(aux_operations)
@@ -276,6 +290,9 @@ class AviationSector(Sector):
         operations.set_index(['airport_id', 'plane_id', 'operation'], inplace=True)
         operations.rename(columns={'1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10,
                                    '11': 11, '12': 12}, inplace=True)
+        self.logger.write_time_log('AviationSector', 'read_operations_update_plane_list',
+                                   timeit.default_timer() - spent_time)
+
         return operations
 
     def read_planes(self, planes_path):
@@ -288,15 +305,17 @@ class AviationSector(Sector):
         :return: Dataframe with the planes information
         :rtype: pandas.DataFrame
         """
+        spent_time = timeit.default_timer()
         check = False
         dataframe = pd.read_csv(planes_path)
         dataframe = dataframe.loc[dataframe['plane_id'].isin(self.plane_list)]
         if check:
-            print 'CHECKINNNNNG'
             for index, aux_operations in dataframe.groupby('plane_id'):
                 if len(aux_operations) > 1:
                     print index, len(aux_operations)
         dataframe.set_index('plane_id', inplace=True)
+        self.logger.write_time_log('AviationSector', 'read_planes', timeit.default_timer() - spent_time)
+
         return dataframe
 
     def read_times_info(self, times_path):
@@ -309,9 +328,12 @@ class AviationSector(Sector):
         :return: Dataframe with the times of each phase
         :rtype: pandas.DataFrame
         """
+        spent_time = timeit.default_timer()
         dataframe = pd.read_csv(times_path)
         dataframe = dataframe.loc[dataframe['airport_id'].isin(self.airport_list)]
         dataframe.set_index(['airport_id', 'plane_type'], inplace=True)
+        self.logger.write_time_log('AviationSector', 'read_times_info', timeit.default_timer() - spent_time)
+
         return dataframe
 
     def get_airport_list(self, conf_airport_list, airport_shapefile):
@@ -331,7 +353,8 @@ class AviationSector(Sector):
         :return: List with the airports to calculate.
         :rtype: list
         """
-        if self.comm.rank == 0:
+        spent_time = timeit.default_timer()
+        if self.comm.Get_rank() == 0:
             airport_shapefile = airport_shapefile.reset_index()
             airport_shapefile = gpd.sjoin(airport_shapefile.to_crs(self.grid_shp.crs),
                                           self.clip.shapefile.to_crs(self.grid_shp.crs), how='inner', op='intersects')
@@ -360,6 +383,7 @@ class AviationSector(Sector):
             shp_airport_list = None
 
         shp_airport_list = self.comm.scatter(shp_airport_list, root=0)
+        self.logger.write_time_log('AviationSector', 'get_airport_list', timeit.default_timer() - spent_time)
 
         return shp_airport_list
 
@@ -376,7 +400,8 @@ class AviationSector(Sector):
         :return: DataFrame with the location (FID) and fraction for each airport.
         :rtype: pandas.DataFrame
         """
-        print 'AIRPORT DISTRIBUTION'
+        spent_time = timeit.default_timer()
+        self.logger.write_log('\t\tCalculating airport distribution', message_level=2)
         airport_distribution_path = os.path.join(self.auxiliary_dir, 'aviation', 'airport_distribution.csv')
 
         if not os.path.exists(airport_distribution_path):
@@ -400,6 +425,9 @@ class AviationSector(Sector):
         else:
             airport_distribution = pd.read_csv(airport_distribution_path)
             airport_distribution.set_index(['airport_id', 'FID', 'layer'], inplace=True)
+        self.logger.write_time_log('AviationSector', 'calculate_airport_distribution',
+                                   timeit.default_timer() - spent_time)
+
         return airport_distribution
 
     def calculate_runway_distribution(self, runway_shapefile, phase_type):
@@ -418,6 +446,7 @@ class AviationSector(Sector):
         :return: DataFrame with the location (FID) and fraction for each airport.
         :rtype: pandas.DataFrame
         """
+        spent_time = timeit.default_timer()
         def get_intersection_length(row):
             intersection = row.get('geometry_x').intersection(row.get('geometry_y'))
             return intersection.length
@@ -427,7 +456,7 @@ class AviationSector(Sector):
             df['{0}_f'.format(phase_type)] = df['{0}_f'.format(phase_type)] / total_fraction
             return df.loc[:, ['{0}_f'.format(phase_type)]]
 
-        print 'RUNWAY DISTRIBUTION'
+        self.logger.write_log('\t\tCalculating runway distribution for {0}'.format(phase_type), message_level=2)
 
         runway_distribution_path = os.path.join(
             self.auxiliary_dir, 'aviation', 'runway_{0}_distribution.csv'.format(phase_type))
@@ -465,6 +494,8 @@ class AviationSector(Sector):
         else:
             runway_shapefile = pd.read_csv(runway_distribution_path)
             runway_shapefile.set_index(['airport_id', 'FID', 'layer'], inplace=True)
+        self.logger.write_time_log('AviationSector', 'calculate_runway_distribution',
+                                   timeit.default_timer() - spent_time)
 
         return runway_shapefile
 
@@ -484,6 +515,7 @@ class AviationSector(Sector):
         :return: DataFrame with the location (FID & level) and fraction for each airport.
         :rtype: pandas.DataFrame
         """
+        spent_time = timeit.default_timer()
         def get_vertical_intersection_length(row):
             circle = row.get('start_point').buffer(row.get('circle_radious'))
             return row.get('src_geometry').intersection(circle).length
@@ -507,7 +539,7 @@ class AviationSector(Sector):
             df['fraction'] = df['fraction'] / total_fraction
             return df.loc[:, ['fraction']]
 
-        print 'TRAJECTORIES DISTRIBUTION'
+        self.logger.write_log('\t\tCalculating trajectories distribution for {0}'.format(phase_type), message_level=2)
         trajectories_distribution_path = os.path.join(
             self.auxiliary_dir, 'aviation', 'trajectories_{0}_distribution.csv'.format(phase_type))
 
@@ -570,6 +602,9 @@ class AviationSector(Sector):
         else:
             trajectories_distr = pd.read_csv(trajectories_distribution_path)
             trajectories_distr.set_index(['airport_id', 'FID', 'layer'], inplace=True)
+        self.logger.write_time_log('AviationSector', 'calculate_trajectories_distribution',
+                                   timeit.default_timer() - spent_time)
+
         return trajectories_distr
 
     def get_main_engine_emission(self, phase):
@@ -582,6 +617,7 @@ class AviationSector(Sector):
         :return: Dataframe with the emissions of the phase py airport.
         :rtype: pandas.DataFrame
         """
+        spent_time = timeit.default_timer()
         def get_e(df):
             """
             Number of engines associated to each airport
@@ -639,7 +675,6 @@ class AviationSector(Sector):
             df['HF'] = self.hourly_profiles.loc[(df.name[0], operation, day_type), df.name[1]]
             return df.loc[:, ['HF']]
 
-        print phase
         # Merging operations with airport geometry
         dataframe = pd.DataFrame(index=self.operations.xs(PHASE_TYPE[phase], level='operation').index)
         dataframe = dataframe.reset_index().set_index('airport_id')
@@ -672,6 +707,7 @@ class AviationSector(Sector):
 
         dataframe.drop(columns=['f', 'plane_id', 'geometry'], inplace=True)
         dataframe = dataframe.groupby(['airport_id', 'tstep']).sum()
+        self.logger.write_time_log('AviationSector', 'get_main_engine_emission', timeit.default_timer() - spent_time)
 
         return dataframe
 
@@ -685,6 +721,7 @@ class AviationSector(Sector):
         :return: Dataframe with the emissions of the phase py airport.
         :rtype: pandas.DataFrame
         """
+        spent_time = timeit.default_timer()
         def get_mtow(df):
             """
             Maximum take-off weight associated to aircraft
@@ -733,7 +770,6 @@ class AviationSector(Sector):
             df['HF'] = self.hourly_profiles.loc[(df.name[0], operation, day_type), df.name[1]]
             return df.loc[:, ['HF']]
 
-        print phase
         # Merging operations with airport geometry
         dataframe = pd.DataFrame(index=self.operations.xs(PHASE_TYPE[phase], level='operation').index)
         dataframe = dataframe.reset_index().set_index('airport_id')
@@ -767,6 +803,8 @@ class AviationSector(Sector):
 
         dataframe.drop(columns=['f', 'plane_id', 'geometry'], inplace=True)
         dataframe = dataframe.groupby(['airport_id', 'tstep']).sum()
+        self.logger.write_time_log('AviationSector', 'get_tyre_and_brake_wear_emission',
+                                   timeit.default_timer() - spent_time)
 
         return dataframe
 
@@ -780,6 +818,7 @@ class AviationSector(Sector):
         :return: Dataframe with the emissions of the phase py airport.
         :rtype: pandas.DataFrame
         """
+        spent_time = timeit.default_timer()
         def get_t(df):
             """
             Time spent by each aircraft to complete tha selected phase (s)
@@ -834,7 +873,6 @@ class AviationSector(Sector):
             df['HF'] = self.hourly_profiles.loc[(df.name[0], operation, day_type), df.name[1]]
             return df.loc[:, ['HF']]
 
-        print phase
         # Merging operations with airport geometry
         dataframe = pd.DataFrame(index=self.operations.xs(PHASE_TYPE[phase], level='operation').index)
         dataframe = dataframe.reset_index().set_index('airport_id')
@@ -866,6 +904,8 @@ class AviationSector(Sector):
 
         dataframe.drop(columns=['f', 'plane_id', 'geometry'], inplace=True)
         dataframe = dataframe.groupby(['airport_id', 'tstep']).sum()
+        self.logger.write_time_log('AviationSector', 'get_auxiliary_power_unit_emission',
+                                   timeit.default_timer() - spent_time)
 
         return dataframe
 
@@ -882,6 +922,7 @@ class AviationSector(Sector):
         :return: Emissions distributed by cell (FID)
         :rtype: pandas.DataFrame
         """
+        spent_time = timeit.default_timer()
         pollutants = dataframe.columns.values
         dataframe.reset_index(inplace=True)
         distribution.reset_index(inplace=True)
@@ -891,6 +932,8 @@ class AviationSector(Sector):
         dataframe[pollutants] = dataframe[pollutants].multiply(dataframe['fraction'], axis=0)
         dataframe.drop(columns=['airport_id', 'fraction'], inplace=True)
         dataframe = dataframe.groupby(['FID', 'layer', 'tstep']).sum()
+        self.logger.write_time_log('AviationSector', 'distribute', timeit.default_timer() - spent_time)
+
         return dataframe
 
     def calculate_emissions(self):
@@ -900,28 +943,44 @@ class AviationSector(Sector):
         :return: Airport emissions distributed by cell (FID), layer and time step.
         :rtype: pandas.DataFrame
         """
-        print 'READY TO CALCULATE'
+        spent_time = timeit.default_timer()
+        self.logger.write_log('\tCalculating emissions')
+
         taxi_out = self.get_main_engine_emission('taxi_out')
+        self.logger.write_log('\t\tTaxi out emissions calculated.', message_level=2)
         taxi_in = self.get_main_engine_emission('taxi_in')
+        self.logger.write_log('\t\tTaxi in emissions calculated.', message_level=2)
         takeoff = self.get_main_engine_emission('takeoff')
+        self.logger.write_log('\t\tTake off emissions calculated.', message_level=2)
         climbout = self.get_main_engine_emission('climbout')
+        self.logger.write_log('\t\tClimb out emissions calculated.', message_level=2)
         approach = self.get_main_engine_emission('approach')
+        self.logger.write_log('\t\tApproach emissions calculated.', message_level=2)
         landing = self.get_main_engine_emission('landing')
+        self.logger.write_log('\t\tLanding emissions calculated.', message_level=2)
 
         landing_wear = self.get_tyre_and_brake_wear_emission('landing_wear')
+        self.logger.write_log('\t\tLanding wear emissions calculated.', message_level=2)
 
         post_taxi_in = self.get_auxiliary_power_unit_emission('post-taxi_in')
+        self.logger.write_log('\t\tPost taxi in emissions calculated.', message_level=2)
         pre_taxi_out = self.get_auxiliary_power_unit_emission('pre-taxi_out')
+        self.logger.write_log('\t\tPre taxi out emissions calculated.', message_level=2)
 
         airport_emissions = pd.concat([pre_taxi_out, taxi_out, taxi_in, post_taxi_in])
         airport_emissions = airport_emissions.groupby(['airport_id', 'tstep']).sum()
         airport_emissions = self.distribute(airport_emissions, self.airport_distribution)
+        self.logger.write_log('\t\tAirport emissions distributed (pre_taxi_out, taxi_out, taxi_in, post_taxi_in)',
+                              message_level=2)
 
         runway_departure_emissions = self.distribute(takeoff, self.runway_departure_distribution)
         runway_arrival_emissions = self.distribute(landing, self.runway_arrival_distribution)
         runway_arrival_emissions_wear = self.distribute(landing_wear, self.runway_arrival_distribution)
+        self.logger.write_log('\t\tRunway emissions distributed (takeoff, landing, landing_wear)', message_level=2)
+
         trajectory_arrival_emissions = self.distribute(approach, self.trajectory_arrival_distribution)
         trajectory_departure_emisions = self.distribute(climbout, self.trajectory_departure_distribution)
+        self.logger.write_log('\t\tTrajectory emissions distributed (approach, climb out)', message_level=2)
 
         emissions = pd.concat([airport_emissions, runway_departure_emissions, trajectory_arrival_emissions,
                                trajectory_departure_emisions, runway_arrival_emissions])
@@ -943,5 +1002,6 @@ class AviationSector(Sector):
 
         # From kmol/h or kg/h to mol/h or g/h
         emissions = emissions * 1000
-
+        self.logger.write_log('\t\tAviation emissions calculated', message_level=2)
+        self.logger.write_time_log('AviationSector', 'calculate_emissions', timeit.default_timer() - spent_time)
         return emissions

@@ -2,6 +2,8 @@
 
 import sys
 import os
+import timeit
+from hermesv3_bu.logger.log import Log
 import numpy as np
 import pandas as pd
 import geopandas as gpd
@@ -10,7 +12,7 @@ from mpi4py import MPI
 
 class Sector(object):
 
-    def __init__(self, comm, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+    def __init__(self, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
                  monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
                  speciation_profiles_path, molecular_weights_path):
         """
@@ -18,6 +20,9 @@ class Sector(object):
 
         :param comm: Communicator for the sector calculation.
         :type comm: MPI.Comm
+
+        :param logger: Logger
+        :type logger: Log
 
         :param auxiliary_dir: Path to the directory where the necessary auxiliary files will be created if them are not
             created yet.
@@ -64,7 +69,9 @@ class Sector(object):
         :type molecular_weights_path: str
 
         """
+        spent_time = timeit.default_timer()
         self.comm = comm
+        self.logger = logger
         self.auxiliary_dir = auxiliary_dir
         self.grid_shp = grid_shp
         self.clip = clip
@@ -85,6 +92,8 @@ class Sector(object):
 
         self.output_pollutants = self.speciation_map.keys()
 
+        self.logger.write_time_log('Sector', '__init__', timeit.default_timer() - spent_time)
+
     def read_speciation_profiles(self, path):
         """
         Read all the speciation profiles.
@@ -102,8 +111,10 @@ class Sector(object):
         :return: Dataframe with the speciation profile and the ID as index.
         :rtype: pandas.DataFrame
         """
+        spent_time = timeit.default_timer()
         dataframe = pd.read_csv(path)
         dataframe.set_index('ID', inplace=True)
+        self.logger.write_time_log('Sector', 'read_speciation_profiles', timeit.default_timer() - spent_time)
         return dataframe
 
     def read_speciation_map(self, path):
@@ -131,6 +142,7 @@ class Sector(object):
         :return: Dictionary with the output pollutant as key and the input pollutant as value.
         :rtype: dict
         """
+        spent_time = timeit.default_timer()
         dataframe = pd.read_csv(path)
         if 'PMC' in dataframe['dst'].values and all(element in self.source_pollutants for element in ['pm10', 'pm25']):
             dataframe_aux = dataframe.loc[dataframe['src'].isin(self.source_pollutants), :]
@@ -139,6 +151,8 @@ class Sector(object):
             dataframe = dataframe.loc[dataframe['src'].isin(self.source_pollutants), :]
 
         dataframe = dict(zip(dataframe['dst'], dataframe['src']))
+        self.logger.write_time_log('Sector', 'read_speciation_map', timeit.default_timer() - spent_time)
+
         return dataframe
 
     def read_molecular_weights(self, path):
@@ -160,15 +174,16 @@ class Sector(object):
         :return: Dictionary with the specie as key and the molecular weight as value.
         :rtype: dict
         """
-
+        spent_time = timeit.default_timer()
         dataframe = pd.read_csv(path)
         dataframe = dataframe.loc[dataframe['Specie'].isin(self.source_pollutants)]
 
         mol_wei = dict(zip(dataframe['Specie'], dataframe['MW']))
+        self.logger.write_time_log('Sector', 'read_molecular_weights', timeit.default_timer() - spent_time)
+
         return mol_wei
 
-    @staticmethod
-    def read_profiles(path, sep=','):
+    def read_profiles(self, path, sep=','):
         """
         Read the CSV profile.
 
@@ -181,11 +196,13 @@ class Sector(object):
         :return: DataFrame with the profiles.
         :rtype: pandas.DataFrame
         """
+        spent_time = timeit.default_timer()
         dataframe = pd.read_csv(path, sep=sep)
+        self.logger.write_time_log('Sector', 'read_profiles', timeit.default_timer() - spent_time)
+
         return dataframe
 
-    @staticmethod
-    def read_monthly_profiles(path):
+    def read_monthly_profiles(self, path):
         """
         Read the DataFrame of the monthly profiles with the month number as columns.
 
@@ -195,19 +212,22 @@ class Sector(object):
         :return: DataFrame of the monthly profiles.
         :rtype: pandas.DataFrame
         """
+        spent_time = timeit.default_timer()
         if path is None:
-            return None
-        profiles = pd.read_csv(path)
+            profiles = None
+        else:
+            profiles = pd.read_csv(path)
 
-        profiles.rename(
-            columns={'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6, 'July': 7,
-                     'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12},
-            inplace=True)
-        profiles.set_index('P_month', inplace=True)
+            profiles.rename(
+                columns={'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6, 'July': 7,
+                         'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12},
+                inplace=True)
+            profiles.set_index('P_month', inplace=True)
+
+        self.logger.write_time_log('Sector', 'read_monthly_profiles', timeit.default_timer() - spent_time)
         return profiles
 
-    @staticmethod
-    def read_weekly_profiles(path):
+    def read_weekly_profiles(self, path):
         """
         Read the Dataset of the weekly profiles with the weekdays as numbers (Monday: 0 - Sunday:6) as columns.
 
@@ -218,18 +238,20 @@ class Sector(object):
         :return: Dataset od the weekly profiles.
         :rtype: pandas.DataFrame
         """
+        spent_time = timeit.default_timer()
         if path is None:
-            return None
-        profiles = pd.read_csv(path)
+            profiles = None
+        else:
+            profiles = pd.read_csv(path)
 
-        profiles.rename(
-            columns={'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4, 'Saturday': 5,
-                     'Sunday': 6, }, inplace=True)
-        profiles.set_index('P_week', inplace=True)
+            profiles.rename(
+                columns={'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4, 'Saturday': 5,
+                         'Sunday': 6, }, inplace=True)
+            profiles.set_index('P_week', inplace=True)
+        self.logger.write_time_log('Sector', 'read_weekly_profiles', timeit.default_timer() - spent_time)
         return profiles
 
-    @staticmethod
-    def read_hourly_profiles(path):
+    def read_hourly_profiles(self, path):
         """
         Read the Dataset of the hourly profiles with the hours (int) as columns.
 
@@ -239,17 +261,19 @@ class Sector(object):
         :return: Dataset od the monthly profiles.
         :rtype: pandas.DataFrame
         """
+        spent_time = timeit.default_timer()
         if path is None:
-            return None
-        profiles = pd.read_csv(path)
-        profiles.rename(
-            columns={'P_hour': -1, '00': 0, '01': 1, '02': 2, '03': 3, '04': 4, '05': 5, '06': 6, '07': 7,
-                     '08': 8, '09': 9, '10': 10, '11': 11, '12': 12, '13': 13, '14': 14, '15': 15, '16': 16,
-                     '17': 17, '18': 18, '19': 19, '20': 20, '21': 21, '22': 22, '23': 23}, inplace=True)
-        profiles.columns = profiles.columns.astype(int)
-        profiles.rename(columns={-1: 'P_hour'}, inplace=True)
-        profiles.set_index('P_hour', inplace=True)
-
+            profiles = None
+        else:
+            profiles = pd.read_csv(path)
+            profiles.rename(
+                columns={'P_hour': -1, '00': 0, '01': 1, '02': 2, '03': 3, '04': 4, '05': 5, '06': 6, '07': 7,
+                         '08': 8, '09': 9, '10': 10, '11': 11, '12': 12, '13': 13, '14': 14, '15': 15, '16': 16,
+                         '17': 17, '18': 18, '19': 19, '20': 20, '21': 21, '22': 22, '23': 23}, inplace=True)
+            profiles.columns = profiles.columns.astype(int)
+            profiles.rename(columns={-1: 'P_hour'}, inplace=True)
+            profiles.set_index('P_hour', inplace=True)
+        self.logger.write_time_log('Sector', 'read_hourly_profiles', timeit.default_timer() - spent_time)
         return profiles
 
     def calculate_rebalanced_weekly_profile(self, profile, date):
@@ -268,14 +292,15 @@ class Sector(object):
         :return: Profile already rebalanced.
         :rtype: dict
         """
-
+        spent_time = timeit.default_timer()
         weekdays = self.calculate_weekdays(date)
 
         rebalanced_profile = self.calculate_weekday_factor_full_month(profile, weekdays)
+        self.logger.write_time_log('Sector', 'calculate_rebalanced_weekly_profile', timeit.default_timer() - spent_time)
+
         return rebalanced_profile
 
-    @staticmethod
-    def calculate_weekday_factor_full_month(profile, weekdays):
+    def calculate_weekday_factor_full_month(self, profile, weekdays):
         """
         Operate with all the days of the month to get the sum of daily factors of the full month.
 
@@ -288,6 +313,7 @@ class Sector(object):
         :return: Dictionary with the corrected profile.
         :rtype: dict
         """
+        spent_time = timeit.default_timer()
         weekdays_factors = 0
         num_days = 0
         for day in xrange(7):
@@ -296,10 +322,11 @@ class Sector(object):
         increment = float(num_days - weekdays_factors) / num_days
         for day in xrange(7):
             profile[day] = (increment + profile[day]) / num_days
+        self.logger.write_time_log('Sector', 'calculate_weekday_factor_full_month', timeit.default_timer() - spent_time)
+
         return profile
 
-    @staticmethod
-    def calculate_weekdays(date):
+    def calculate_weekdays(self, date):
         """
         Calculate the number of days of each day type for the given month of the year.
 
@@ -310,13 +337,14 @@ class Sector(object):
         :rtype: dict
         """
         from calendar import monthrange, weekday, MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY
+        spent_time = timeit.default_timer()
         weekdays = [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY]
         days = [weekday(date.year, date.month, d + 1) for d in xrange(monthrange(date.year, date.month)[1])]
 
         weekdays_dict = {}
         for i, day in enumerate(weekdays):
             weekdays_dict[i] = days.count(day)
-
+        self.logger.write_time_log('Sector', 'calculate_weekdays', timeit.default_timer() - spent_time)
         return weekdays_dict
 
     def add_dates(self, dataframe):
@@ -332,6 +360,7 @@ class Sector(object):
             multiplied by the number of time steps.
         :rtype: geopandas.GeoDataFrame
         """
+        spent_time = timeit.default_timer()
         dataframe = self.add_timezone(dataframe)
         df_list = []
 
@@ -345,10 +374,11 @@ class Sector(object):
         dataframe = pd.concat(df_list, ignore_index=True)
         dataframe = self.to_timezone(dataframe)
         dataframe.drop('date_utc', axis=1, inplace=True)
+        self.logger.write_time_log('Sector', 'add_dates', timeit.default_timer() - spent_time)
+
         return dataframe
 
-    @staticmethod
-    def add_timezone(dataframe):
+    def add_timezone(self, dataframe):
         """
         Add the timezone os the centroid of each geometry of the input geodataframe.
 
@@ -358,16 +388,15 @@ class Sector(object):
         :return: Geodataframe with the timezone column.
         :rtype: geopandas.GeoDataframe        """
         from timezonefinder import TimezoneFinder
-
+        spent_time = timeit.default_timer()
         dataframe = dataframe.to_crs({'init': 'epsg:4326'})
         tzfinder = TimezoneFinder()
         dataframe['timezone'] = dataframe.centroid.apply(lambda x: tzfinder.timezone_at(lng=x.x, lat=x.y))
         dataframe.reset_index(inplace=True)
-
+        self.logger.write_time_log('Sector', 'add_timezone', timeit.default_timer() - spent_time)
         return dataframe
 
-    @staticmethod
-    def to_timezone(dataframe):
+    def to_timezone(self, dataframe):
         """
         Set the local date with the correspondent timezone substituting the UTC date.
 
@@ -377,15 +406,16 @@ class Sector(object):
         :return: Catalog with the local date column.
         :rtype: pandas.DataFrame
         """
+        spent_time = timeit.default_timer()
         dataframe['date'] = dataframe.groupby('timezone')['date'].apply(
             lambda x: x.dt.tz_convert(x.name).dt.tz_localize(None))
 
         dataframe.drop('timezone', axis=1, inplace=True)
+        self.logger.write_time_log('Sector', 'to_timezone', timeit.default_timer() - spent_time)
 
         return dataframe
 
-    @staticmethod
-    def add_nut_code(shapefile, nut_shapefile_path, nut_value='ORDER06'):
+    def add_nut_code(self, shapefile, nut_shapefile_path, nut_value='ORDER06'):
         """
         Add 'nut_code' column into the shapefile based on the 'nut_value' column of the 'nut_shapefile_path' shapefile.
 
@@ -405,6 +435,7 @@ class Sector(object):
         :return: Shapefile with the 'nut_code' column set.
         :rtype: geopandas.GeoDataframe
         """
+        spent_time = timeit.default_timer()
         nut_shapefile = gpd.read_file(nut_shapefile_path).to_crs(shapefile.crs)
         shapefile = gpd.sjoin(shapefile, nut_shapefile.loc[:, [nut_value, 'geometry']], how='left', op='intersects')
 
@@ -414,11 +445,11 @@ class Sector(object):
         shapefile.rename(columns={nut_value: 'nut_code'}, inplace=True)
         shapefile.loc[shapefile['nut_code'].isna(), 'nut_code'] = -999
         shapefile['nut_code'] = shapefile['nut_code'].astype(np.int16)
+        self.logger.write_time_log('Sector', 'add_nut_code', timeit.default_timer() - spent_time)
 
         return shapefile
 
-    @staticmethod
-    def spatial_overlays(df1, df2, how='intersection'):
+    def spatial_overlays(self, df1, df2, how='intersection'):
         """
         Compute overlay intersection of two GeoPandasDataFrames df1 and df2
 
@@ -429,6 +460,7 @@ class Sector(object):
         :param how: Operation to do
         :return: GeoDataFrame
         """
+        spent_time = timeit.default_timer()
         df1 = df1.copy()
         df2 = df2.copy()
         df1['geometry'] = df1.geometry.buffer(0)
@@ -460,7 +492,7 @@ class Sector(object):
             dfinter.rename(columns={'Intersection': 'geometry'}, inplace=True)
             dfinter = gpd.GeoDataFrame(dfinter, columns=dfinter.columns, crs=pairs.crs)
             dfinter = dfinter.loc[~dfinter.geometry.is_empty]
-            return dfinter
+            return_value = dfinter
         elif how == 'difference':
             spatial_index = df2.sindex
             df1['bbox'] = df1.geometry.apply(lambda x: x.bounds)
@@ -470,44 +502,55 @@ class Sector(object):
             df1.geometry = df1.new_g
             df1 = df1.loc[~df1.geometry.is_empty].copy()
             df1.drop(['bbox', 'histreg', 'new_g'], axis=1, inplace=True)
-            return df1
+            return_value = df1
+        self.logger.write_time_log('Sector', 'spatial_overlays', timeit.default_timer() - spent_time)
 
-    @staticmethod
-    def nearest(row, geom_union, df1, df2, geom1_col='geometry', geom2_col='geometry', src_column=None):
+        return return_value
+
+    def nearest(self, row, geom_union, df1, df2, geom1_col='geometry', geom2_col='geometry', src_column=None):
         """Finds the nearest point and return the corresponding value from specified column.
         https://automating-gis-processes.github.io/2017/lessons/L3/nearest-neighbour.html#nearest-points-using-geopandas
         """
         from shapely.ops import nearest_points
-
+        spent_time = timeit.default_timer()
         # Find the geometry that is closest
         nearest = df2[geom2_col] == nearest_points(row[geom1_col], geom_union)[1]
         # Get the corresponding value from df2 (matching is based on the geometry)
         value = df2[nearest][src_column].get_values()[0]
+        self.logger.write_time_log('Sector', 'nearest', timeit.default_timer() - spent_time)
 
         return value
 
     def speciate(self, dataframe, code):
-        print('Speciation')
+        spent_time = timeit.default_timer()
+        self.logger.write_log('\t\tSpeciating {0} emissions'.format(code), message_level=2)
+
         new_dataframe = pd.DataFrame(index=dataframe.index, data=None)
         for out_pollutant in self.output_pollutants:
             if out_pollutant != 'PMC':
-                print "{0} = ({1}/{2})*{3}".format(out_pollutant,
-                                                   self.speciation_map[out_pollutant],
-                                                   self.molecular_weights[self.speciation_map[out_pollutant]],
-                                                   self.speciation_profile.loc[code, out_pollutant],)
+                self.logger.write_log("\t\t\t{0} = ({1}/{2})*{3}".format(
+                    out_pollutant, self.speciation_map[out_pollutant],
+                    self.molecular_weights[self.speciation_map[out_pollutant]],
+                    self.speciation_profile.loc[code, out_pollutant]), message_level=3)
                 if self.speciation_map[out_pollutant] in dataframe.columns.values:
                     new_dataframe[out_pollutant] = (dataframe[self.speciation_map[out_pollutant]] /
                                                     self.molecular_weights[self.speciation_map[out_pollutant]]) * \
                                                    self.speciation_profile.loc[code, out_pollutant]
             else:
-                print "{0} = ({1}/{2} - {4}/{5})*{3}".format(out_pollutant, 'pm10', self.molecular_weights['pm10'],
-                                                             self.speciation_profile.loc[code, out_pollutant],
-                                                             'pm25', self.molecular_weights['pm25'],)
+                self.logger.write_log("\t\t\t{0} = ({1}/{2} - {4}/{5})*{3}".format(
+                    out_pollutant, 'pm10', self.molecular_weights['pm10'],
+                    self.speciation_profile.loc[code, out_pollutant], 'pm25', self.molecular_weights['pm25']),
+                    message_level=3)
+
                 new_dataframe[out_pollutant] = \
                     ((dataframe['pm10'] / self.molecular_weights['pm10']) -
                      (dataframe['pm25'] / self.molecular_weights['pm25'])) * \
                     self.speciation_profile.loc[code, out_pollutant]
+        self.logger.write_time_log('Sector', 'speciate', timeit.default_timer() - spent_time)
         return new_dataframe
 
     def get_output_pollutants(self, input_pollutant):
-        return [outs for outs, ints in self.speciation_map.iteritems() if ints == input_pollutant]
+        spent_time = timeit.default_timer()
+        return_value = [outs for outs, ints in self.speciation_map.iteritems() if ints == input_pollutant]
+        self.logger.write_time_log('Sector', 'get_output_pollutants', timeit.default_timer() - spent_time)
+        return return_value

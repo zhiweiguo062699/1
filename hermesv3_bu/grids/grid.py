@@ -165,7 +165,6 @@ class Grid(object):
             # It can be stored in clockwise starting form the left-top element, or in inverse mode.
             if inverse:
                 bound_coords = np.dstack((coords_left, coords_left, coords_right, coords_right))
-
             else:
                 bound_coords = np.dstack((coords_left, coords_right, coords_right, coords_left))
         else:
