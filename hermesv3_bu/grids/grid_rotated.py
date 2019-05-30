@@ -175,6 +175,6 @@ class RotatedGrid(Grid):
                                 rotated=True, rotated_lats=self.rlat, rotated_lons=self.rlon,
                                 north_pole_lat=90 - self.attributes['new_pole_latitude_degrees'],
                                 north_pole_lon=self.attributes['new_pole_longitude_degrees'])
-        self.logger.write_log("\tRotated grid write at '{0}'".format(self.netcdf_path), 3)
+        self.logger.write_log("\tGrid created at '{0}'".format(self.netcdf_path), 3)
         self.logger.write_time_log('RotatedGrid', 'write_netcdf', timeit.default_timer() - spent_time, 3)
         return True

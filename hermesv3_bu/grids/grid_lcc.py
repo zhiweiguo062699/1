@@ -100,7 +100,7 @@ class LccGrid(Grid):
                                 lat_1_2="{0}, {1}".format(self.attributes['lat_1'], self.attributes['lat_2']),
                                 lon_0=self.attributes['lon_0'], lat_0=self.attributes['lat_0'])
 
-        self.logger.write_log("\tLambert Conformal Conic grid write at '{0}'".format(self.netcdf_path), 3)
+        self.logger.write_log("\tGrid created at '{0}'".format(self.netcdf_path), 3)
         self.logger.write_time_log('LccGrid', 'write_netcdf', timeit.default_timer() - spent_time, 3)
         return True
 

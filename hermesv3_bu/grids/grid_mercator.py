@@ -88,7 +88,7 @@ class MercatorGrid(Grid):
                                 boundary_longitudes=self.boundary_longitudes,
                                 mercator=True, lcc_x=self.x, lcc_y=self.y, lon_0=self.attributes['lon_0'],
                                 lat_ts=self.attributes['lat_ts'])
-        self.logger.write_log("\tMercator grid write at '{0}'".format(self.netcdf_path), 3)
+        self.logger.write_log("\tGrid created at '{0}'".format(self.netcdf_path), 3)
         self.logger.write_time_log('MercatorGrid', 'write_netcdf', timeit.default_timer() - spent_time, 3)
         return True
 

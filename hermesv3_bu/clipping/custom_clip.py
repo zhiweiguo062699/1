@@ -2,6 +2,7 @@
 
 import sys
 import os
+import timeit
 import geopandas as gpd
 from hermesv3_bu.clipping.clip import Clip
 from hermesv3_bu.logger.log import Log
@@ -21,9 +22,12 @@ class CustomClip(Clip):
         :param points_str: List of points in string format.
         :type points_str: str
         """
+        spent_time = timeit.default_timer()
+        logger.write_log('Custom clip selected')
         super(CustomClip, self).__init__(logger, auxiliary_path)
         self.clip_type = 'Custom clip'
         self.shapefile = self.create_clip(points_str)
+        self.logger.write_time_log('CustomClip', '__init__', timeit.default_timer() - spent_time)
 
     def create_clip(self, points_str):
         """
@@ -37,7 +41,7 @@ class CustomClip(Clip):
         """
         import re
         from shapely.geometry import Point, Polygon
-
+        spent_time = timeit.default_timer()
         if not os.path.exists(self.shapefile_path):
             if not os.path.exists(os.path.dirname(self.shapefile_path)):
                 os.makedirs(os.path.dirname(self.shapefile_path))
@@ -60,4 +64,6 @@ class CustomClip(Clip):
             clip.to_file(self.shapefile_path)
         else:
             clip = gpd.read_file(self.shapefile_path)
+        self.logger.write_log("\tClip created at '{0}'".format(self.shapefile_path), 3)
+        self.logger.write_time_log('CustomClip', 'create_clip', timeit.default_timer() - spent_time)
         return clip

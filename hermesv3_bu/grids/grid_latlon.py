@@ -116,5 +116,5 @@ class LatLonGrid(Grid):
                                 boundary_longitudes=self.boundary_longitudes,
                                 regular_latlon=True)
 
-        self.logger.write_log("\tRegular Lat-Lon grid write at '{0}'".format(self.netcdf_path), 3)
+        self.logger.write_log("\tGrid created at '{0}'".format(self.netcdf_path), 3)
         self.logger.write_time_log('LatLonGrid', 'write_netcdf', timeit.default_timer() - spent_time, 3)

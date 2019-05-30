@@ -2,6 +2,7 @@
 
 import sys
 import os
+import timeit
 from mpi4py import MPI
 from datetime import timedelta
 
@@ -18,11 +19,12 @@ class Hermes(object):
     Interface class for HERMESv3.
     """
     def __init__(self, config):
-
+        spent_time = timeit.default_timer()
         self.comm = MPI.COMM_WORLD
 
         self.arguments = config.arguments
         self.logger = Log(self.comm, self.arguments)
+        self.logger.write_log('====== Starting HERMESv3_BU simulation =====')
         self.grid = select_grid(self.comm, self.logger, self.arguments)
         self.clip = select_clip(self.comm, self.logger, self.arguments.auxiliary_files_path, self.arguments.clipping,
                                 self.grid)
@@ -32,6 +34,8 @@ class Hermes(object):
         self.sector_manager = SectorManager(self.comm, self.grid, self.clip, self.date_array, self.arguments)
 
         self.writer = select_writer(self.arguments, self.grid, self.date_array)
+
+        self.logger.write_time_log('Hermes', '__init__', timeit.default_timer() - spent_time)
 
     def main(self):
         """

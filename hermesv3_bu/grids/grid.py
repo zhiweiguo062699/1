@@ -82,6 +82,7 @@ class Grid(object):
         """
         spent_time = timeit.default_timer()
         self.logger = logger
+        self.logger.write_log('\tGrid specifications: {0}'.format(attributes), 3)
         self.attributes = attributes
         self.netcdf_path = os.path.join(auxiliary_path, 'grid', 'grid.nc')
         self.shapefile_path = os.path.join(auxiliary_path, 'grid', 'grid.shp')

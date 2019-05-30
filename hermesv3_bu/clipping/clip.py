@@ -2,6 +2,7 @@
 
 import os
 import sys
+import timeit
 from hermesv3_bu.logger.log import Log
 
 
@@ -26,6 +27,7 @@ def select_clip(comm, logger, auxiliary_path, clipping, grid):
     :return: Clip
     :rtype: Clip
     """
+    spent_time = timeit.default_timer()
     if comm.Get_rank() == 0:
         if clipping is None:
             from hermesv3_bu.clipping.default_clip import DefaultClip
@@ -40,16 +42,21 @@ def select_clip(comm, logger, auxiliary_path, clipping, grid):
         clip = None
 
     clip = comm.bcast(clip, root=0)
+
+    logger.write_time_log('Clip', 'select_clip', timeit.default_timer() - spent_time)
     return clip
 
 
 class Clip(object):
 
     def __init__(self, logger, auxiliary_path):
+        spent_time = timeit.default_timer()
         self.logger = logger
         self.clip_type = None
         self.shapefile = None
         self.shapefile_path = os.path.join(auxiliary_path, 'clip', 'clip.shp')
+
+        self.logger.write_time_log('Clip', '__init__', timeit.default_timer() - spent_time)
 
     def __str__(self):
         text = "I'm a {0}. \n\tShapefile path: {1}\n\tClip polygon: {2}".format(
