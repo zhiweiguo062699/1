@@ -217,7 +217,7 @@ class ShippingPortSector(Sector):
         """
         # TODO Add constants description and Units
         spent_time = timeit.default_timer()
-        
+
         def get_n(df):
             """
             Get the N value (XXXXXX) depending on the vessel type.
