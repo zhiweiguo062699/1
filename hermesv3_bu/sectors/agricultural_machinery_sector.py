@@ -35,11 +35,8 @@ class AgriculturalMachinerySector(AgriculturalSector):
         self.crop_machinery_by_nut = self.read_profiles(crop_machinery_by_nut)
         self.crop_from_landuse = self.get_crop_from_land_uses(crop_from_landuse)
 
-        crop_distribution = self.get_crops_by_dst_cell(
-            os.path.join(auxiliary_dir, 'crops', 'crops.shp'))
-
         self.crop_distribution = self.get_crop_distribution_by_nut(
-            crop_distribution, machinery_distibution_nut_shapefile_path, nut_code='ORDER07')
+            self.crop_distribution,  machinery_distibution_nut_shapefile_path, nut_code='ORDER07')
 
         self.months = self.get_date_array_by_month()
 

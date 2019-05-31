@@ -39,8 +39,6 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
         self.crop_f_fertilizers = self.read_profiles(crop_f_fertilizers)
 
         if self.comm.Get_rank() == 0:
-            self.crop_distribution = self.get_crops_by_dst_cell(os.path.join(auxiliary_dir, 'crops', 'crops.shp'))
-
             self.gridded_constants = self.get_gridded_constants(
                 os.path.join(auxiliary_dir, 'fertilizers', 'gridded_constants.shp'),
                 gridded_ph,
@@ -49,7 +47,6 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
                 os.path.join(auxiliary_dir, 'fertilizers', 'gridded_cec.tiff'))
             self.ef_by_crop = self.get_ef_by_crop()
         else:
-            self.crop_distribution = None
             self.gridded_constants = None
             self.ef_by_crop = None
 

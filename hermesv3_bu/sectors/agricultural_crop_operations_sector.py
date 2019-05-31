@@ -98,12 +98,12 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
         self.crop_by_nut = crop_by_nut
         self.crop_from_landuse = self.get_crop_from_land_uses(crop_from_landuse)
 
-        if self.comm.Get_rank():
-            self.crop_distribution = self.get_crops_by_dst_cell(os.path.join(auxiliary_dir, 'crops', 'crops.shp'))
-        else:
-            self.crop_distribution = None
-
-        self.crop_distribution = IoShapefile().split_shapefile(self.crop_distribution)
+        # if self.comm.Get_rank():
+        #     self.crop_distribution = self.get_crops_by_dst_cell(os.path.join(auxiliary_dir, 'crops', 'crops.shp'))
+        # else:
+        #     self.crop_distribution = None
+        #
+        # self.crop_distribution = IoShapefile().split_shapefile(self.crop_distribution)
 
         self.months = self.get_date_array_by_month()
 

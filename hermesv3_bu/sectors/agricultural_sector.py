@@ -29,6 +29,9 @@ class AgriculturalSector(Sector):
         self.crop_list = crop_list
         self.land_uses_path = land_uses_path
         self.ef_files_dir = ef_files_dir
+        self.crop_distribution = self.get_crops_by_dst_cell(
+            os.path.join(auxiliary_dir, 'agriculture', 'crops', 'crops.shp'))
+
         self.logger.write_time_log('AgriculturalSector', '__init__', timeit.default_timer() - spent_time)
 
     def involved_grid_cells(self, src_shp):
@@ -248,6 +251,5 @@ class AgriculturalSector(Sector):
         else:
             crop_distribution_dst = IoShapefile().read_serial_shapefile(file_path)
         crop_distribution_dst.set_index('FID', inplace=True, drop=False)
-
         self.logger.write_time_log('AgriculturalSector', 'get_crops_by_dst_cell', timeit.default_timer() - spent_time)
         return crop_distribution_dst
