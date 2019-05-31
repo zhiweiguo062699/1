@@ -14,7 +14,7 @@ from hermesv3_bu.logger.log import Log
 
 
 class AgriculturalSector(Sector):
-    def __init__(self, comm, logger, auxiliary_dir, grid_shp, clip, date_array, nut_shapefile, source_pollutants,
+    def __init__(self, comm_agr, comm, logger, auxiliary_dir, grid_shp, clip, date_array, nut_shapefile, source_pollutants,
                  vertical_levels, crop_list, land_uses_path, ef_files_dir, monthly_profiles_path, weekly_profiles_path,
                  hourly_profiles_path, speciation_map_path, speciation_profiles_path, molecular_weights_path):
 
@@ -24,7 +24,7 @@ class AgriculturalSector(Sector):
             comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
             monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
             speciation_profiles_path, molecular_weights_path)
-
+        self.comm_agr = comm_agr
         self.nut_shapefile = nut_shapefile
         self.crop_list = crop_list
         self.land_uses_path = land_uses_path
@@ -33,6 +33,7 @@ class AgriculturalSector(Sector):
             os.path.join(auxiliary_dir, 'agriculture', 'crops', 'crops.shp'))
 
         self.logger.write_time_log('AgriculturalSector', '__init__', timeit.default_timer() - spent_time)
+        exit()
 
     def involved_grid_cells(self, src_shp):
         spent_time = timeit.default_timer()
@@ -253,3 +254,14 @@ class AgriculturalSector(Sector):
         crop_distribution_dst.set_index('FID', inplace=True, drop=False)
         self.logger.write_time_log('AgriculturalSector', 'get_crops_by_dst_cell', timeit.default_timer() - spent_time)
         return crop_distribution_dst
+
+    @staticmethod
+    def get_agricultural_processor_list(sector_dict):
+        rank_list = []
+
+        for sector, sector_procs in sector_dict.iteritems():
+            if sector in ['crop_operations', 'crop_fertilizers', 'agricultural_machinery']:
+                rank_list += sector_procs
+                print rank_list
+        rank_list = sorted(rank_list)
+        return rank_list

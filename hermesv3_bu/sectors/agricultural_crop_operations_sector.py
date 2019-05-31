@@ -11,8 +11,8 @@ from hermesv3_bu.logger.log import Log
 
 
 class AgriculturalCropOperationsSector(AgriculturalSector):
-    def __init__(self, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
-                 nut_shapefile_path, crop_list, land_uses_path, ef_dir, monthly_profiles_path,
+    def __init__(self, comm_agr, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants,
+                 vertical_levels, nut_shapefile_path, crop_list, land_uses_path, ef_dir, monthly_profiles_path,
                  weekly_profiles_path, hourly_profiles_path, speciation_map_path, speciation_profiles_path,
                  molecular_weights_path, landuse_by_nut, crop_by_nut, crop_from_landuse):
         """
@@ -90,20 +90,13 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
         spent_time = timeit.default_timer()
         logger.write_log('===== AGRICULTURAL CROP OPERATIONS SECTOR =====')
         super(AgriculturalCropOperationsSector, self).__init__(
-            comm, logger, auxiliary_dir, grid_shp, clip, date_array, nut_shapefile_path, source_pollutants,
+            comm_agr, comm, logger, auxiliary_dir, grid_shp, clip, date_array, nut_shapefile_path, source_pollutants,
             vertical_levels, crop_list, land_uses_path, ef_dir, monthly_profiles_path, weekly_profiles_path,
             hourly_profiles_path, speciation_map_path, speciation_profiles_path, molecular_weights_path)
 
         self.landuse_by_nut = landuse_by_nut
         self.crop_by_nut = crop_by_nut
         self.crop_from_landuse = self.get_crop_from_land_uses(crop_from_landuse)
-
-        # if self.comm.Get_rank():
-        #     self.crop_distribution = self.get_crops_by_dst_cell(os.path.join(auxiliary_dir, 'crops', 'crops.shp'))
-        # else:
-        #     self.crop_distribution = None
-        #
-        # self.crop_distribution = IoShapefile().split_shapefile(self.crop_distribution)
 
         self.months = self.get_date_array_by_month()
 
