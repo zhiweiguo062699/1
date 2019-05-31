@@ -29,21 +29,22 @@ class AgriculturalSector(Sector):
         self.crop_list = crop_list
         self.land_uses_path = land_uses_path
         self.ef_files_dir = ef_files_dir
+        self.logger.write_time_log('AgriculturalSector', '__init__', timeit.default_timer() - spent_time)
 
     def involved_grid_cells(self, src_shp):
-
+        spent_time = timeit.default_timer()
         grid_shp = IoShapefile(self.comm).split_shapefile(self.grid_shp)
         src_union = src_shp.to_crs(grid_shp.crs).geometry.unary_union
         grid_shp = grid_shp.loc[grid_shp.intersects(src_union), :]
 
         grid_shp_list = self.comm.gather(grid_shp, root=0)
         animal_dist_list = []
-        if self.rank == 0:
+        if self.comm.Get_rank() == 0:
             for small_grid in grid_shp_list:
                 animal_dist_list.append(src_shp.loc[src_shp.intersects(
                     small_grid.to_crs(src_shp.crs).geometry.unary_union), :])
             grid_shp = pd.concat(grid_shp_list)
-            grid_shp = np.array_split(grid_shp, self.size)
+            grid_shp = np.array_split(grid_shp, self.comm.Get_size())
         else:
             grid_shp = None
             animal_dist_list = None
@@ -52,10 +53,12 @@ class AgriculturalSector(Sector):
 
         animal_dist = self.comm.scatter(animal_dist_list, root=0)
 
+        self.logger.write_time_log('AgriculturalSector', 'involved_grid_cells', timeit.default_timer() - spent_time)
+
         return grid_shp, animal_dist
 
     def calculate_num_days(self):
-        import numpy as np
+        spent_time = timeit.default_timer()
 
         day_array = [hour.date() for hour in self.date_array]
         days, num_days = np.unique(day_array, return_counts=True)
@@ -63,11 +66,12 @@ class AgriculturalSector(Sector):
         day_dict = {}
         for key, value in zip(days, num_days):
             day_dict[key] = value
-
+        self.logger.write_time_log('AgriculturalSector', 'calculate_num_days', timeit.default_timer() - spent_time)
         return day_dict
 
     def get_crop_from_land_uses(self, crop_from_landuse_path):
         import re
+        spent_time = timeit.default_timer()
 
         crop_from_landuse = pd.read_csv(crop_from_landuse_path, sep=';')
         crop_dict = {}
@@ -76,60 +80,58 @@ class AgriculturalSector(Sector):
                 land_uses = list(map(str, re.split(' , |, | ,|,| ', element.land_use)))
                 weights = list(map(str, re.split(' , |, | ,|,| ', element.weight)))
                 crop_dict[element.crop] = zip(land_uses, weights)
+        self.logger.write_time_log('AgriculturalSector', 'get_crop_from_land_uses', timeit.default_timer() - spent_time)
 
         return crop_dict
 
     def get_involved_land_uses(self):
+        spent_time = timeit.default_timer()
 
-        # return [12, 13]
         land_uses_list = []
         for land_use_and_weight_list in self.crop_from_landuse.itervalues():
             for land_use_and_weight in land_use_and_weight_list:
                 land_use = int(land_use_and_weight[0])
                 if land_use not in land_uses_list:
                     land_uses_list.append(land_use)
+        self.logger.write_time_log('AgriculturalSector', 'get_involved_land_uses', timeit.default_timer() - spent_time)
 
         return land_uses_list
 
     def get_land_use_src_by_nut(self, land_uses):
-
-        # clip = gpd.read_file(self.clipping)
+        spent_time = timeit.default_timer()
 
         df_land_use_with_nut = gpd.read_file(self.land_uses_path)
 
         df_land_use_with_nut.rename(columns={'CODE': 'NUT', 'gridcode': 'land_use'}, inplace=True)
 
         df_land_use_with_nut = df_land_use_with_nut.loc[df_land_use_with_nut['land_use'].isin(land_uses), :]
-        # clip = clip.to_crs(df_land_use_with_nut.crs)
-        # df_land_use_with_nut = gpd.overlay(df_land_use_with_nut, clip, how='intersection')
-        self.clipping = self.clipping.to_crs(df_land_use_with_nut.crs)
 
-        df_land_use_with_nut = self.spatial_overlays(df_land_use_with_nut, self.clipping)
-        # sys.exit()
+        df_land_use_with_nut = self.spatial_overlays(df_land_use_with_nut,
+                                                     self.clip.shapefile.to_crs(df_land_use_with_nut.crs))
 
+        self.logger.write_time_log('AgriculturalSector', 'get_land_use_src_by_nut', timeit.default_timer() - spent_time)
         return df_land_use_with_nut
 
     def get_tot_land_use_by_nut(self, land_uses):
-
+        spent_time = timeit.default_timer()
         df = pd.read_csv(self.landuse_by_nut)
         df = df.loc[df['land_use'].isin(land_uses), :]
+        self.logger.write_time_log('AgriculturalSector', 'get_tot_land_use_by_nut', timeit.default_timer() - spent_time)
 
         return df
 
     def get_land_use_by_nut_csv(self, land_use_distribution_src_nut, land_uses, first=False):
-
+        spent_time = timeit.default_timer()
         land_use_distribution_src_nut['area'] = land_use_distribution_src_nut.area
 
         land_use_by_nut = land_use_distribution_src_nut.groupby(['NUT', 'land_use']).sum().reset_index()
-        # land_use_by_nut['NUT'] = land_use_distribution_src_nut.groupby('NUT').apply(lambda x: str(x.name).zfill(2))
-        # if first:
-        #     land_use_by_nut.to_csv(self.landuse_by_nut, index=False)
         land_use_by_nut = land_use_by_nut.loc[land_use_by_nut['land_use'].isin(land_uses), :]
+        self.logger.write_time_log('AgriculturalSector', 'get_land_use_by_nut_csv', timeit.default_timer() - spent_time)
 
         return land_use_by_nut
 
     def land_use_to_crop_by_nut(self, land_use_by_nut, nuts=None):
-
+        spent_time = timeit.default_timer()
         if nuts is not None:
             land_use_by_nut = land_use_by_nut.loc[land_use_by_nut['NUT'].isin(nuts), :]
         new_dict = pd.DataFrame()
@@ -146,19 +148,22 @@ class AgriculturalSector(Sector):
                         pass
                 aux_dict[crop] = [aux]
             new_dict = new_dict.append(pd.DataFrame.from_dict(aux_dict), ignore_index=True)
+        self.logger.write_time_log('AgriculturalSector', 'land_use_to_crop_by_nut', timeit.default_timer() - spent_time)
 
         return new_dict
 
     def get_crop_shape_by_nut(self, crop_by_nut, tot_crop_by_nut):
-
+        spent_time = timeit.default_timer()
         crop_share_by_nut = crop_by_nut.copy()
         crop_share_by_nut[self.crop_list] = 0
         for crop in self.crop_list:
             crop_share_by_nut[crop] = crop_by_nut[crop] / tot_crop_by_nut[crop]
+        self.logger.write_time_log('AgriculturalSector', 'get_crop_shape_by_nut', timeit.default_timer() - spent_time)
 
         return crop_share_by_nut
 
     def get_crop_area_by_nut(self, crop_share_by_nut):
+        spent_time = timeit.default_timer()
 
         self.crop_by_nut = pd.read_csv(self.crop_by_nut)
         self.crop_by_nut['code'] = self.crop_by_nut['code'].astype(np.int16)
@@ -169,11 +174,12 @@ class AgriculturalSector(Sector):
         crop_area_by_nut[self.crop_list] = 0
         for crop in self.crop_list:
             crop_area_by_nut[crop] = crop_share_by_nut[crop] * self.crop_by_nut[crop]
+        self.logger.write_time_log('AgriculturalSector', 'get_crop_area_by_nut', timeit.default_timer() - spent_time)
 
         return crop_area_by_nut
 
     def calculate_crop_distribution_src(self, crop_area_by_nut, land_use_distribution_src_nut):
-
+        spent_time = timeit.default_timer()
         crop_distribution_src = land_use_distribution_src_nut.loc[:, ['NUT', 'geometry']]
         for crop, landuse_weight_list in self.crop_from_landuse.iteritems():
             crop_distribution_src[crop] = 0
@@ -190,11 +196,13 @@ class AgriculturalSector(Sector):
             for crop in self.crop_list:
                 crop_distribution_src.loc[crop_distribution_src['NUT'] == nut, crop] *= \
                     crop_area_by_nut.loc[crop_area_by_nut['NUT'] == nut, crop].values[0]
+        self.logger.write_time_log('AgriculturalSector', 'calculate_crop_distribution_src',
+                                   timeit.default_timer() - spent_time)
 
         return crop_distribution_src
 
     def get_crop_distribution_in_dst_cells(self, crop_distribution):
-
+        spent_time = timeit.default_timer()
         crop_distribution = crop_distribution.to_crs(self.grid_shp.crs)
         crop_distribution['src_inter_fraction'] = crop_distribution.geometry.area
         crop_distribution = self.spatial_overlays(crop_distribution, self.grid_shp, how='intersection')
@@ -209,11 +217,12 @@ class AgriculturalSector(Sector):
         crop_distribution = gpd.GeoDataFrame(crop_distribution, crs=self.grid_shp.crs,
                                              geometry=self.grid_shp.loc[crop_distribution.index, 'geometry'])
         crop_distribution.reset_index(inplace=True)
-
+        self.logger.write_time_log('AgriculturalSector', 'get_crop_distribution_in_dst_cells',
+                                   timeit.default_timer() - spent_time)
         return crop_distribution
 
     def get_crops_by_dst_cell(self, file_path):
-
+        spent_time = timeit.default_timer()
         if not os.path.exists(file_path):
             involved_land_uses = self.get_involved_land_uses()
             land_use_distribution_src_nut = self.get_land_use_src_by_nut(involved_land_uses)
@@ -239,5 +248,6 @@ class AgriculturalSector(Sector):
         else:
             crop_distribution_dst = IoShapefile().read_serial_shapefile(file_path)
         crop_distribution_dst.set_index('FID', inplace=True, drop=False)
-
+        
+        self.logger.write_time_log('AgriculturalSector', 'get_crops_by_dst_cell', timeit.default_timer() - spent_time)
         return crop_distribution_dst

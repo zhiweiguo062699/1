@@ -32,7 +32,7 @@ class AgriculturalMachinerySector(AgriculturalSector):
         self.machinery_list = machinery_list
         self.landuse_by_nut = landuse_by_nut
         self.crop_by_nut = crop_by_nut
-        self.crop_machinery_by_nut = pd.read_csv(crop_machinery_by_nut)
+        self.crop_machinery_by_nut = self.read_profiles(crop_machinery_by_nut)
         self.crop_from_landuse = self.get_crop_from_land_uses(crop_from_landuse)
 
         crop_distribution = self.get_crops_by_dst_cell(

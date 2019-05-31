@@ -33,10 +33,10 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
         self.crop_by_nut = crop_by_nut
         self.crop_from_landuse = self.get_crop_from_land_uses(crop_from_landuse)
 
-        self.cultivated_ratio = pd.read_csv(cultivated_ratio)
-        self.fertilizer_rate = pd.read_csv(fertilizer_rate)
-        self.crop_f_parameter = pd.read_csv(crop_f_parameter)
-        self.crop_f_fertilizers = pd.read_csv(crop_f_fertilizers)
+        self.cultivated_ratio = self.read_profiles(cultivated_ratio)
+        self.fertilizer_rate = self.read_profiles(fertilizer_rate)
+        self.crop_f_parameter = self.read_profiles(crop_f_parameter)
+        self.crop_f_fertilizers = self.read_profiles(crop_f_fertilizers)
 
         if self.comm.Get_rank() == 0:
             self.crop_distribution = self.get_crops_by_dst_cell(os.path.join(auxiliary_dir, 'crops', 'crops.shp'))
@@ -53,12 +53,12 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
             self.gridded_constants = None
             self.ef_by_crop = None
 
-        self.crop_distribution = IoShapefile().split_shapefile(self.crop_distribution)
+        # self.crop_distribution = IoShapefile().split_shapefile(self.crop_distribution)
         self.gridded_constants = IoShapefile().split_shapefile(self.gridded_constants)
         self.ef_by_crop = IoShapefile().split_shapefile(self.ef_by_crop)
 
         self.fertilizer_denominator_yearly_factor_path = fertilizer_denominator_yearly_factor_path
-        self.crop_calendar = pd.read_csv(crop_calendar)
+        self.crop_calendar = self.read_profiles(crop_calendar)
 
         self.temperature_path = temperature_path
         self.wind_speed_path = wind_speed_path
