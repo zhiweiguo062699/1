@@ -116,8 +116,9 @@ class AgriculturalMachinerySector(AgriculturalSector):
             return df.loc[:, ['N']]
 
         def get_s(df):
-            df['S'] = self.vehicle_ratio.loc[(self.vehicle_ratio['code'] == df.name[0]) &
-                                         (self.vehicle_ratio['technology'] == df.name[2]), df.name[1]].values[0]
+            df['S'] = self.vehicle_ratio.loc[
+                (self.vehicle_ratio['code'] == df.name[0]) & (self.vehicle_ratio['technology'] == df.name[2]),
+                df.name[1]].values[0]
             return df.loc[:, ['S']]
 
         def get_t(df):
