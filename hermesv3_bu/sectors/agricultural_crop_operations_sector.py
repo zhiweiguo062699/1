@@ -1,29 +1,31 @@
 #!/usr/bin/env python
 
 import os
-from timeit import default_timer as gettime
+import timeit
 import pandas as pd
 import numpy as np
 
 from hermesv3_bu.sectors.agricultural_sector import AgriculturalSector
+from hermesv3_bu.io_server.io_shapefile import IoShapefile
+from hermesv3_bu.logger.log import Log
 
 
 class AgriculturalCropOperationsSector(AgriculturalSector):
-    def __init__(self, auxiliary_dir, geo_grid, clipping_path, date_array, nut_shapefile_path, source_pollutants,
-                 crop_list, land_uses_path, ef_dir, monthly_profiles_path, weekly_profiles_path, hourly_profiles_path,
-                 speciation_map_path, speciation_profiles_path, molecular_weights_path, landuse_by_nut, crop_by_nut,
-                 crop_from_landuse):
+    def __init__(self, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+                 nut_shapefile_path, crop_list, land_uses_path, ef_dir, monthly_profiles_path,
+                 weekly_profiles_path, hourly_profiles_path, speciation_map_path, speciation_profiles_path,
+                 molecular_weights_path, landuse_by_nut, crop_by_nut, crop_from_landuse):
         """
 
         :param auxiliary_dir: Path to the directory where the necessary auxiliary files will be created if them are
             not created yet.
         :type auxiliary_dir: str
 
-        :param geo_grid: Shapefile that contains the destination grid. It must contains the 'FID' (cell num).
-        :type geo_grid: GeoPandas.GeoDataframe
+        :param grid_shp: Shapefile that contains the destination grid. It must contains the 'FID' (cell num).
+        :type grid_shp: GeoPandas.GeoDataframe
 
-        :param clipping_path: Path to the shapefile that contains the region of interest.
-        :type clipping_path: str
+        :param clip: Path to the shapefile that contains the region of interest.
+        :type clip: str
 
         :param date_array: List of datetimes.
         :type date_array: list(datetime.datetime, ...)
@@ -85,25 +87,19 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
             the 'ORDER07' information with the NUT_code.
         :type nut_shapefile_path: str
         """
-        if settings.log_level_3:
-            st_time = gettime()
-        else:
-            st_time = None
-
+        spent_time = timeit.default_timer()
+        logger.write_log('===== AGRICULTURAL CROP OPERATIONS SECTOR =====')
         super(AgriculturalCropOperationsSector, self).__init__(
-            geo_grid, clipping_path, date_array, nut_shapefile_path, source_pollutants, crop_list, land_uses_path,
-            ef_dir,  monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
-            speciation_profiles_path, molecular_weights_path)
+            comm, logger, auxiliary_dir, grid_shp, clip, date_array, nut_shapefile_path, source_pollutants,
+            vertical_levels, crop_list, land_uses_path, ef_dir, monthly_profiles_path, weekly_profiles_path,
+            hourly_profiles_path, speciation_map_path, speciation_profiles_path, molecular_weights_path)
 
         self.landuse_by_nut = landuse_by_nut
         self.crop_by_nut = crop_by_nut
         self.crop_from_landuse = self.get_crop_from_land_uses(crop_from_landuse)
 
-        if settings.rank == 0:
-            self.crop_distribution = self.get_crops_by_dst_cell(
-                os.path.join(auxiliary_dir, 'crops', 'crops.shp'),
-                os.path.join(auxiliary_dir, 'shapefile', 'grid_shapefile.shp'),
-                os.path.join(auxiliary_dir, 'crops', 'crops.tiff'))
+        if self.comm.Get_rank():
+            self.crop_distribution = self.get_crops_by_dst_cell(os.path.join(auxiliary_dir, 'crops', 'crops.shp'))
         else:
             self.crop_distribution = None
 
@@ -111,14 +107,10 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
 
         self.months = self.get_date_array_by_month()
 
-        print 'TIME -> AgriculturalCropOperations.__init__: Rank {0} {1} s'.format(
-            settings.rank, round(gettime() - st_time, 2))
+        self.logger.write_time_log('AgriculturalCropOperationsSector', '__init__', timeit.default_timer() - spent_time)
 
     def get_date_array_by_month(self):
-        if settings.log_level_3:
-            st_time = gettime()
-        else:
-            st_time = None
+        spent_time = timeit.default_timer()
 
         month_array = [hour.date().month for hour in self.date_array]
         month_list, num_days = np.unique(month_array, return_counts=True)
@@ -127,23 +119,20 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
         for month in month_list:
             month_dict[month] = np.array(self.date_array)[month_array == month]
 
-        print 'TIME -> AgriculturalCropOperations.get_date_array_by_month: Rank {0} {1} s'.format(
-            settings.rank, round(gettime() - st_time, 2))
+        self.logger.write_time_log('AgriculturalCropOperationsSector', 'get_date_array_by_month',
+                                   timeit.default_timer() - spent_time)
 
         return month_dict
 
     def calculate_distribution_by_month(self, month):
-        if settings.log_level_3:
-            st_time = gettime()
-        else:
-            st_time = None
+        spent_time = timeit.default_timer()
 
         month_distribution = self.crop_distribution.loc[:, ['FID', 'timezone', 'geometry']].copy()
         for pollutant in self.source_pollutants:
             month_distribution[pollutant] = 0
 
             emission_factors = pd.read_csv(os.path.join(self.ef_files_dir, '{0}.csv'.format(pollutant)))
-            for crop in self.element_list:
+            for crop in self.crop_list:
                 ef_c = emission_factors.loc[
                     (emission_factors['crop'] == crop) & (emission_factors['operation'] == 'soil_cultivation'),
                     'EF_{0}'.format(pollutant)].values[0]
@@ -160,16 +149,13 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
                 # From Kg to g
                 factor *= 1000.0
                 month_distribution[pollutant] += self.crop_distribution[crop].multiply(factor)
-        print 'TIME -> AgriculturalCropOperations.calculate_distribution_by_month: Rank {0} {1} s'.format(
-            settings.rank, round(gettime() - st_time, 2))
+        self.logger.write_time_log('AgriculturalCropOperationsSector', 'calculate_distribution_by_month',
+                                   timeit.default_timer() - spent_time)
 
         return month_distribution
 
     def add_dates(self, df_by_month):
-        if settings.log_level_3:
-            st_time = gettime()
-        else:
-            st_time = None
+        spent_time = timeit.default_timer()
 
         df_list = []
         for tstep, date in enumerate(self.date_array):
@@ -182,16 +168,12 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
         dataframe_by_day = pd.concat(df_list, ignore_index=True)
 
         dataframe_by_day = self.to_timezone(dataframe_by_day)
-        print 'TIME -> AgriculturalCropOperations.add_dates: Rank {0} {1} s'.format(
-            settings.rank, round(gettime() - st_time, 2))
+        self.logger.write_time_log('AgriculturalCropOperationsSector', 'add_dates', timeit.default_timer() - spent_time)
 
         return dataframe_by_day
 
     def calculate_hourly_emissions(self, ):
-        if settings.log_level_3:
-            st_time = gettime()
-        else:
-            st_time = None
+        spent_time = timeit.default_timer()
 
         self.crop_distribution['weekday'] = self.crop_distribution['date'].dt.weekday
         self.crop_distribution['hour'] = self.crop_distribution['date'].dt.hour
@@ -209,16 +191,14 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
                                                               x.name].values[0]))
         self.crop_distribution.drop(['weekday', 'hour'], axis=1, inplace=True)
 
-        print 'TIME -> AgriculturalCropOperations.calculate_hourly_emissions: Rank {0} {1} s'.format(
-            settings.rank, round(gettime() - st_time, 2))
+        self.logger.write_time_log('AgriculturalCropOperationsSector', 'calculate_hourly_emissions',
+                                   timeit.default_timer() - spent_time)
 
         return self.crop_distribution
 
     def calculate_emissions(self):
-        if settings.log_level_3:
-            st_time = gettime()
-        else:
-            st_time = None
+        spent_time = timeit.default_timer()
+        self.logger.write_log('\tCalculating emissions')
 
         distribution_by_month = {}
         for month in self.months.iterkeys():
@@ -229,7 +209,8 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
         self.crop_distribution = self.calculate_hourly_emissions()
         self.crop_distribution = self.speciate(self.crop_distribution)
 
-        print 'TIME -> AgriculturalCropOperations.calculate_emissions: Rank {0} {1} s'.format(
-            settings.rank, round(gettime() - st_time, 2))
+        self.logger.write_log('\t\tCrop operations emissions calculated', message_level=2)
+        self.logger.write_time_log('AgriculturalCropOperationsSector', 'calculate_emissions',
+                                   timeit.default_timer() - spent_time)
 
         return self.crop_distribution
