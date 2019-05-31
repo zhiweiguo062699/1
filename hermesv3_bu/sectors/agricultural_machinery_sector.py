@@ -18,7 +18,7 @@ class AgriculturalMachinerySector(AgriculturalSector):
     def __init__(self, comm_agr, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants,
                  vertical_levels, nut_shapefile, crop_list, machinery_list, land_uses_path, ef_files_dir,
                  monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
-                 speciation_profiles_path, molecular_weights_path, landuse_by_nut, crop_by_nut, crop_from_landuse,
+                 speciation_profiles_path, molecular_weights_path, landuse_by_nut, crop_by_nut, crop_from_landuse_path,
                  machinery_distibution_nut_shapefile_path, deterioration_factor_path, load_factor_path,
                  vehicle_ratio_path, vehicle_units_path, vehicle_workhours_path, vehicle_power_path,
                  crop_machinery_by_nut):
@@ -26,14 +26,11 @@ class AgriculturalMachinerySector(AgriculturalSector):
         logger.write_log('===== AGRICULTURAL MACHINERY SECTOR =====')
         super(AgriculturalMachinerySector, self).__init__(
             comm_agr, comm, logger, auxiliary_dir, grid_shp, clip, date_array, nut_shapefile, source_pollutants,
-            vertical_levels, crop_list, land_uses_path, ef_files_dir, monthly_profiles_path, weekly_profiles_path,
+            vertical_levels, crop_list, land_uses_path, landuse_by_nut, crop_by_nut, crop_from_landuse_path, ef_files_dir, monthly_profiles_path, weekly_profiles_path,
             hourly_profiles_path, speciation_map_path, speciation_profiles_path, molecular_weights_path)
 
         self.machinery_list = machinery_list
-        self.landuse_by_nut = landuse_by_nut
-        self.crop_by_nut = crop_by_nut
         self.crop_machinery_by_nut = self.read_profiles(crop_machinery_by_nut)
-        self.crop_from_landuse = self.get_crop_from_land_uses(crop_from_landuse)
 
         self.crop_distribution = self.get_crop_distribution_by_nut(
             self.crop_distribution,  machinery_distibution_nut_shapefile_path, nut_code='ORDER07')

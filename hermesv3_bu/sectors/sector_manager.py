@@ -77,19 +77,30 @@ class SectorManager(object):
                 self.sector = AgriculturalCropOperationsSector(
                     comm_agr, comm, logger, arguments.auxiliary_files_path, grid.shapefile, clip, date_array,
                     arguments.crop_operations_source_pollutants,
-                    grid.vertical_desctiption, arguments.nut_shapefile_ccaa, arguments.crop_list,
+                    grid.vertical_desctiption, arguments.nut_shapefile_ccaa, arguments.crop_operations_list,
                     arguments.land_uses_path, arguments.crop_operations_ef_files_dir,
-                    arguments.crop_operations_monthly_profiles_path, arguments.crop_operations_weekly_profiles_path,
-                    arguments.crop_operations_hourly_profiles_path, arguments.speciation_map,
-                    arguments.crop_operations_speciation_profiles_path, arguments.molecular_weights,
-                    arguments.landuse_by_nut_path, arguments.crop_by_nut_path, arguments.crop_from_landuse_path
+                    arguments.crop_operations_monthly_profiles, arguments.crop_operations_weekly_profiles,
+                    arguments.crop_operations_hourly_profiles, arguments.speciation_map,
+                    arguments.crop_operations_speciation_profiles, arguments.molecular_weights,
+                    arguments.land_use_by_nut_path, arguments.crop_by_nut_path, arguments.crop_from_landuse_path
                 )
             elif sector == 'crop_fertilizers' and comm_world.Get_rank() in sector_procs:
                 from hermesv3_bu.sectors.agricultural_crop_fertilizers_sector import AgriculturalCropFertilizersSector
                 agg_procs = AgriculturalCropFertilizersSector.get_agricultural_processor_list(self.sector_list)
                 comm_agr = comm_world.Split(agg_color, agg_procs.index(comm_world.Get_rank()))
                 comm = comm_agr.Split(color, sector_procs.index(comm_world.Get_rank()))
-                self.sector = None
+                self.sector = AgriculturalCropFertilizersSector(
+                    comm_agr, comm, logger, arguments.auxiliary_files_path, grid.shapefile, clip, date_array,
+                    arguments.crop_fertilizers_source_pollutants, grid.vertical_desctiption,
+                    arguments.crop_fertilizers_list, arguments.nut_shapefile_ccaa, arguments.land_uses_path,
+                    arguments.crop_fertilizers_hourly_profiles, arguments.speciation_map,
+                    arguments.crop_fertilizers_speciation_profiles, arguments.molecular_weights,
+                    arguments.land_use_by_nut_path,  arguments.crop_by_nut_path, arguments.crop_from_landuse_path,
+                    arguments.cultivated_ratio, arguments.fertilizers_rate, arguments.crop_f_parameter,
+                    arguments.crop_f_fertilizers, arguments.gridded_ph, arguments.gridded_cec,
+                    arguments.fertilizers_denominator_yearly_factor_path, arguments.crop_calendar,
+                    arguments.temperature_daily_files_path, arguments.wind_speed_daily_files_path,
+                    arguments.crop_growing_degree_day_path)
             elif sector == 'agricultural_machinery' and comm_world.Get_rank() in sector_procs:
                 from hermesv3_bu.sectors.agricultural_machinery_sector import AgriculturalMachinerySector
                 agg_procs = AgriculturalMachinerySector.get_agricultural_processor_list(self.sector_list)

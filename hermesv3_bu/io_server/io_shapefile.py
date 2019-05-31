@@ -19,7 +19,7 @@ class IoShapefile(IoServer):
 
         super(IoShapefile, self).__init__(comm)
 
-    def write_serial_shapefile(self, data, path):
+    def write_shapefile(self, data, path):
         """
 
         :param data: GeoDataset to be written
@@ -42,7 +42,7 @@ class IoShapefile(IoServer):
 
         return gdf
 
-    def write_shapefile(self, data, path):
+    def write_parallel_shapefile(self, data, path, rank):
         """
 
         :param data: GeoDataset to be written
@@ -53,7 +53,7 @@ class IoShapefile(IoServer):
         :return: True when the writing is finished.
         :rtype: bool
         """
-        data = self.comm.gather(data, root=0)
+        data = self.comm.gather(data, root=rank)
         if self.comm.Get_rank() == 0:
             if not os.path.exists(os.path.dirname(path)):
                 os.makedirs(os.path.dirname(path))
@@ -78,14 +78,13 @@ class IoShapefile(IoServer):
     def split_shapefile(self, data):
 
         if self.comm.Get_size() == 1:
-            return data
-
-        if self.comm.Get_rank() == 0:
-            data = np.array_split(data, self.comm.Get_size())
+            data = data
         else:
-            data = None
-
-        data = self.comm.scatter(data, root=0)
+            if self.comm.Get_rank() == 0:
+                data = np.array_split(data, self.comm.Get_size())
+            else:
+                data = None
+            data = self.comm.scatter(data, root=0)
 
         return data
 

@@ -246,19 +246,34 @@ class Config(ArgParser):
         p.add_argument('--livestock_speciation_profiles', required=False, help='...')
 
         # ***** AGRICULTURAL SECTOR*****
-        p.add_argument('--land_uses', required=False, help='...')
-        p.add_argument('--land_use_by_nut', required=False, help='...')
-        p.add_argument('--crop_by_nut', required=False, help='...')
-        p.add_argument('--crop_from_landuse', required=False, help='...')
+        p.add_argument('--land_uses_path', required=False, help='...')
+        p.add_argument('--land_use_by_nut_path', required=False, help='...')
+        p.add_argument('--crop_by_nut_path', required=False, help='...')
+        p.add_argument('--crop_from_landuse_path', required=False, help='...')
 
         # ***** CROP OPERATIONS SECTOR
         p.add_argument('--crop_operations_source_pollutants', required=False, help='...')
         p.add_argument('--crop_operations_list', required=False, help='...')
         p.add_argument('--crop_operations_ef_files_dir', required=False, help='...')
         p.add_argument('--crop_operations_monthly_profiles', required=False, help='...')
-        p.add_argument('--crop_operations_daily_profiles', required=False, help='...')
+        p.add_argument('--crop_operations_weekly_profiles', required=False, help='...')
         p.add_argument('--crop_operations_hourly_profiles', required=False, help='...')
         p.add_argument('--crop_operations_speciation_profiles', required=False, help='...')
+
+        # ***** CROP FERTILIZERS SECTOR *****
+        p.add_argument('--crop_fertilizers_source_pollutants', required=False, help='...')
+        p.add_argument('--crop_fertilizers_list', required=False, help='...')
+        p.add_argument('--cultivated_ratio', required=False, help='...')
+        p.add_argument('--fertilizers_rate', required=False, help='...')
+        p.add_argument('--crop_f_parameter', required=False, help='...')
+        p.add_argument('--crop_f_fertilizers', required=False, help='...')
+        p.add_argument('--gridded_ph', required=False, help='...')
+        p.add_argument('--gridded_cec', required=False, help='...')
+        p.add_argument('--fertilizers_denominator_yearly_factor_path', required=False, help='...')
+        p.add_argument('--crop_calendar', required=False, help='...')
+        p.add_argument('--crop_fertilizers_hourly_profiles', required=False, help='...')
+        p.add_argument('--crop_fertilizers_speciation_profiles', required=False, help='...')
+        p.add_argument('--crop_growing_degree_day_path', required=False, help='...')
 
         arguments = p.parse_args()
 
@@ -323,6 +338,10 @@ class Config(ArgParser):
         # Crop operations
         arguments.crop_operations_source_pollutants = self._parse_list(arguments.crop_operations_source_pollutants)
         arguments.crop_operations_list = self._parse_list(arguments.crop_operations_list)
+
+        # Crop fertilizers
+        arguments.crop_fertilizers_source_pollutants = self._parse_list(arguments.crop_fertilizers_source_pollutants)
+        arguments.crop_fertilizers_list = self._parse_list(arguments.crop_fertilizers_list)
 
         return arguments
 

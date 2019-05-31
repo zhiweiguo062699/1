@@ -16,22 +16,18 @@ formula = True
 class AgriculturalCropFertilizersSector(AgriculturalSector):
     def __init__(self, comm_agr, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants,
                  vertical_levels, crop_list, nut_shapefile, land_uses_path, hourly_profiles_path, speciation_map_path,
-                 speciation_profiles_path, molecular_weights_path, landuse_by_nut, crop_by_nut, crop_from_landuse,
+                 speciation_profiles_path, molecular_weights_path, landuse_by_nut, crop_by_nut, crop_from_landuse_path,
                  cultivated_ratio, fertilizer_rate, crop_f_parameter, crop_f_fertilizers, gridded_ph, gridded_cec,
-                 fertilizer_denominator_yearly_factor_path, crop_calendar,
-                 temperature_path, wind_speed_path, crop_growing_degree_day_path):
+                 fertilizer_denominator_yearly_factor_path, crop_calendar, temperature_path, wind_speed_path,
+                 crop_growing_degree_day_path):
         spent_time = timeit.default_timer()
         logger.write_log('===== AGRICULTURAL CROP FERTILIZERS SECTOR =====')
         super(AgriculturalCropFertilizersSector, self).__init__(
             comm_agr, comm, logger, auxiliary_dir, grid_shp, clip, date_array, nut_shapefile, source_pollutants,
-            vertical_levels, crop_list, land_uses_path, None, None, None,
+            vertical_levels, crop_list, land_uses_path, landuse_by_nut, crop_by_nut, crop_from_landuse_path, None, None, None,
             hourly_profiles_path, speciation_map_path, speciation_profiles_path, molecular_weights_path)
 
         self.day_dict = self.calculate_num_days()
-
-        self.landuse_by_nut = landuse_by_nut
-        self.crop_by_nut = crop_by_nut
-        self.crop_from_landuse = self.get_crop_from_land_uses(crop_from_landuse)
 
         self.cultivated_ratio = self.read_profiles(cultivated_ratio)
         self.fertilizer_rate = self.read_profiles(fertilizer_rate)
