@@ -96,8 +96,32 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
             molecular_weights_path)
 
         self.months = self.get_date_array_by_month()
+        print self.monthly_profiles
+        exit()
 
         self.logger.write_time_log('AgriculturalCropOperationsSector', '__init__', timeit.default_timer() - spent_time)
+
+    def read_monthly_profiles(self, path):
+        """
+        Read the DataFrame of the monthly profiles with the month number as columns.
+
+        Add 'operation' to index.
+
+        :param path: Path to the file that contains the monthly profiles.
+        :type path: str
+
+        :return: DataFrame of the monthly profiles.
+        :rtype: pandas.DataFrame
+        """
+        spent_time = timeit.default_timer()
+        profiles = super(AgriculturalCropOperationsSector, self).read_monthly_profiles(path)
+
+        profiles.reset_index(inplace=True)
+        profiles.set_index(['P_month', 'operation'], inplace=True)
+
+        self.logger.write_time_log('AgriculturalCropOperationsSector', 'read_monthly_profiles',
+                                   timeit.default_timer() - spent_time)
+        return profiles
 
     def get_date_array_by_month(self):
         spent_time = timeit.default_timer()

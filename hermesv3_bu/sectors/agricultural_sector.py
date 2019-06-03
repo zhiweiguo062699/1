@@ -37,7 +37,6 @@ class AgriculturalSector(Sector):
         self.crop_from_landuse = self.get_crop_from_land_uses(crop_from_landuse_path)
         self.crop_distribution = self.get_crops_by_dst_cell(
             os.path.join(auxiliary_dir, 'agriculture', 'crops', 'crops.shp'))
-        exit()
         self.logger.write_time_log('AgriculturalSector', '__init__', timeit.default_timer() - spent_time)
 
     def involved_grid_cells(self, src_shp):
