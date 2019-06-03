@@ -77,7 +77,7 @@ class SectorManager(object):
                 self.sector = AgriculturalCropOperationsSector(
                     comm_agr, comm, logger, arguments.auxiliary_files_path, grid.shapefile, clip, date_array,
                     arguments.crop_operations_source_pollutants,
-                    grid.vertical_desctiption, arguments.nut_shapefile_ccaa, arguments.crop_operations_list,
+                    grid.vertical_desctiption, arguments.crop_operations_list, arguments.nut_shapefile_ccaa,
                     arguments.land_uses_path, arguments.crop_operations_ef_files_dir,
                     arguments.crop_operations_monthly_profiles, arguments.crop_operations_weekly_profiles,
                     arguments.crop_operations_hourly_profiles, arguments.speciation_map,
@@ -106,7 +106,19 @@ class SectorManager(object):
                 agg_procs = AgriculturalMachinerySector.get_agricultural_processor_list(self.sector_list)
                 comm_agr = comm_world.Split(agg_color, agg_procs.index(comm_world.Get_rank()))
                 comm = comm_agr.Split(color, sector_procs.index(comm_world.Get_rank()))
-                self.sector = None
+                self.sector = AgriculturalMachinerySector(
+                    comm_agr, comm, logger, arguments.auxiliary_files_path, grid.shapefile, clip, date_array,
+                    arguments.crop_machinery_source_pollutants, grid.vertical_desctiption,
+                    arguments.crop_machinery_list,  arguments.land_uses_path, arguments.nut_shapefile_ccaa,
+                    arguments.machinery_list, arguments.crop_machinery_ef_path,
+                    arguments.crop_machinery_monthly_profiles,
+                    arguments.crop_machinery_weekly_profiles,  arguments.crop_machinery_hourly_profiles,
+                    arguments.speciation_map, arguments.crop_machinery_speciation_profiles, arguments.molecular_weights,
+                    arguments.land_use_by_nut_path, arguments.crop_by_nut_path, arguments.crop_from_landuse_path,
+                    arguments.nut_shapefile_prov, arguments.crop_machinery_deterioration_factor_path,
+                    arguments.crop_machinery_load_factor_path, arguments.crop_machinery_vehicle_ratio_path,
+                    arguments.crop_machinery_vehicle_units_path, arguments.crop_machinery_vehicle_workhours_path,
+                    arguments.crop_machinery_vehicle_power_path, arguments.crop_machinery_by_nut)
 
             color += 1
 

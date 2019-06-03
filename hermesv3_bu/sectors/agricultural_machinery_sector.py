@@ -16,7 +16,7 @@ from hermesv3_bu.logger.log import Log
 
 class AgriculturalMachinerySector(AgriculturalSector):
     def __init__(self, comm_agr, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants,
-                 vertical_levels, nut_shapefile, crop_list, machinery_list, land_uses_path, ef_files_dir,
+                 vertical_levels, crop_list, nut_shapefile, machinery_list, land_uses_path, ef_files_dir,
                  monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
                  speciation_profiles_path, molecular_weights_path, landuse_by_nut, crop_by_nut, crop_from_landuse_path,
                  machinery_distibution_nut_shapefile_path, deterioration_factor_path, load_factor_path,

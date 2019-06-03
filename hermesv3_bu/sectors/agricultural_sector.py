@@ -37,9 +37,8 @@ class AgriculturalSector(Sector):
         self.crop_from_landuse = self.get_crop_from_land_uses(crop_from_landuse_path)
         self.crop_distribution = self.get_crops_by_dst_cell(
             os.path.join(auxiliary_dir, 'agriculture', 'crops', 'crops.shp'))
-
-        self.logger.write_time_log('AgriculturalSector', '__init__', timeit.default_timer() - spent_time)
         exit()
+        self.logger.write_time_log('AgriculturalSector', '__init__', timeit.default_timer() - spent_time)
 
     def involved_grid_cells(self, src_shp):
         spent_time = timeit.default_timer()
@@ -264,15 +263,17 @@ class AgriculturalSector(Sector):
             else:
                 crop_distribution_dst = None
             self.comm_agr.Barrier()
-            if self.comm.Get_size() == 0 and self.comm_agr.Get_size() != 0:
+            if self.comm.Get_rank() == 0 and self.comm_agr.Get_rank() != 0:
                 crop_distribution_dst = IoShapefile(self.comm).read_serial_shapefile(file_path)
             self.comm.Barrier()
 
             crop_distribution_dst = IoShapefile(self.comm).split_shapefile(crop_distribution_dst)
-            print '{0} {1}'.format(self.comm_agr.Get_rank(), len(crop_distribution_dst))
         else:
             crop_distribution_dst = IoShapefile(self.comm).read_parallel_shapefile(file_path)
-        crop_distribution_dst.set_index('FID', inplace=True, drop=False)
+        crop_distribution_dst.set_index('FID', inplace=True, drop=True)
+        # Filtering crops by used on the subsector (operations, fertilizers, machinery)
+        crop_distribution_dst = crop_distribution_dst.loc[:, self.crop_list + ['timezone', 'geometry']]
+
         self.logger.write_time_log('AgriculturalSector', 'get_crops_by_dst_cell', timeit.default_timer() - spent_time)
         return crop_distribution_dst
 
@@ -283,6 +284,5 @@ class AgriculturalSector(Sector):
         for sector, sector_procs in sector_dict.iteritems():
             if sector in ['crop_operations', 'crop_fertilizers', 'agricultural_machinery']:
                 rank_list += sector_procs
-                print rank_list
         rank_list = sorted(rank_list)
         return rank_list

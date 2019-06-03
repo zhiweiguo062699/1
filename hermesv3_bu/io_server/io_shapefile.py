@@ -75,6 +75,16 @@ class IoShapefile(IoServer):
 
         return gdf
 
+    def read_parallel_shapefile(self, path):
+        if self.comm.Get_rank() == 0:
+            data = self.read_serial_shapefile(path)
+        else:
+            data = None
+
+        data = self.split_shapefile(data)
+
+        return data
+
     def split_shapefile(self, data):
 
         if self.comm.Get_size() == 1:

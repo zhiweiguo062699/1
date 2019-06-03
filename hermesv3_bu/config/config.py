@@ -275,6 +275,24 @@ class Config(ArgParser):
         p.add_argument('--crop_fertilizers_speciation_profiles', required=False, help='...')
         p.add_argument('--crop_growing_degree_day_path', required=False, help='...')
 
+        # ***** CROP MACHINERY SECTOR *****
+        p.add_argument('--crop_machinery_source_pollutants', required=False, help='...')
+        p.add_argument('--crop_machinery_list', required=False, help='...')
+        p.add_argument('--machinery_list', required=False, help='...')
+        p.add_argument('--crop_machinery_deterioration_factor_path', required=False, help='...')
+        p.add_argument('--crop_machinery_load_factor_path', required=False, help='...')
+        p.add_argument('--crop_machinery_vehicle_ratio_path', required=False, help='...')
+        p.add_argument('--crop_machinery_vehicle_units_path', required=False, help='...')
+        p.add_argument('--crop_machinery_vehicle_workhours_path', required=False, help='...')
+        p.add_argument('--crop_machinery_vehicle_power_path', required=False, help='...')
+        p.add_argument('--crop_machinery_ef_path', required=False, help='...')
+        p.add_argument('--crop_machinery_monthly_profiles', required=False, help='...')
+        p.add_argument('--crop_machinery_weekly_profiles', required=False, help='...')
+        p.add_argument('--crop_machinery_hourly_profiles', required=False, help='...')
+        p.add_argument('--crop_machinery_speciation_map', required=False, help='...')
+        p.add_argument('--crop_machinery_speciation_profiles', required=False, help='...')
+        p.add_argument('--crop_machinery_by_nut', required=False, help='...')
+
         arguments = p.parse_args()
 
         for item in vars(arguments):
@@ -321,28 +339,32 @@ class Config(ArgParser):
         arguments.do_crop_fertilizers = self._parse_bool(arguments.do_crop_fertilizers)
         arguments.do_agricultural_machinery = self._parse_bool(arguments.do_agricultural_machinery)
 
-        # Aviation
+        # Aviation lists
         arguments.airport_list = self._parse_list(arguments.airport_list)
         arguments.plane_list = self._parse_list(arguments.plane_list)
         arguments.aviation_source_pollutants = self._parse_list(arguments.aviation_source_pollutants)
 
-        # Shipping Port
+        # Shipping Port lists
         arguments.shipping_port_source_pollutants = self._parse_list(arguments.shipping_port_source_pollutants)
         arguments.vessel_list = self._parse_list(arguments.vessel_list)
         arguments.port_list = self._parse_list(arguments.port_list)
 
-        # Livestock
+        # Livestock lists
         arguments.livestock_source_pollutants = self._parse_list(arguments.livestock_source_pollutants)
         arguments.animal_list = self._parse_list(arguments.animal_list)
 
-        # Crop operations
+        # Crop operations lists
         arguments.crop_operations_source_pollutants = self._parse_list(arguments.crop_operations_source_pollutants)
         arguments.crop_operations_list = self._parse_list(arguments.crop_operations_list)
 
-        # Crop fertilizers
+        # Crop fertilizers lists
         arguments.crop_fertilizers_source_pollutants = self._parse_list(arguments.crop_fertilizers_source_pollutants)
         arguments.crop_fertilizers_list = self._parse_list(arguments.crop_fertilizers_list)
 
+        # Crop machinery lists
+        arguments.crop_machinery_source_pollutants = self._parse_list(arguments.crop_machinery_source_pollutants)
+        arguments.crop_machinery_list = self._parse_list(arguments.crop_machinery_list)
+        arguments.machinery_list = self._parse_list(arguments.machinery_list)
         return arguments
 
     @staticmethod
