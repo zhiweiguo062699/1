@@ -91,13 +91,11 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
         logger.write_log('===== AGRICULTURAL CROP OPERATIONS SECTOR =====')
         super(AgriculturalCropOperationsSector, self).__init__(
             comm_agr, comm, logger, auxiliary_dir, grid_shp, clip, date_array, nut_shapefile_path, source_pollutants,
-            vertical_levels, crop_list, land_uses_path, landuse_by_nut, crop_by_nut, crop_from_landuse_path, ef_dir, monthly_profiles_path,
-            weekly_profiles_path, hourly_profiles_path, speciation_map_path, speciation_profiles_path,
-            molecular_weights_path)
+            vertical_levels, crop_list, land_uses_path, landuse_by_nut, crop_by_nut, crop_from_landuse_path, ef_dir,
+            monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
+            speciation_profiles_path, molecular_weights_path)
 
         self.months = self.get_date_array_by_month()
-        print self.monthly_profiles
-        exit()
 
         self.logger.write_time_log('AgriculturalCropOperationsSector', '__init__', timeit.default_timer() - spent_time)
 
@@ -141,24 +139,19 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
     def calculate_distribution_by_month(self, month):
         spent_time = timeit.default_timer()
 
-        month_distribution = self.crop_distribution.loc[:, ['FID', 'timezone', 'geometry']].copy()
+        month_distribution = self.crop_distribution.loc[:, ['timezone', 'geometry']].copy()
         for pollutant in self.source_pollutants:
             month_distribution[pollutant] = 0
 
             emission_factors = pd.read_csv(os.path.join(self.ef_files_dir, '{0}.csv'.format(pollutant)))
+            emission_factors.set_index(['crop', 'operation'], inplace=True)
+            print emission_factors
             for crop in self.crop_list:
-                ef_c = emission_factors.loc[
-                    (emission_factors['crop'] == crop) & (emission_factors['operation'] == 'soil_cultivation'),
-                    'EF_{0}'.format(pollutant)].values[0]
-                ef_h = emission_factors.loc[
-                    (emission_factors['crop'] == crop) & (emission_factors['operation'] == 'harvesting'),
-                    'EF_{0}'.format(pollutant)].values[0]
-                m_c = self.monthly_profiles.loc[
-                    (self.monthly_profiles['P_month'] == crop) & (self.monthly_profiles['operation'] ==
-                                                                  'soil_cultivation'), month].values[0]
-                m_h = self.monthly_profiles.loc[
-                    (self.monthly_profiles['P_month'] == crop) & (self.monthly_profiles['operation'] == 'harvesting'),
-                    month].values[0]
+                ef_c = emission_factors.loc[(crop, 'soil_cultivation'), 'EF_{0}'.format(pollutant)]
+                ef_h = emission_factors.loc[(crop, 'harvesting'), 'EF_{0}'.format(pollutant)]
+                print self.monthly_profiles
+                m_c = self.monthly_profiles.loc[(crop, 'soil_cultivation'), month]
+                m_h = self.monthly_profiles.loc[(crop, 'harvesting'), month]
                 factor = ef_c * m_c + ef_h * m_h
                 # From Kg to g
                 factor *= 1000.0

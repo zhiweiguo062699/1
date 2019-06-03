@@ -199,7 +199,8 @@ class AgriculturalSector(Sector):
 
         for nut in np.unique(crop_distribution_src['NUT']):
             for crop in crop_area_by_nut.columns.values:
-                crop_distribution_src.loc[crop_distribution_src['NUT'] == nut, crop] /= crop_distribution_src.loc[crop_distribution_src['NUT'] == nut, crop].sum()
+                crop_distribution_src.loc[crop_distribution_src['NUT'] == nut, crop] /= crop_distribution_src.loc[
+                    crop_distribution_src['NUT'] == nut, crop].sum()
         for nut in np.unique(crop_distribution_src['NUT']):
             for crop in crop_area_by_nut.columns.values:
 

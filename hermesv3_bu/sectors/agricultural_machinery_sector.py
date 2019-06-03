@@ -26,8 +26,9 @@ class AgriculturalMachinerySector(AgriculturalSector):
         logger.write_log('===== AGRICULTURAL MACHINERY SECTOR =====')
         super(AgriculturalMachinerySector, self).__init__(
             comm_agr, comm, logger, auxiliary_dir, grid_shp, clip, date_array, nut_shapefile, source_pollutants,
-            vertical_levels, crop_list, land_uses_path, landuse_by_nut, crop_by_nut, crop_from_landuse_path, ef_files_dir, monthly_profiles_path, weekly_profiles_path,
-            hourly_profiles_path, speciation_map_path, speciation_profiles_path, molecular_weights_path)
+            vertical_levels, crop_list, land_uses_path, landuse_by_nut, crop_by_nut, crop_from_landuse_path,
+            ef_files_dir, monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
+            speciation_profiles_path, molecular_weights_path)
 
         self.machinery_list = machinery_list
         self.crop_machinery_by_nut = self.read_profiles(crop_machinery_by_nut)
