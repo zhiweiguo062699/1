@@ -137,6 +137,11 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
         return month_dict
 
     def calculate_distribution_by_month(self, month):
+        """
+        EF units = kg/ha
+        :param month:
+        :return:
+        """
         spent_time = timeit.default_timer()
 
         month_distribution = self.crop_distribution.loc[:, ['timezone', 'geometry']].copy()
@@ -145,11 +150,9 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
 
             emission_factors = pd.read_csv(os.path.join(self.ef_files_dir, '{0}.csv'.format(pollutant)))
             emission_factors.set_index(['crop', 'operation'], inplace=True)
-            print emission_factors
             for crop in self.crop_list:
                 ef_c = emission_factors.loc[(crop, 'soil_cultivation'), 'EF_{0}'.format(pollutant)]
                 ef_h = emission_factors.loc[(crop, 'harvesting'), 'EF_{0}'.format(pollutant)]
-                print self.monthly_profiles
                 m_c = self.monthly_profiles.loc[(crop, 'soil_cultivation'), month]
                 m_h = self.monthly_profiles.loc[(crop, 'harvesting'), month]
                 factor = ef_c * m_c + ef_h * m_h
@@ -163,18 +166,18 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
 
     def add_dates(self, df_by_month):
         spent_time = timeit.default_timer()
-
         df_list = []
         for tstep, date in enumerate(self.date_array):
-            df_aux = df_by_month[date.date().month].copy()
+            df_aux = df_by_month[date.date().month].copy().reset_index()
             df_aux['date'] = pd.to_datetime(date, utc=True)
             df_aux['date_utc'] = pd.to_datetime(date, utc=True)
             df_aux['tstep'] = tstep
             # df_aux = self.to_timezone(df_aux)
             df_list.append(df_aux)
         dataframe_by_day = pd.concat(df_list, ignore_index=True)
-
+        dataframe_by_day.set_index(['FID', 'tstep'], inplace=True)
         dataframe_by_day = self.to_timezone(dataframe_by_day)
+
         self.logger.write_time_log('AgriculturalCropOperationsSector', 'add_dates', timeit.default_timer() - spent_time)
 
         return dataframe_by_day
@@ -182,21 +185,50 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
     def calculate_hourly_emissions(self, ):
         spent_time = timeit.default_timer()
 
+        def get_wf(df):
+            """
+            Get the Weekly Factor for the given dataframe depending on the date.
+
+            :param df: DataFrame where find the weekly factor. df.name is the date.
+            :type df: pandas.DataFrame
+
+            :return: DataFrame with only the WF column.
+            :rtype: pandas.DataFrame
+            """
+            weekly_profile = self.calculate_rebalanced_weekly_profile(self.weekly_profiles.loc[pollutant, :].to_dict(),
+                                                                      df.name)
+            df['WF'] = weekly_profile[df.name.weekday()]
+            return df.loc[:, ['WF']]
+
+        def get_hf(df):
+            """
+            Get the Hourly Factor for the given dataframe depending on the hour.
+
+            :param df: DataFrame where find the hourly factor. df.name is the hour.
+            :type df: pandas.DataFrame
+
+            :return: DataFrame with only the HF column.
+            :rtype: pandas.DataFrame
+            """
+            hourly_profile = self.hourly_profiles.loc[pollutant, :].to_dict()
+            hour_factor = hourly_profile[df.name]
+
+            df['HF'] = hour_factor
+            return df.loc[:, ['HF']]
+
+        self.crop_distribution['date_as_date'] = self.crop_distribution['date'].dt.date
+        self.crop_distribution['month'] = self.crop_distribution['date'].dt.weekday
         self.crop_distribution['weekday'] = self.crop_distribution['date'].dt.weekday
         self.crop_distribution['hour'] = self.crop_distribution['date'].dt.hour
 
         for pollutant in self.source_pollutants:
-            # hourly_profile = self.hourly_profiles.loc[self.hourly_profiles['P_hour'] == pollutant, :].to_dict()
-            daily_profile = self.calculate_rebalance_factor(
-                self.weekly_profiles.loc[self.weekly_profiles['P_week'] == pollutant, :].values[0],
-                np.unique(self.crop_distribution['date']))
+            self.crop_distribution['WF'] = self.crop_distribution.groupby(['date_as_date']).apply(get_wf)
 
-            self.crop_distribution[pollutant] = self.crop_distribution.groupby('weekday')[pollutant].apply(
-                lambda x: x.multiply(daily_profile[x.name]))
-            self.crop_distribution[pollutant] = self.crop_distribution.groupby('hour')[pollutant].apply(
-                lambda x: x.multiply(self.hourly_profiles.loc[self.hourly_profiles['P_hour'] == pollutant,
-                                                              x.name].values[0]))
-        self.crop_distribution.drop(['weekday', 'hour'], axis=1, inplace=True)
+            self.crop_distribution['HF'] = self.crop_distribution.groupby('hour').apply(get_hf)
+            self.crop_distribution[pollutant] = self.crop_distribution[pollutant].multiply(
+                self.crop_distribution['HF'] * self.crop_distribution['WF'], axis=0)
+
+        self.crop_distribution.drop(columns=['month', 'weekday', 'hour', 'WF', 'HF', 'date_as_date'], inplace=True)
 
         self.logger.write_time_log('AgriculturalCropOperationsSector', 'calculate_hourly_emissions',
                                    timeit.default_timer() - spent_time)
@@ -216,8 +248,9 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
         self.crop_distribution = self.calculate_hourly_emissions()
         self.crop_distribution = self.speciate(self.crop_distribution)
 
+        self.crop_distribution['layer'] = 0
+
         self.logger.write_log('\t\tCrop operations emissions calculated', message_level=2)
         self.logger.write_time_log('AgriculturalCropOperationsSector', 'calculate_emissions',
                                    timeit.default_timer() - spent_time)
-
         return self.crop_distribution

@@ -174,21 +174,20 @@ class AgriculturalSector(Sector):
     def get_crop_area_by_nut(self, crop_share_by_nut):
         spent_time = timeit.default_timer()
 
-        self.crop_by_nut = pd.read_csv(self.crop_by_nut)
-        self.crop_by_nut['code'] = self.crop_by_nut['code'].astype(np.int16)
-        self.crop_by_nut = self.crop_by_nut.loc[self.crop_by_nut['code'].isin(np.unique(crop_share_by_nut.index)),
-                                                ['code'] + self.crop_list].reset_index()
+        crop_by_nut = pd.read_csv(self.crop_by_nut)
+        crop_by_nut.drop(columns='name', inplace=True)
 
-        crop_area_by_nut = crop_share_by_nut.copy()
-        crop_area_by_nut[self.crop_list] = 0
-        for crop in self.crop_list:
-            crop_area_by_nut[crop] = crop_share_by_nut[crop] * self.crop_by_nut[crop]
+        crop_by_nut['code'] = crop_by_nut['code'].astype(np.int16)
+        crop_by_nut.set_index('code', inplace=True)
+        crop_by_nut = crop_by_nut.loc[crop_share_by_nut.index, :]
+        crop_area_by_nut = crop_share_by_nut * crop_by_nut
+
         self.logger.write_time_log('AgriculturalSector', 'get_crop_area_by_nut', timeit.default_timer() - spent_time)
-
         return crop_area_by_nut
 
     def calculate_crop_distribution_src(self, crop_area_by_nut, land_use_distribution_src_nut):
         spent_time = timeit.default_timer()
+
         crop_distribution_src = land_use_distribution_src_nut.loc[:, ['NUT', 'geometry']]
         for crop, landuse_weight_list in self.crop_from_landuse.iteritems():
             crop_distribution_src[crop] = 0
@@ -196,7 +195,6 @@ class AgriculturalSector(Sector):
                 crop_distribution_src.loc[land_use_distribution_src_nut['land_use'] == int(landuse), crop] += \
                     land_use_distribution_src_nut.loc[land_use_distribution_src_nut['land_use'] == int(landuse),
                                                       'area'] * float(weight)
-
         for nut in np.unique(crop_distribution_src['NUT']):
             for crop in crop_area_by_nut.columns.values:
                 crop_distribution_src.loc[crop_distribution_src['NUT'] == nut, crop] /= crop_distribution_src.loc[
@@ -205,7 +203,7 @@ class AgriculturalSector(Sector):
             for crop in crop_area_by_nut.columns.values:
 
                 crop_distribution_src.loc[crop_distribution_src['NUT'] == nut, crop] *= \
-                    crop_area_by_nut.loc[crop_area_by_nut.index == nut, crop].values[0]
+                    crop_area_by_nut.loc[nut, crop]
         self.logger.write_time_log('AgriculturalSector', 'calculate_crop_distribution_src',
                                    timeit.default_timer() - spent_time)
 

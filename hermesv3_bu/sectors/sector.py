@@ -521,7 +521,7 @@ class Sector(object):
 
         return value
 
-    def speciate(self, dataframe, code):
+    def speciate(self, dataframe, code='default'):
         spent_time = timeit.default_timer()
         self.logger.write_log('\t\tSpeciating {0} emissions'.format(code), message_level=2)
 
