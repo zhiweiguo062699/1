@@ -20,7 +20,7 @@ class AgriculturalSector(Sector):
                  hourly_profiles_path, speciation_map_path, speciation_profiles_path, molecular_weights_path):
 
         spent_time = timeit.default_timer()
-        logger.write_log('===== AGRICULTURAL SECTOR =====')
+        # logger.write_log('===== AGRICULTURAL SECTOR =====')
 
         super(AgriculturalSector, self).__init__(
             comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
