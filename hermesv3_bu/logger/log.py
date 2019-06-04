@@ -84,7 +84,6 @@ class Log(object):
         :return: True if everything is ok.
         :rtype: bool
         """
-        print self.df_times
         self.df_times = self.df_times.groupby(['Class', 'Function']).sum().reset_index()
         data_frames = self.comm.gather(self.df_times, root=0)
         if self.comm.Get_rank() == rank:
