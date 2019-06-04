@@ -324,7 +324,7 @@ class AgriculturalMachinerySector(AgriculturalSector):
         self.crop_distribution['layer'] = 0
         self.crop_distribution = self.crop_distribution.groupby(['FID', 'layer', 'tstep']).sum()
         self.crop_distribution = self.speciate(self.crop_distribution)
-        
+
         self.logger.write_log('\t\tAgricultural machinery emissions calculated', message_level=2)
         self.logger.write_time_log('AgriculturalMachinerySector', 'calculate_emissions',
                                    timeit.default_timer() - spent_time)
