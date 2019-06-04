@@ -23,6 +23,7 @@ class AgriculturalMachinerySector(AgriculturalSector):
                  vehicle_ratio_path, vehicle_units_path, vehicle_workhours_path, vehicle_power_path,
                  crop_machinery_by_nut):
         spent_time = timeit.default_timer()
+
         logger.write_log('===== AGRICULTURAL MACHINERY SECTOR =====')
         super(AgriculturalMachinerySector, self).__init__(
             comm_agr, comm, logger, auxiliary_dir, grid_shp, clip, date_array, nut_shapefile, source_pollutants,
@@ -58,6 +59,8 @@ class AgriculturalMachinerySector(AgriculturalSector):
 
             return dataframe.loc[:, ['fraction']]
 
+        crop_distribution.reset_index(inplace=True)
+
         crop_distribution_nut_path = os.path.join(self.auxiliary_dir, 'crops', 'crops_nut.shp')
         if not os.path.exists(crop_distribution_nut_path):
             nut_shapefile = gpd.read_file(nut_shapefile)
@@ -66,6 +69,7 @@ class AgriculturalMachinerySector(AgriculturalSector):
 
             nut_shapefile = nut_shapefile.to_crs(crop_distribution.crs)
             crop_distribution['src_inter_fraction'] = crop_distribution.geometry.area
+
             crop_distribution = self.spatial_overlays(crop_distribution, nut_shapefile, how='intersection')
             crop_distribution['src_inter_fraction'] = \
                 crop_distribution.geometry.area / crop_distribution['src_inter_fraction']
@@ -88,6 +92,7 @@ class AgriculturalMachinerySector(AgriculturalSector):
 
         self.logger.write_time_log('AgriculturalMachinerySector', 'get_crop_distribution_by_nut',
                                    timeit.default_timer() - spent_time)
+
         return crop_distribution
 
     def get_date_array_by_month(self):
@@ -168,6 +173,7 @@ class AgriculturalMachinerySector(AgriculturalSector):
 
         nut_codes = np.unique(self.crop_distribution['NUT_code'].values.astype(np.int16))
         tech = np.unique(self.vehicle_ratio['technology'].values)
+
         database = pd.DataFrame(None, pd.MultiIndex.from_product(
             [nut_codes, self.machinery_list, tech], names=['NUT_code', 'vehicle', 'technology']))
         database['N'] = database.groupby(['NUT_code', 'vehicle']).apply(get_n)
@@ -197,7 +203,7 @@ class AgriculturalMachinerySector(AgriculturalSector):
         spent_time = timeit.default_timer()
 
         def get_mf(df, month_num):
-            df['MF'] = self.monthly_profiles.loc[self.monthly_profiles['P_Month'] == df.name, month_num].values[0]
+            df['MF'] = self.monthly_profiles.loc[df.name, month_num]
             return df.loc[:, ['MF']]
         # month_distribution = self.crop_distribution.loc[:, ['FID', 'timezone', 'geometry']].copy()
         dataframe = self.calcualte_yearly_emissions_by_nut_vehicle().reset_index()
@@ -221,12 +227,13 @@ class AgriculturalMachinerySector(AgriculturalSector):
             aux = df.apply(lambda row: row * nut_emissions)
             return aux.loc[:, self.source_pollutants]
 
+        self.crop_distribution.reset_index(inplace=True)
         self.crop_distribution[self.source_pollutants] = self.crop_distribution.groupby('NUT_code')['fraction'].apply(
             lambda x: distribute_by_nut(x, dataframe.loc[int(x.name), self.source_pollutants])
         )
         self.crop_distribution.drop(columns=['fraction', 'NUT_code'], inplace=True)
         timezones = self.crop_distribution.groupby('FID')[['timezone']].first()
-        self.crop_distribution = self.crop_distribution.groupby('FID').sum()
+        self.crop_distribution = self.crop_distribution.reset_index().groupby('FID').sum()
 
         self.crop_distribution['timezone'] = timezones
         self.crop_distribution.reset_index(inplace=True)
@@ -254,20 +261,50 @@ class AgriculturalMachinerySector(AgriculturalSector):
     def calculate_hourly_emissions(self):
         spent_time = timeit.default_timer()
 
+        def get_wf(df):
+            """
+            Get the Weekly Factor for the given dataframe depending on the date.
+
+            :param df: DataFrame where find the weekly factor. df.name is the date.
+            :type df: pandas.DataFrame
+
+            :return: DataFrame with only the WF column.
+            :rtype: pandas.DataFrame
+            """
+            weekly_profile = self.calculate_rebalanced_weekly_profile(self.weekly_profiles.loc['default', :].to_dict(),
+                                                                      df.name)
+            df['WF'] = weekly_profile[df.name.weekday()]
+            return df.loc[:, ['WF']]
+
+        def get_hf(df):
+            """
+            Get the Hourly Factor for the given dataframe depending on the hour.
+
+            :param df: DataFrame where find the hourly factor. df.name is the hour.
+            :type df: pandas.DataFrame
+
+            :return: DataFrame with only the HF column.
+            :rtype: pandas.DataFrame
+            """
+            hourly_profile = self.hourly_profiles.loc['default', :].to_dict()
+            hour_factor = hourly_profile[df.name]
+
+            df['HF'] = hour_factor
+            return df.loc[:, ['HF']]
+
+        self.crop_distribution['date_as_date'] = self.crop_distribution['date'].dt.date
+        self.crop_distribution['month'] = self.crop_distribution['date'].dt.weekday
         self.crop_distribution['weekday'] = self.crop_distribution['date'].dt.weekday
         self.crop_distribution['hour'] = self.crop_distribution['date'].dt.hour
 
         for pollutant in self.source_pollutants:
-            daily_profile = self.calculate_rebalance_factor(
-                self.daily_profiles.loc[self.daily_profiles['P_week'] == 'default', :].values[0],
-                np.unique(self.crop_distribution['date']))
+            self.crop_distribution['WF'] = self.crop_distribution.groupby(['date_as_date']).apply(get_wf)
 
-            self.crop_distribution[pollutant] = self.crop_distribution.groupby('weekday')[pollutant].apply(
-                lambda x: x.multiply(daily_profile[x.name]))
-            self.crop_distribution[pollutant] = self.crop_distribution.groupby('hour')[pollutant].apply(
-                lambda x: x.multiply(
-                    self.hourly_profiles.loc[self.hourly_profiles['P_hour'] == 'default', x.name].values[0]))
-        self.crop_distribution.drop(['weekday', 'hour'], axis=1, inplace=True)
+            self.crop_distribution['HF'] = self.crop_distribution.groupby('hour').apply(get_hf)
+            self.crop_distribution[pollutant] = self.crop_distribution[pollutant].multiply(
+                self.crop_distribution['HF'] * self.crop_distribution['WF'], axis=0)
+
+        self.crop_distribution.drop(columns=['month', 'weekday', 'hour', 'WF', 'HF', 'date_as_date'], inplace=True)
         self.logger.write_time_log('AgriculturalMachinerySector', 'calculate_hourly_emissions',
                                    timeit.default_timer() - spent_time)
         return self.crop_distribution
@@ -284,7 +321,10 @@ class AgriculturalMachinerySector(AgriculturalSector):
         self.crop_distribution = self.add_dates(distribution_by_month)
         self.crop_distribution.drop('date_utc', axis=1, inplace=True)
         self.crop_distribution = self.calculate_hourly_emissions()
+        self.crop_distribution['layer'] = 0
+        self.crop_distribution = self.crop_distribution.groupby(['FID', 'layer', 'tstep']).sum()
         self.crop_distribution = self.speciate(self.crop_distribution)
+        
         self.logger.write_log('\t\tAgricultural machinery emissions calculated', message_level=2)
         self.logger.write_time_log('AgriculturalMachinerySector', 'calculate_emissions',
                                    timeit.default_timer() - spent_time)
