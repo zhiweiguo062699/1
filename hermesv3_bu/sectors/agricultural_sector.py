@@ -7,6 +7,7 @@ import timeit
 import numpy as np
 import pandas as pd
 import geopandas as gpd
+from mpi4py import MPI
 
 from hermesv3_bu.sectors.sector import Sector
 from hermesv3_bu.io_server.io_shapefile import IoShapefile
@@ -18,9 +19,92 @@ class AgriculturalSector(Sector):
                  source_pollutants, vertical_levels, crop_list, land_uses_path, land_use_by_nut, crop_by_nut,
                  crop_from_landuse_path, ef_files_dir, monthly_profiles_path, weekly_profiles_path,
                  hourly_profiles_path, speciation_map_path, speciation_profiles_path, molecular_weights_path):
+        """
+        Initialise the common class for agricultural sectors (fertilizers, crop operations and machinery)
 
+        :param comm_agr: Common communicator for all the agricultural sectors.
+        :type comm_agr: MPI.Comm
+
+        :param comm: Comunicator for the current sector.
+        :type comm: MPI.Comm
+
+        :param logger: Logger
+        :type logger: Log
+
+        :param auxiliary_dir: Path to the directory where the necessary auxiliary files will be created if them are not
+            created yet.
+        :type auxiliary_dir: str
+
+        :param grid_shp: Shapefile with the grid horizontal distribution.
+        :type grid_shp: geopandas.GeoDataFrame
+
+        :param date_array: List of datetimes.
+        :type date_array: list(datetime.datetime, ...)
+
+        :param source_pollutants: List of input pollutants to take into account.
+        :type source_pollutants: list
+
+        :param vertical_levels: List of top level of each vertical layer.
+        :type vertical_levels: list
+
+        :param nut_shapefile: Shapefile path to the one that have the NUT_codes.
+        :type nut_shapefile: str
+
+        :param crop_list: List of crops to take into account for that sector.
+        :type crop_list: list
+
+        :param land_uses_path: Path to the shapefile that contains all the land uses.
+        :type land_uses_path: str
+
+        :param land_use_by_nut: Path to the DataFrame with the area for each land use of each NUT code.
+            columns: NUT, land_use, area
+        :type land_use_by_nut: str
+
+        :param crop_by_nut: Path to the DataFrame with the amount of crops for each NUT code.
+            That DataFrame have the 'code' column with the NUT code and as many columns as crops.
+        :type crop_by_nut: str
+
+        :param crop_from_landuse_path: Path to the DataFrame with the mapping between crops and land uses.
+            That CSV have as value separator a semicolon and a comma between elements of the same column.
+            There are needed the following columns: crop, land_use and weight.
+            The land_use and weight columns can have as elements as needed, separated by commas, but both have to have
+            the same length.
+            The land_use column contains the list, or unique value, of the land use that contains that crop.
+            The weight column contains each weight of each selected land use.
+        :type crop_from_landuse_path: str
+
+        :param ef_files_dir: Path to the folder that contains all the Emission Factors.
+        :type ef_files_dir: str
+
+        :param monthly_profiles_path: Path to the CSV file that contains all the monthly profiles. The CSV file must
+            contain the following columns [P_month, January, February, March, April, May, June, July, August, September,
+            October, November, December]
+        :type monthly_profiles_path: str
+
+        :param weekly_profiles_path: Path to the CSV file that contains all the weekly profiles. The CSV file must
+            contain the following columns [P_week, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday]
+        :type weekly_profiles_path: str
+
+        :param hourly_profiles_path: Path to the CSV file that contains all the hourly profiles. The CSV file must
+            contain the following columns [P_hour, 0, 1, 2, 3, ..., 22, 23]
+        :type hourly_profiles_path: str
+
+        :param speciation_map_path: Path to the CSV file that contains the speciation map. The CSV file must contain
+            the following columns [dst, src, description]
+            The 'dst' column will be used as output pollutant list and the 'src' column as their onw input pollutant
+            to be used as a fraction in the speciation profiles.
+        :type speciation_map_path: str
+
+        :param speciation_profiles_path: Path to the file that contains all the speciation profiles. The CSV file
+            must contain the "Code" column with the value of each animal of the animal_list. The rest of columns
+            have to be the sames as the column 'dst' of the 'speciation_map_path' file.
+        :type speciation_profiles_path: str
+
+        :param molecular_weights_path: Path to the CSV file that contains all the molecular weights needed. The CSV
+            file must contain the 'Specie' and 'MW' columns.
+        :type molecular_weights_path: str
+        """
         spent_time = timeit.default_timer()
-        # logger.write_log('===== AGRICULTURAL SECTOR =====')
 
         super(AgriculturalSector, self).__init__(
             comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
@@ -186,6 +270,17 @@ class AgriculturalSector(Sector):
         return crop_area_by_nut
 
     def calculate_crop_distribution_src(self, crop_area_by_nut, land_use_distribution_src_nut):
+        """
+        Calculate the crop distribution on the source resolution.
+
+        :param crop_area_by_nut: Amount of crop on each NUT.
+        :type crop_area_by_nut: pandas.DataFrame
+
+        :param land_use_distribution_src_nut:
+
+        :return: Crop distribution on the source resolution.
+        :rtype: geopandas.GeoDataFrame
+        """
         spent_time = timeit.default_timer()
 
         crop_distribution_src = land_use_distribution_src_nut.loc[:, ['NUT', 'geometry']]
@@ -210,6 +305,15 @@ class AgriculturalSector(Sector):
         return crop_distribution_src
 
     def get_crop_distribution_in_dst_cells(self, crop_distribution):
+        """
+        Regrid the crop distribution in the source resolution to the grid resolution.
+
+        :param crop_distribution: Crop distribution in source resolution.
+        :type crop_distribution: pandas.GeoDataFrame
+
+        :return: Crop by grid cell.
+        :rtype: pandas.GeoDataFrame
+        """
         spent_time = timeit.default_timer()
         crop_list = list(np.setdiff1d(crop_distribution.columns.values, ['NUT', 'geometry']))
 
@@ -234,9 +338,23 @@ class AgriculturalSector(Sector):
         return crop_distribution
 
     def get_crops_by_dst_cell(self, file_path):
+        """
+        Create, or read if it is already created, the crop distribution over the grid cells.
+
+        The created crop distribution file contains all the available crops, but the returned shapefile only contains
+        the involved crops on that sector.
+
+        :param file_path: Path to the auxiliary file where is stored the crop distribution, or will be stored.
+        :type file_path: str
+
+        :return: GeoDataFrame with the crop distribution over the grid cells.
+        :rtype: geopandas.GeoDataFrame
+        """
         spent_time = timeit.default_timer()
         if not os.path.exists(file_path):
             if self.comm_agr.Get_rank() == 0:
+                self.logger.write_log('Creating the crop distribution shapefile on the grid resolution.',
+                                      message_level=2)
                 involved_land_uses = self.get_involved_land_uses()
 
                 land_use_distribution_src_nut = self.get_land_use_src_by_nut(involved_land_uses)
@@ -259,9 +377,12 @@ class AgriculturalSector(Sector):
                 crop_distribution_dst = self.add_timezone(crop_distribution_dst)
                 IoShapefile().write_shapefile(crop_distribution_dst, file_path)
             else:
+                self.logger.write_log('Waiting for the master process that creates the crop distribution shapefile.',
+                                      message_level=2)
                 crop_distribution_dst = None
             self.comm_agr.Barrier()
             if self.comm.Get_rank() == 0 and self.comm_agr.Get_rank() != 0:
+                # Every master rank read the created crop distribution shapefile.
                 crop_distribution_dst = IoShapefile(self.comm).read_serial_shapefile(file_path)
             self.comm.Barrier()
 
@@ -277,6 +398,17 @@ class AgriculturalSector(Sector):
 
     @staticmethod
     def get_agricultural_processor_list(sector_dict):
+        """
+        Select the common ranks for that ones that will work on some agricultural sector.
+
+        The agricultural sectors are 'crop_operations', 'crop_fertilizers' and 'agricultural_machinery'.
+
+        :param sector_dict: Rank distribution for all the sectors.
+        :type sector_dict: dict
+
+        :return: List of ranks involved on some agricultural sector.
+        :rtype: list
+        """
         rank_list = []
 
         for sector, sector_procs in sector_dict.iteritems():
