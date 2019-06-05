@@ -212,17 +212,42 @@ class AgriculturalSector(Sector):
 
         return df
 
-    def get_land_use_by_nut_csv(self, land_use_distribution_src_nut, land_uses, first=False):
+    def get_land_use_by_nut_csv(self, land_use_distribution_src_nut, land_uses):
+        """
+
+        :param land_use_distribution_src_nut: Shapefile with the polygons of all the land uses for each NUT.
+        :type land_use_distribution_src_nut: geopandas.GeoDataFrame
+
+        :param land_uses: Land uses to take into account.
+        :type land_uses: list
+
+        :return:
+        """
+        print land_use_distribution_src_nut
+        print land_uses
         spent_time = timeit.default_timer()
         land_use_distribution_src_nut['area'] = land_use_distribution_src_nut.area
 
         land_use_by_nut = land_use_distribution_src_nut.groupby(['NUT', 'land_use']).sum().reset_index()
         land_use_by_nut = land_use_by_nut.loc[land_use_by_nut['land_use'].isin(land_uses), :]
         self.logger.write_time_log('AgriculturalSector', 'get_land_use_by_nut_csv', timeit.default_timer() - spent_time)
-
+        print land_use_by_nut
+        exit()
         return land_use_by_nut
 
     def land_use_to_crop_by_nut(self, land_use_by_nut, nuts=None):
+        """
+        Get the amount of crop by involved NUT.
+
+        :param land_use_by_nut: Area of each land use for each NUT
+        :type land_use_by_nut: pandas.DataFrame
+
+        :param nuts: NUT list to take into account. None for all of them.
+        :type nuts: list
+
+        :return: Amount of crop by NUT.
+        :rtype: pandas.DataFrame
+        """
         spent_time = timeit.default_timer()
         if nuts is not None:
             land_use_by_nut = land_use_by_nut.loc[land_use_by_nut['NUT'].isin(nuts), :]
@@ -242,10 +267,23 @@ class AgriculturalSector(Sector):
                 aux_dict[crop] = [aux]
             new_dict = new_dict.append(pd.DataFrame.from_dict(aux_dict), ignore_index=True)
         new_dict.set_index('NUT', inplace=True)
+
         self.logger.write_time_log('AgriculturalSector', 'land_use_to_crop_by_nut', timeit.default_timer() - spent_time)
         return new_dict
 
     def get_crop_shape_by_nut(self, crop_by_nut, tot_crop_by_nut):
+        """
+        Calculate the fraction of crop for each NUT involved on the simulated domain.
+
+        :param crop_by_nut: Amount of crop by NUT on the simulated domain.
+        :type crop_by_nut: pandas.DataFrame
+
+        :param tot_crop_by_nut: Total amount of crop by NUT.
+        :type tot_crop_by_nut: pandas.DataFrame
+
+        :return: Fraction of involved crop for NUT.
+        :rtype: pandas.DataFrame
+        """
         spent_time = timeit.default_timer()
 
         crop_share_by_nut = crop_by_nut.copy()
@@ -256,6 +294,16 @@ class AgriculturalSector(Sector):
         return crop_share_by_nut
 
     def get_crop_area_by_nut(self, crop_share_by_nut):
+        """
+        Calculate the amount of crop for each NUT.
+
+        :param crop_share_by_nut: GeoDataFrame with the fraction of crop for each NUT. That fraction means the quantity
+            of the NUT crop involved on the simulation. If the complete NUT is fulfilled on the domain is it 1.
+        :type crop_share_by_nut: pandas.DataFrame
+
+        :return: Amount of crop for each NUT.
+        :rtype: pandas.DataFrame
+        """
         spent_time = timeit.default_timer()
 
         crop_by_nut = pd.read_csv(self.crop_by_nut)
@@ -276,7 +324,8 @@ class AgriculturalSector(Sector):
         :param crop_area_by_nut: Amount of crop on each NUT.
         :type crop_area_by_nut: pandas.DataFrame
 
-        :param land_use_distribution_src_nut:
+        :param land_use_distribution_src_nut: Source distribution land uses with their calculated areas.
+        :type land_use_distribution_src_nut: geopandas.GeoDataFrame
 
         :return: Crop distribution on the source resolution.
         :rtype: geopandas.GeoDataFrame
