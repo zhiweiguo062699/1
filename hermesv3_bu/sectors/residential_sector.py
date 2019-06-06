@@ -116,10 +116,10 @@ class ResidentialSector(Sector):
         spent_time = timeit.default_timer()
 
         src_distribution.to_crs(self.grid_shp.crs, inplace=True)
-        src_distribution.to_file(os.path.join(self.auxiliary_dir, 'residential', 'fuel_distribution_src.shp'))  # Shapefile of raster to shp
+        src_distribution.to_file(os.path.join(self.auxiliary_dir, 'residential', 'fuel_distribution_src.shp'))
         src_distribution['src_inter_fraction'] = src_distribution.geometry.area
         src_distribution = self.spatial_overlays(src_distribution, self.grid_shp, how='intersection')
-        src_distribution.to_file(os.path.join(self.auxiliary_dir, 'residential', 'fuel_distribution_raw.shp'))  # Shapefile of raster to shp
+        src_distribution.to_file(os.path.join(self.auxiliary_dir, 'residential', 'fuel_distribution_raw.shp'))
         src_distribution['src_inter_fraction'] = src_distribution.geometry.area / src_distribution[
             'src_inter_fraction']
 
@@ -167,8 +167,10 @@ class ResidentialSector(Sector):
             population_density = population_density.loc[population_density['ccaa'] != -999, :]
 
             if create_pop_csv:
-                population_density.loc[:, ['prov', 'pop', 'type']].groupby(['prov', 'type']).sum().reset_index().to_csv(self.pop_type_by_prov)
-                population_density.loc[:, ['ccaa', 'pop', 'type']].groupby(['ccaa', 'type']).sum().reset_index().to_csv(self.pop_type_by_ccaa)
+                population_density.loc[:, ['prov', 'pop', 'type']].groupby(['prov', 'type']).sum().reset_index().to_csv(
+                    self.pop_type_by_prov)
+                population_density.loc[:, ['ccaa', 'pop', 'type']].groupby(['ccaa', 'type']).sum().reset_index().to_csv(
+                    self.pop_type_by_ccaa)
 
             self.pop_type_by_ccaa = pd.read_csv(self.pop_type_by_ccaa).set_index(['ccaa', 'type'])
             self.pop_type_by_prov = pd.read_csv(self.pop_type_by_prov).set_index(['prov', 'type'])
@@ -183,32 +185,43 @@ class ResidentialSector(Sector):
                 if spatial_proxy['nut_level'] == 'ccaa':
                     for ccaa in np.unique(population_density['ccaa']):
                         if spatial_proxy['proxy_type'] == 'all':
-                            total_pop = self.pop_type_by_ccaa.loc[self.pop_type_by_ccaa.index.get_level_values('ccaa') == ccaa, 'pop'].sum()
+                            total_pop = self.pop_type_by_ccaa.loc[
+                                self.pop_type_by_ccaa.index.get_level_values('ccaa') == ccaa, 'pop'].sum()
                             energy_consumption = self.energy_consumption_by_ccaa.loc[
                                 self.energy_consumption_by_ccaa['code'] == ccaa, fuel].values[0]
 
-                            fuel_distribution.loc[population_density['ccaa'] == ccaa, fuel] = population_density['pop'].multiply(
+                            fuel_distribution.loc[
+                                population_density['ccaa'] == ccaa, fuel] = population_density['pop'].multiply(
                                 energy_consumption / total_pop)
                         else:
-                            total_pop = self.pop_type_by_ccaa.loc[(self.pop_type_by_ccaa.index.get_level_values('ccaa') == ccaa) & (self.pop_type_by_ccaa.index.get_level_values('type') == spatial_proxy['proxy_type']), 'pop'].values[0]
-                            energy_consumption = self.energy_consumption_by_ccaa.loc[self.energy_consumption_by_ccaa['code'] == ccaa, fuel].values[0]
+                            total_pop = self.pop_type_by_ccaa.loc[
+                                (self.pop_type_by_ccaa.index.get_level_values('ccaa') == ccaa) &
+                                (self.pop_type_by_ccaa.index.get_level_values('type') == spatial_proxy['proxy_type']),
+                                'pop'].values[0]
+                            energy_consumption = self.energy_consumption_by_ccaa.loc[
+                                self.energy_consumption_by_ccaa['code'] == ccaa, fuel].values[0]
 
                             fuel_distribution.loc[(population_density['ccaa'] == ccaa) &
                                                   (population_density['type'] == spatial_proxy['proxy_type']),
-                                                  fuel] = population_density['pop'].multiply(energy_consumption / total_pop)
+                                                  fuel] = population_density['pop'].multiply(
+                                energy_consumption / total_pop)
                 if spatial_proxy['nut_level'] == 'prov':
                     for prov in np.unique(population_density['prov']):
                         if spatial_proxy['proxy_type'] == 'all':
-                            total_pop = self.pop_type_by_prov.loc[self.pop_type_by_prov.index.get_level_values('prov') == prov, 'pop'].sum()
+                            total_pop = self.pop_type_by_prov.loc[self.pop_type_by_prov.index.get_level_values(
+                                'prov') == prov, 'pop'].sum()
                             energy_consumption = self.energy_consumption_by_prov.loc[
                                 self.energy_consumption_by_prov['code'] == prov, fuel].values[0]
 
-                            fuel_distribution.loc[population_density['prov'] == prov, fuel] = population_density['pop'].multiply(
-                                energy_consumption / total_pop)
+                            fuel_distribution.loc[population_density['prov'] == prov, fuel] = population_density[
+                                'pop'].multiply(energy_consumption / total_pop)
                         else:
                             total_pop = self.pop_type_by_prov.loc[
-                                (self.pop_type_by_prov.index.get_level_values('prov') == prov) & (self.pop_type_by_prov.index.get_level_values('type') == spatial_proxy['proxy_type']), 'pop'].values[0]
-                            energy_consumption = self.energy_consumption_by_prov.loc[self.energy_consumption_by_prov['code'] == prov, fuel].values[0]
+                                (self.pop_type_by_prov.index.get_level_values('prov') == prov) &
+                                (self.pop_type_by_prov.index.get_level_values('type') == spatial_proxy['proxy_type']),
+                                'pop'].values[0]
+                            energy_consumption = self.energy_consumption_by_prov.loc[
+                                self.energy_consumption_by_prov['code'] == prov, fuel].values[0]
 
                             fuel_distribution.loc[(population_density['prov'] == prov) &
                                                   (population_density['type'] == spatial_proxy['proxy_type']),
