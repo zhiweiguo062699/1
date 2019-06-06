@@ -59,6 +59,17 @@ class ResidentialSector(Sector):
         self.logger.write_time_log('ResidentialSector', '__init__', timeit.default_timer() - spent_time)
 
     def read_ef_file(self, path):
+        """
+        Read the emission factor file.
+        
+        Units = g/GJ
+
+        :param path: Path to the file that contains the emission factors (EF).
+        :type path: str
+
+        :return: Dataframe with the emission factors read.
+        :rtype: pandas.DataFrame
+        """
         spent_time = timeit.default_timer()
 
         df_ef = pd.read_csv(path)
