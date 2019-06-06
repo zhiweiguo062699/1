@@ -104,7 +104,8 @@ class ResidentialSector(Sector):
     def get_spatial_proxy(self, fuel_type):
         spent_time = timeit.default_timer()
 
-        proxy = self.residential_spatial_proxies.loc[self.residential_spatial_proxies['fuel_type'] == fuel_type, ['nuts_level', 'proxy']].values[0]
+        proxy = self.residential_spatial_proxies.loc[self.residential_spatial_proxies['fuel_type'] == fuel_type,
+                                                     ['nuts_level', 'proxy']].values[0]
 
         if proxy[0] == 3:
             nut_level = 'prov'
