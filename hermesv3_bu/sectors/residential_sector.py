@@ -61,7 +61,6 @@ class ResidentialSector(Sector):
     def read_ef_file(self, path):
         """
         Read the emission factor file.
-        
         Units = g/GJ
 
         :param path: Path to the file that contains the emission factors (EF).
