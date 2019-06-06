@@ -293,6 +293,21 @@ class Config(ArgParser):
         p.add_argument('--crop_machinery_speciation_profiles', required=False, help='...')
         p.add_argument('--crop_machinery_by_nut', required=False, help='...')
 
+        # ***** RESIDENTIAL SECTOR *****
+        p.add_argument('--fuel_list', required=False, help='...')
+        p.add_argument('--residential_source_pollutants', required=False, help='...')
+        p.add_argument('--population_density_map', required=False, help='...')
+        p.add_argument('--population_type_map', required=False, help='...')
+        p.add_argument('--population_type_by_ccaa', required=False, help='...')
+        p.add_argument('--population_type_by_prov', required=False, help='...')
+        p.add_argument('--energy_consumption_by_prov', required=False, help='...')
+        p.add_argument('--energy_consumption_by_ccaa', required=False, help='...')
+        p.add_argument('--residential_spatial_proxies', required=False, help='...')
+        p.add_argument('--residential_ef_files_path', required=False, help='...')
+        p.add_argument('--residential_heating_degree_day_path', required=False, help='...')
+        p.add_argument('--residential_hourly_profiles', required=False, help='...')
+        p.add_argument('--residential_speciation_profiles', required=False, help='...')
+
         arguments = p.parse_args()
 
         for item in vars(arguments):
@@ -365,6 +380,10 @@ class Config(ArgParser):
         arguments.crop_machinery_source_pollutants = self._parse_list(arguments.crop_machinery_source_pollutants)
         arguments.crop_machinery_list = self._parse_list(arguments.crop_machinery_list)
         arguments.machinery_list = self._parse_list(arguments.machinery_list)
+
+        # Residential lists
+        arguments.fuel_list = self._parse_list(arguments.fuel_list)
+        arguments.residential_source_pollutants = self._parse_list(arguments.residential_source_pollutants)
         return arguments
 
     @staticmethod

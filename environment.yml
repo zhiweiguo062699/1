@@ -4,6 +4,7 @@ name: hermesv3_bu
 
 channels:
   - conda-forge
+  - anaconda
 
 dependencies:
   - python = 2

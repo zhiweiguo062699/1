@@ -119,7 +119,20 @@ class SectorManager(object):
                     arguments.crop_machinery_load_factor_path, arguments.crop_machinery_vehicle_ratio_path,
                     arguments.crop_machinery_vehicle_units_path, arguments.crop_machinery_vehicle_workhours_path,
                     arguments.crop_machinery_vehicle_power_path, arguments.crop_machinery_by_nut)
-
+            elif sector == 'residential' and comm_world.Get_rank() in sector_procs:
+                from hermesv3_bu.sectors.residential_sector import ResidentialSector
+                self.sector = ResidentialSector(
+                    comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.logger,
+                    arguments.auxiliary_files_path, grid.shapefile, clip, date_array,
+                    arguments.residential_source_pollutants, grid.vertical_desctiption, arguments.fuel_list,
+                    arguments.nut_shapefile_prov, arguments.nut_shapefile_ccaa, arguments.population_density_map,
+                    arguments.population_type_map, arguments.population_type_by_ccaa, arguments.population_type_by_prov,
+                    arguments.energy_consumption_by_prov, arguments.energy_consumption_by_ccaa,
+                    arguments.residential_spatial_proxies, arguments.residential_ef_files_path,
+                    arguments.residential_heating_degree_day_path, arguments.temperature_daily_files_path,
+                    arguments.residential_hourly_profiles, arguments.speciation_map,
+                    arguments.residential_speciation_profiles, arguments.molecular_weights
+                )
             color += 1
 
         self.logger.write_time_log('SectorManager', '__init__', timeit.default_timer() - spent_time)
