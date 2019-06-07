@@ -443,13 +443,14 @@ class ResidentialSector(Sector):
 
     def calculate_emissions(self):
         spent_time = timeit.default_timer()
+        self.logger.write_log('\tCalculating emissions')
+
         fuel_distribution_by_hour = self.calculate_fuel_distribution_by_hour()
-
         emissions = self.calculate_output_emissions_from_fuel_distribution(fuel_distribution_by_hour)
-
-        self.logger.write_time_log('ResidentialSector', 'calculate_emissions', timeit.default_timer() - spent_time)
         emissions.drop(columns=['date', 'date_utc', 'geometry'], inplace=True)
         emissions['layer'] = 0
         emissions.set_index(['FID', 'layer', 'tstep'], inplace=True)
 
+        self.logger.write_log('\t\tResidential emissions calculated', message_level=2)
+        self.logger.write_time_log('ResidentialSector', 'calculate_emissions', timeit.default_timer() - spent_time)
         return emissions
