@@ -66,7 +66,7 @@ class RecreationalBoatsSector(Sector):
         self.logger.write_time_log('RecreationalBoatsSector', 'create_density_map', timeit.default_timer() - spent_time)
         return src_density_map
 
-    def speciate(self, annual_emissions_dict):
+    def speciate_dict(self, annual_emissions_dict):
         spent_time = timeit.default_timer()
 
         speciated_emissions = {}
@@ -88,7 +88,7 @@ class RecreationalBoatsSector(Sector):
                 speciated_emissions[out_pollutant] = ((annual_emissions_dict['pm10'] / self.molecular_weights['pm10']) -
                                                       (annual_emissions_dict['pm25'] / self.molecular_weights['pm25'])
                                                       ) * self.speciation_profile.loc['default', out_pollutant]
-        self.logger.write_time_log('RecreationalBoatsSector', 'speciate', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('RecreationalBoatsSector', 'speciate_dict', timeit.default_timer() - spent_time)
         return speciated_emissions
 
     def get_annual_emissions(self):
@@ -178,7 +178,7 @@ class RecreationalBoatsSector(Sector):
         self.logger.write_log('\tCalculating emissions')
 
         annual_emissions = self.get_annual_emissions()
-        annual_emissions = self.speciate(annual_emissions)
+        annual_emissions = self.speciate_dict(annual_emissions)
 
         distribution = self.calculate_yearly_emissions(annual_emissions)
         distribution = self.calculate_hourly_emissions(distribution)
