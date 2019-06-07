@@ -175,6 +175,7 @@ class Config(ArgParser):
         p.add_argument('--agricultural_machinery_processors', required=False, type=int, default='True')
 
         p.add_argument('--speciation_map', required=False, help='...')
+
         # ===== SHAPEFILES =====
         p.add_argument('--nut_shapefile_prov', required=False, type=str, default='True')
         p.add_argument('--nut_shapefile_ccaa', required=False, type=str, default='True')
@@ -200,7 +201,7 @@ class Config(ArgParser):
         p.add_argument('--obukhov_length_dir', required=False, type=str, default='True')
         p.add_argument('--layer_thickness_dir', required=False, type=str, default='True')
 
-        # ***** AVIATION SEECTOR *****
+        # ***** AVIATION SECTOR *****
         p.add_argument('--aviation_source_pollutants', required=False, help='...')
         p.add_argument('--airport_list', required=False, help='...')
         p.add_argument('--plane_list', required=False, help='...')
@@ -308,6 +309,17 @@ class Config(ArgParser):
         p.add_argument('--residential_hourly_profiles', required=False, help='...')
         p.add_argument('--residential_speciation_profiles', required=False, help='...')
 
+        # ***** RECREATIONAL BOATS SECTOR *****
+        p.add_argument('--recreational_boats_source_pollutants', required=False, help='...')
+        p.add_argument('--recreational_boats_list', required=False, help='...')
+        p.add_argument('--recreational_boats_density_map', required=False, help='...')
+        p.add_argument('--recreational_boats_by_type', required=False, help='...')
+        p.add_argument('--recreational_boats_ef_path', required=False, help='...')
+        p.add_argument('--recreational_boats_monthly_profiles', required=False, help='...')
+        p.add_argument('--recreational_boats_weekly_profiles', required=False, help='...')
+        p.add_argument('--recreational_boats_hourly_profiles', required=False, help='...')
+        p.add_argument('--recreational_boats_speciation_profiles', required=False, help='...')
+
         arguments = p.parse_args()
 
         for item in vars(arguments):
@@ -384,6 +396,12 @@ class Config(ArgParser):
         # Residential lists
         arguments.fuel_list = self._parse_list(arguments.fuel_list)
         arguments.residential_source_pollutants = self._parse_list(arguments.residential_source_pollutants)
+
+        # Recreational Boats lists
+        arguments.recreational_boats_source_pollutants = self._parse_list(
+            arguments.recreational_boats_source_pollutants)
+        arguments.recreational_boats_list = self._parse_list(arguments.recreational_boats_list)
+
         return arguments
 
     @staticmethod

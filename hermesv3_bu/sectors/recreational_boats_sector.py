@@ -27,6 +27,7 @@ class RecreationalBoatsSector(Sector):
 
         self.boat_list = boat_list
 
+        # TODO Change nodata value of the raster
         self.density_map = self.create_density_map(density_map_path)
         self.boats_data_path = boats_data_path
         self.ef_file_path = ef_file_path
@@ -35,30 +36,60 @@ class RecreationalBoatsSector(Sector):
 
     def create_density_map(self, density_map_path):
         spent_time = timeit.default_timer()
+        if self.comm.Get_rank() == 0:
+            density_map_auxpath = os.path.join(self.auxiliary_dir, 'recreational_boats', 'density_map.shp')
+            if not os.path.exists(density_map_auxpath):
+                src_density_map = IoRaster(self.comm).to_shapefile_serie(density_map_path, nodata=0)
+                src_density_map = src_density_map.loc[src_density_map['data'] > 0]
+                src_density_map['data'] = src_density_map['data'] / src_density_map['data'].sum()
+                src_density_map.to_crs(self.grid_shp.crs, inplace=True)
+                src_density_map['src_inter_fraction'] = src_density_map.area
+                src_density_map = self.spatial_overlays(src_density_map, self.grid_shp, how='intersection')
+                src_density_map['src_inter_fraction'] = src_density_map.area / src_density_map['src_inter_fraction']
 
-        density_map_auxpath = os.path.join(self.auxiliary_dir, 'recreational_boats', 'density_map.shp')
-        if not os.path.exists(density_map_auxpath):
-            src_density_map = IoRaster().to_shapefile_serie(density_map_path)
-            src_density_map['data'] = src_density_map['data'] / src_density_map['data'].sum()
-            src_density_map.to_crs(self.grid_shp.crs, inplace=True)
-            src_density_map['src_inter_fraction'] = src_density_map.area
-            src_density_map = self.spatial_overlays(src_density_map, self.grid_shp, how='intersection')
-            src_density_map['src_inter_fraction'] = src_density_map.area / src_density_map['src_inter_fraction']
+                src_density_map['data'] = src_density_map.loc[:, 'data'].multiply(src_density_map["src_inter_fraction"],
+                                                                                  axis="index")
 
-            src_density_map['data'] = src_density_map.loc[:, 'data'].multiply(src_density_map["src_inter_fraction"],
-                                                                              axis="index")
+                src_density_map = src_density_map.loc[:, ['FID', 'data']].groupby('FID').sum()
+                src_density_map = gpd.GeoDataFrame(src_density_map, crs=self.grid_shp.crs,
+                                                   geometry=self.grid_shp.loc[src_density_map.index, 'geometry'])
+                src_density_map.reset_index(inplace=True)
 
-            src_density_map = src_density_map.loc[:, ['FID', 'data']].groupby('FID').sum()
-            src_density_map = gpd.GeoDataFrame(src_density_map, crs=self.grid_shp.crs,
-                                               geometry=self.grid_shp.loc[src_density_map.index, 'geometry'])
-            src_density_map.reset_index(inplace=True)
-
-            IoShapefile().write_serial_shapefile(src_density_map, density_map_auxpath)
+                IoShapefile(self.comm).write_shapefile(src_density_map, density_map_auxpath)
+            else:
+                src_density_map = IoShapefile(self.comm).read_serial_shapefile(density_map_auxpath)
         else:
-            src_density_map = IoShapefile().read_serial_shapefile(density_map_auxpath)
+            src_density_map = None
+        src_density_map = IoShapefile(self.comm).split_shapefile(src_density_map)
+        src_density_map.set_index('FID', inplace=True)
 
         self.logger.write_time_log('RecreationalBoatsSector', 'create_density_map', timeit.default_timer() - spent_time)
         return src_density_map
+
+    def speciate(self, annual_emissions_dict):
+        spent_time = timeit.default_timer()
+
+        speciated_emissions = {}
+        for out_pollutant in self.output_pollutants:
+            if out_pollutant != 'PMC':
+                self.logger.write_log("\t\t\t{0} = ({1}/{2})*{3}".format(
+                    out_pollutant, self.speciation_map[out_pollutant],
+                    self.molecular_weights[self.speciation_map[out_pollutant]],
+                    self.speciation_profile.loc['default', out_pollutant]), message_level=3)
+
+                speciated_emissions[out_pollutant] = (annual_emissions_dict[self.speciation_map[out_pollutant]] /
+                                                      self.molecular_weights[self.speciation_map[out_pollutant]]
+                                                      ) * self.speciation_profile.loc['default', out_pollutant]
+            else:
+                self.logger.write_log("\t\t\t{0} = ({1}/{2} - {4}/{5})*{3}".format(
+                    out_pollutant, 'pm10', self.molecular_weights['pm10'],
+                    self.speciation_profile.loc['default', out_pollutant], 'pm25', self.molecular_weights['pm25']),
+                    message_level=3)
+                speciated_emissions[out_pollutant] = ((annual_emissions_dict['pm10'] / self.molecular_weights['pm10']) -
+                                                      (annual_emissions_dict['pm25'] / self.molecular_weights['pm25'])
+                                                      ) * self.speciation_profile.loc['default', out_pollutant]
+        self.logger.write_time_log('RecreationalBoatsSector', 'speciate', timeit.default_timer() - spent_time)
+        return speciated_emissions
 
     def get_annual_emissions(self):
         spent_time = timeit.default_timer()
@@ -103,20 +134,19 @@ class RecreationalBoatsSector(Sector):
         spent_time = timeit.default_timer()
 
         def get_mf(df):
-            month_factor = self.monthly_profiles.loc[self.monthly_profiles['P_month'] == 'default', df.name].values[0]
+            month_factor = self.monthly_profiles.loc['default', df.name]
 
             df['MF'] = month_factor
             return df.loc[:, ['MF']]
 
         def get_wf(df):
-            weekly_profile = self.weekly_profiles.loc[self.weekly_profiles['P_week'] == 'default', xrange(7)].values.T
-            weekday_factor = self.calculate_rebalance_factor(weekly_profile, df.name)
-
-            df['WF'] = weekday_factor
+            weekly_profile = self.calculate_rebalanced_weekly_profile(self.weekly_profiles.loc['default', :].to_dict(),
+                                                                      df.name)
+            df['WF'] = weekly_profile[df.name.weekday()]
             return df.loc[:, ['WF']]
 
         def get_hf(df):
-            hourly_profile = self.hourly_profiles.loc[self.hourly_profiles['P_hour'] == 'default', xrange(24)].values[0]
+            hourly_profile = self.hourly_profiles.loc['default', :].to_dict()
             hour_factor = hourly_profile[df.name]
 
             df['HF'] = hour_factor
@@ -149,9 +179,12 @@ class RecreationalBoatsSector(Sector):
 
         annual_emissions = self.get_annual_emissions()
         annual_emissions = self.speciate(annual_emissions)
+
         distribution = self.calculate_yearly_emissions(annual_emissions)
         distribution = self.calculate_hourly_emissions(distribution)
-
+        distribution.drop(columns=['geometry'], inplace=True)
+        distribution['layer'] = 0
+        distribution.set_index(['FID', 'layer', 'tstep'], inplace=True)
         self.logger.write_log('\t\tRecreational boats emissions calculated', message_level=2)
         self.logger.write_time_log('RecreationalBoatsSector', 'calculate_emissions',
                                    timeit.default_timer() - spent_time)
