@@ -306,8 +306,8 @@ class PointSourceSector(Sector):
                                         geometry=[Point(xy) for xy in zip(lons.flatten(), lats.flatten())],
                                         crs={'init': 'epsg:4326'})
         nc_dataframe['index'] = nc_dataframe.index
-        dataframe['meteo_index'] = dataframe.apply(nearest, geom_union=nc_dataframe.unary_union, df1=dataframe,
-                                                 df2=nc_dataframe, src_column='index', axis=1)
+        dataframe['meteo_index'] = dataframe.apply(
+            nearest, geom_union=nc_dataframe.unary_union, df1=dataframe, df2=nc_dataframe, src_column='index', axis=1)
         dataframe['X'] = nc_dataframe.loc[dataframe['meteo_index'], 'X'].values
         dataframe['Y'] = nc_dataframe.loc[dataframe['meteo_index'], 'Y'].values
 
@@ -770,4 +770,3 @@ class PointSourceSector(Sector):
         self.logger.write_time_log('PointSourceSector', 'calculate_emissions', timeit.default_timer() - spent_time)
 
         return emissions
-

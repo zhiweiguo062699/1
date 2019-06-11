@@ -170,7 +170,7 @@ class SectorManager(object):
                         'u10_wind_speed_dir': arguments.u10_wind_speed_dir,
                         'v10_wind_speed_dir': arguments.v10_wind_speed_dir,
                         'u_wind_speed_4d_dir': arguments.u_wind_speed_4d_dir,
-                        'v_wind_speed_4d_dir': arguments.v_wind_speed_4d_dir,})
+                        'v_wind_speed_4d_dir': arguments.v_wind_speed_4d_dir})
 
             color += 1
 
