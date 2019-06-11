@@ -320,6 +320,17 @@ class Config(ArgParser):
         p.add_argument('--recreational_boats_hourly_profiles', required=False, help='...')
         p.add_argument('--recreational_boats_speciation_profiles', required=False, help='...')
 
+        # ***** POINT SOURCE SECTOR *****
+        p.add_argument('--point_source_pollutants', required=False, help='...')
+        p.add_argument('--plume_rise', required=False, help='...')
+        p.add_argument('--point_source_snaps', required=False, help='...')
+        p.add_argument('--point_source_catalog', required=False, help='...')
+        p.add_argument('--point_source_monthly_profiles', required=False, help='...')
+        p.add_argument('--point_source_weekly_profiles', required=False, help='...')
+        p.add_argument('--point_source_hourly_profiles', required=False, help='...')
+        p.add_argument('--point_source_speciation_profiles', required=False, help='...')
+        p.add_argument('--point_source_measured_emissions', required=False, help='...')
+
         arguments = p.parse_args()
 
         for item in vars(arguments):
@@ -401,6 +412,13 @@ class Config(ArgParser):
         arguments.recreational_boats_source_pollutants = self._parse_list(
             arguments.recreational_boats_source_pollutants)
         arguments.recreational_boats_list = self._parse_list(arguments.recreational_boats_list)
+
+        # Point Source bools
+        arguments.plume_rise = self._parse_bool(arguments.plume_rise)
+
+        # Point Source lists
+        arguments.point_source_pollutants = self._parse_list(arguments.point_source_pollutants)
+        arguments.point_source_snaps = self._parse_list(arguments.point_source_snaps)
 
         return arguments
 

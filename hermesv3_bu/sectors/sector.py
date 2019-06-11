@@ -347,7 +347,7 @@ class Sector(object):
         self.logger.write_time_log('Sector', 'calculate_weekdays', timeit.default_timer() - spent_time)
         return weekdays_dict
 
-    def add_dates(self, dataframe):
+    def add_dates(self, dataframe, drop_utc=True):
         """
         Add the 'date' and 'tstep' column to the dataframe.
 
@@ -373,7 +373,8 @@ class Sector(object):
             df_list.append(df_aux)
         dataframe = pd.concat(df_list, ignore_index=True)
         dataframe = self.to_timezone(dataframe)
-        dataframe.drop('date_utc', axis=1, inplace=True)
+        if drop_utc:
+            dataframe.drop('date_utc', axis=1, inplace=True)
         self.logger.write_time_log('Sector', 'add_dates', timeit.default_timer() - spent_time)
 
         return dataframe

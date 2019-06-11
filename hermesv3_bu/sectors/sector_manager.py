@@ -150,6 +150,28 @@ class SectorManager(object):
                     arguments.recreational_boats_hourly_profiles, arguments.speciation_map,
                     arguments.recreational_boats_speciation_profiles, arguments.molecular_weights)
 
+            elif sector == 'point_sources' and comm_world.Get_rank() in sector_procs:
+                from hermesv3_bu.sectors.point_source_sector import PointSourceSector
+                self.sector = PointSourceSector(
+                    comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.logger,
+                    arguments.auxiliary_files_path, grid.shapefile, clip, date_array,
+                    arguments.point_source_pollutants, grid.vertical_desctiption,
+                    arguments.point_source_catalog, arguments.point_source_monthly_profiles,
+                    arguments.point_source_weekly_profiles, arguments.point_source_hourly_profiles,
+                    arguments.speciation_map, arguments.point_source_speciation_profiles, arguments.point_source_snaps,
+                    arguments.point_source_measured_emissions, arguments.molecular_weights,
+                    plume_rise=arguments.plume_rise, plume_rise_pahts={
+                        'friction_velocity_dir': arguments.friction_velocity_dir,
+                        'pblh_dir': arguments.pblh_dir,
+                        'obukhov_length_dir': arguments.obukhov_length_dir,
+                        'layer_thickness_dir': arguments.layer_thickness_dir,
+                        'temperature_sfc_dir': arguments.temperature_sfc_dir,
+                        'temperature_4d_dir': arguments.temperature_4d_dir,
+                        'u10_wind_speed_dir': arguments.u10_wind_speed_dir,
+                        'v10_wind_speed_dir': arguments.v10_wind_speed_dir,
+                        'u_wind_speed_4d_dir': arguments.u_wind_speed_4d_dir,
+                        'v_wind_speed_4d_dir': arguments.v_wind_speed_4d_dir,})
+
             color += 1
 
         self.logger.write_time_log('SectorManager', '__init__', timeit.default_timer() - spent_time)
