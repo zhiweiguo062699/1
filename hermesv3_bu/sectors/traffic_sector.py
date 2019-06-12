@@ -467,7 +467,7 @@ class TrafficSector(Sector):
             nc = Dataset(path, mode='r')
             i_time = 0
             new_prlr = nc.variables['prlr'][i_time:i_time + (len(dates_to_extract) - len(prlr)),
-                       j_min:j_max, i_min:i_max]
+                                            j_min:j_max, i_min:i_max]
 
             prlr = np.concatenate([prlr, new_prlr])
 
@@ -727,7 +727,8 @@ class TrafficSector(Sector):
                     pass
             else:
                 ef_code_road = self.read_ef('hot', pollutant)
-                expanded_aux = expanded_aux.merge(ef_code_road, left_on=['Fleet_Code', 'Road_type'], right_on=['CODE_HERMESv3', 'Mode'], how='inner')
+                expanded_aux = expanded_aux.merge(ef_code_road, left_on=['Fleet_Code', 'Road_type'],
+                                                  right_on=['CODE_HERMESv3', 'Mode'], how='inner')
 
                 del expanded_aux['CODE_HERMESv3'], expanded_aux['Mode']
 
@@ -759,7 +760,7 @@ class TrafficSector(Sector):
 
                     # EF
                     expanded_aux.loc[:, ef_name] = \
-                        ((expanded_aux.Alpha * expanded_aux.v_aux**2 + expanded_aux.Beta *  expanded_aux.v_aux +
+                        ((expanded_aux.Alpha * expanded_aux.v_aux**2 + expanded_aux.Beta * expanded_aux.v_aux +
                           expanded_aux.Gamma + (expanded_aux.Delta / expanded_aux.v_aux)) /
                          (expanded_aux.Epsilon * expanded_aux.v_aux**2 + expanded_aux.Zita * expanded_aux.v_aux +
                           expanded_aux.Hta)) * (1 - expanded_aux.RF) * \
@@ -888,8 +889,8 @@ class TrafficSector(Sector):
                 cold_exp_p_aux.loc[cold_exp_p_aux['cold_hot'] < 1, 'cold_hot'] = 1
 
                 # Formula Cold emissions
-                cold_exp_p_aux.loc[:, p_column] = cold_exp_p_aux[p_column] * cold_exp_p_aux['Beta'] * \
-                                                  (cold_exp_p_aux['cold_hot'] - 1)
+                cold_exp_p_aux.loc[:, p_column] = \
+                    cold_exp_p_aux[p_column] * cold_exp_p_aux['Beta'] * (cold_exp_p_aux['cold_hot'] - 1)
                 # print pollutant
                 df_list.append((cold_exp_p_aux.loc[:, ['Link_ID', 'Fleet_Code', p_column]]).set_index(
                     ['Link_ID', 'Fleet_Code']))
@@ -968,7 +969,7 @@ class TrafficSector(Sector):
                 v_column = 'v_{0}'.format(tstep)
                 df.loc[df[v_column] < 40, p_column] = df['Fleet_value'] * df['EFbase'] * df[f_column] * 1.39
                 df.loc[(df[v_column] >= 40) & (df[v_column] <= 90), p_column] = \
-                    df['Fleet_value'] * df['EFbase'] * df[f_column] * (-0.00974* df[v_column]+1.78)
+                    df['Fleet_value'] * df['EFbase'] * df[f_column] * (-0.00974 * df[v_column] + 1.78)
                 df.loc[df[v_column] > 90, p_column] = df['Fleet_value'] * df['EFbase'] * df[f_column] * 0.902
 
                 # from PM to PM10 & PM2.5
@@ -1044,7 +1045,8 @@ class TrafficSector(Sector):
                     del df[p_column]
 
         # Cleaning df
-        columns_to_delete = ['f_{0}'.format(x) for x in xrange(self.timestep_num)] + ['v_{0}'.format(x) for x in xrange(self.timestep_num)]
+        columns_to_delete = ['f_{0}'.format(x) for x in xrange(self.timestep_num)] + ['v_{0}'.format(x) for x in xrange(
+            self.timestep_num)]
         columns_to_delete += ['Fleet_value', 'EFbase']
         for column in columns_to_delete:
             del df[column]
@@ -1441,7 +1443,8 @@ class TrafficSector(Sector):
                     out_df.loc[tstep, 'Hr'] = aux_date.hour
                     out_df.loc[tstep, link_list] = aux.loc[:, [p]].transpose().values
 
-                out_df.to_csv(os.path.join(output_dir, 'rline_{1}_{0}.csv'.format(p, start_date.strftime('%Y%m%d'))), index=False)
+                out_df.to_csv(os.path.join(output_dir, 'rline_{1}_{0}.csv'.format(p, start_date.strftime('%Y%m%d'))),
+                              index=False)
 
         self.comm.Barrier()
 

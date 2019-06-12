@@ -120,7 +120,7 @@ class TrafficAreaSector(Sector):
             del pop_by_nut['NAME']
             pop_by_nut['area_in'] = pop_by_nut.geometry.area
 
-            #df = gpd.overlay(pop_by_nut, grid_shp, how='intersection')
+            # df = gpd.overlay(pop_by_nut, grid_shp, how='intersection')
             df = self.spatial_overlays(pop_by_nut, grid_shp, how='intersection')
 
             df.crs = grid_shp.crs
