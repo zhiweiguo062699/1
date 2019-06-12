@@ -264,14 +264,15 @@ class TrafficAreaSector(Sector):
         self.evaporative = gpd.GeoDataFrame(self.evaporative.loc[:, ['nmvoc', 'T_REC', 'FID']], geometry=geom, crs=crs)
 
         # TODO change units function 3600 cell area
-        self.evaporative = self.speciate_evaporative(speciation_map_path, speciation_profile_path)
+        self.evaporative = self.speciate_evaporative()
 
         self.evaporative = self.evaporative_temporal_distribution(
             self.get_profiles_from_temperature(temperature), date, tstep_num, tstep_frq)
 
         self.evaporative.set_index(['FID', 'tstep'], inplace=True)
 
-        self.logger.write_time_log('TrafficAreaSector', 'calculate_evaporative_emissions', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficAreaSector', 'calculate_evaporative_emissions',
+                                   timeit.default_timer() - spent_time)
         return True
 
     def evaporative_temporal_distribution(self, temporal_profiles, date, tstep_num, tstep_frq):
@@ -295,17 +296,14 @@ class TrafficAreaSector(Sector):
                                    timeit.default_timer() - spent_time)
         return df
 
-    def speciate_evaporative(self, map_path, profile_path):
+    def speciate_evaporative(self):
         spent_time = timeit.default_timer()
 
         speciated_df = self.evaporative.drop(columns=['nmvoc'])
-        speciation_map = pd.read_csv(map_path, sep=';')
-        dst_pollutant_list = list(speciation_map.loc[speciation_map['src'] == 'nmvoc', 'dst'].values)
-        speciation_profile = pd.read_csv(profile_path, sep=';').iloc[0].drop(labels=['CODE_HERMESv3', 'Copert_V_name'])
 
-        for p in dst_pollutant_list:
+        for p in self.output_pollutants:
             # From g/day to mol/day
-            speciated_df[p] = self.evaporative['nmvoc'] * speciation_profile.get(p)
+            speciated_df[p] = self.evaporative['nmvoc'] * self.speciation_profile.get(p)
 
         self.logger.write_time_log('TrafficAreaSector', 'speciate_evaporative', timeit.default_timer() - spent_time)
         return speciated_df
