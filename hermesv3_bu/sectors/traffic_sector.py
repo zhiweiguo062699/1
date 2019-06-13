@@ -35,46 +35,38 @@ class TrafficSector(Sector):
         relative to the timesteps.
     """
 
-    def __init__(self, comm, logger, auxiliary_dir, grid_shp, clip, date_array, vertical_levels, source_pollutants,
-                 road_link_path, fleet_compo_path, speed_hourly_path,
-                 monthly_profiles_path, weekly_profiles_path, hourly_mean_profiles_path, hourly_weekday_profiles_path,
-                 hourly_saturday_profiles_path, hourly_sunday_profiles_path, ef_common_path, date,
-                 vehicle_list=None, load=0.5, timestep_type='hourly', timestep_num=1, timestep_freq=1,
-                 speciation_map_path=None,
+    def __init__(self, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+                 road_link_path, fleet_compo_path, speed_hourly_path, monthly_profiles_path, weekly_profiles_path,
+                 hourly_mean_profiles_path, hourly_weekday_profiles_path, hourly_saturday_profiles_path,
+                 hourly_sunday_profiles_path, ef_common_path, vehicle_list=None, load=0.5, speciation_map_path=None,
                  hot_cold_speciation=None, tyre_speciation=None, road_speciation=None, brake_speciation=None,
-                 resuspension_speciation=None, temp_common_path=None, output_type=None, output_dir=None,
-                 molecular_weights_path=None, resuspension_correction=True, precipitation_path=None,
-                 do_hot=True, do_cold=True, do_tyre_wear=True, do_brake_wear=True, do_road_wear=True,
-                 do_resuspension=True):
+                 resuspension_speciation=None, temp_common_path=None, output_dir=None, molecular_weights_path=None,
+                 resuspension_correction=True, precipitation_path=None, do_hot=True, do_cold=True, do_tyre_wear=True,
+                 do_brake_wear=True, do_road_wear=True, do_resuspension=True):
 
         spent_time = timeit.default_timer()
         logger.write_log('===== TRAFFIC SECTOR =====')
         super(TrafficSector, self).__init__(
             comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
-            monthly_profiles_path, weekly_profiles_path, None, speciation_map_path,
-            None, molecular_weights_path)
-
-        if timestep_type != 'hourly':
-            raise AttributeError('Traffic emissions are only developed for hourly timesteps. ' +
-                                 '\"{0}\" timestep type found.'.format(timestep_type))
+            monthly_profiles_path, weekly_profiles_path, None, speciation_map_path, None, molecular_weights_path)
 
         self.resuspension_correction = resuspension_correction
         self.precipitation_path = precipitation_path
 
-        self.output_type = output_type
         self.output_dir = output_dir
 
-        self.link_to_grid_csv = os.path.join(auxiliary_dir, 'link_grid.csv')
+        self.link_to_grid_csv = os.path.join(auxiliary_dir, 'traffic', 'link_grid.csv')
         self.crs = None   # crs is the projection of the road links and it is set on the read_road_links function.
         self.road_links = self.read_road_links(road_link_path)
         self.load = load
         self.ef_common_path = ef_common_path
         self.temp_common_path = temp_common_path
-        self.timestep_num = timestep_num
-        self.timestep_freq = timestep_freq
-        self.starting_date = date
+        # TODO use only date_array
+        self.timestep_num = len(self.date_array)
+        self.timestep_freq = 1
+        self.starting_date = self.date_array[0]
         # print date
-        self.add_local_date(date)
+        self.add_local_date(self.date_array[0])
 
         self.hot_cold_speciation = hot_cold_speciation
         self.tyre_speciation = tyre_speciation
@@ -92,7 +84,7 @@ class TrafficSector(Sector):
             pd.read_csv(hourly_sunday_profiles_path)
         ]).reset_index()
 
-        self.expanded = self.expand_road_links(timestep_type, timestep_num, timestep_freq)
+        self.expanded = self.expand_road_links('hourly', len(self.date_array), 1)
 
         del self.fleet_compo, self.speed_hourly, self.monthly_profiles, self.weekly_profiles, self.hourly_profiles
 
@@ -104,6 +96,46 @@ class TrafficSector(Sector):
         self.do_resuspension = do_resuspension
 
         self.logger.write_time_log('TrafficSector', '__init__', timeit.default_timer() - spent_time)
+
+    def read_speciation_map(self, path):
+        """
+        Read the speciation map.
+
+        The speciation map is the CSV file that contains the relation from the output pollutant and the correspondent
+        input pollutant associated. That file also contains a short description of the output pollutant and the units to
+        be stored.
+
+        e.g.:
+        dst,src,description,units
+        NOx,nox_no2,desc_no,mol.s-1
+        SOx,so2,desc_so2,mol.s-1
+        CO,co,desc_co,mol.s-1
+        CO2,co2,desc_co2,mol.s-1
+        NMVOC,nmvoc,desc_nmvoc,g.s-1
+        PM10,pm10,desc_pm10,g.s-1
+        PM25,pm25,desc_pm25,g.s-1
+        PMC,,desc_pmc,g.s-1
+
+        :param path: Path to the speciation map file.
+        :type path: str
+
+        :return: Dictionary with the output pollutant as key and the input pollutant as value.
+        :rtype: dict
+        """
+        spent_time = timeit.default_timer()
+        dataframe = pd.read_csv(path)
+        # input_pollutants = list(self.source_pollutants)
+        input_pollutants = ['nmvoc' if x == 'voc' else x for x in list(self.source_pollutants)]
+        if 'PMC' in dataframe['dst'].values and all(element in input_pollutants for element in ['pm']):
+            dataframe_aux = dataframe.loc[dataframe['src'].isin(input_pollutants), :]
+            dataframe = pd.concat([dataframe_aux, dataframe.loc[dataframe['dst'] == 'PMC', :]])
+        else:
+            dataframe = dataframe.loc[dataframe['src'].isin(input_pollutants), :]
+
+        dataframe = dict(zip(dataframe['dst'], dataframe['src']))
+        self.logger.write_time_log('TrafficSector', 'read_speciation_map', timeit.default_timer() - spent_time)
+
+        return dataframe
 
     def add_local_date(self, utc_date):
         """
@@ -151,6 +183,8 @@ class TrafficSector(Sector):
         spent_time = timeit.default_timer()
 
         df = pd.read_csv(path, sep=',', dtype=np.float32)
+        df['P_speed'] = df['P_speed'].astype(int)
+        # df.set_index('P_speed', inplace=True)
         self.logger.write_time_log('TrafficSector', 'read_speed_hourly', timeit.default_timer() - spent_time)
         return df
 
@@ -243,7 +277,7 @@ class TrafficSector(Sector):
             print 'ERROR: PcLight < 0'
             exit(1)
 
-        if self.output_type == 'R-LINE':
+        if self.write_rline_output:
             self.write_rline_roadlinks(df)
 
         self.logger.write_time_log('TrafficSector', 'read_road_links', timeit.default_timer() - spent_time)
@@ -268,11 +302,10 @@ class TrafficSector(Sector):
         spent_time = timeit.default_timer()
 
         ef_path = os.path.join(self.ef_common_path, '{0}_{1}.csv'.format(emission_type, pollutant_name))
-        df = pd.read_csv(ef_path, sep=';')
+        df = self.read_profiles(ef_path)
 
         # Pollutants different to NH3
         if pollutant_name != 'nh3':
-
             del df['Copert_V_name']
 
             # For hot emission factors
@@ -307,10 +340,10 @@ class TrafficSector(Sector):
                 df_hot = self.read_ef('hot', pollutant_name)
                 df_hot.columns = [x + '_hot' for x in df_hot.columns.values]
 
-                df = df.merge(df_hot, left_on=['CODE_HERMESv3', 'Mode'], right_on=['CODE_HERMESv3_hot', 'Mode_hot'],
+                df = df.merge(df_hot, left_on=['Code', 'Mode'], right_on=['Code_hot', 'Mode_hot'],
                               how='left')
 
-                del df['Cmileage_hot'], df['Mode_hot'], df['CODE_HERMESv3_hot']
+                del df['Cmileage_hot'], df['Mode_hot'], df['Code_hot']
 
             return df
 
@@ -321,7 +354,7 @@ class TrafficSector(Sector):
         spent_time = timeit.default_timer()
         try:
             df_path = os.path.join(self.ef_common_path, 'mcorr_{0}.csv'.format(pollutant_name))
-            # print df_path
+
             df = pd.read_csv(df_path, sep=';')
             del df['Copert_V_name']
         except:
@@ -361,7 +394,7 @@ class TrafficSector(Sector):
         spent_time = timeit.default_timer()
 
         path = os.path.join(temp_dir, 'tas_{0}{1}.nc'.format(date.year, str(date.month).zfill(2)))
-        print 'Getting temperature from {0}'.format(path)
+        self.logger.write_log('Getting temperature from {0}'.format(path), message_level=2)
 
         nc = Dataset(path, mode='r')
         lat_o = nc.variables['latitude'][:]
@@ -376,7 +409,7 @@ class TrafficSector(Sector):
             lon_o[lon_o > 180] -= 360
 
         # Finds the array positions for the clip.
-        i_min, i_max, j_min, j_max = TrafficSector.find_index(lon_o, lat_o, lon_min, lon_max, lat_min, lat_max)
+        i_min, i_max, j_min, j_max = self.find_index(lon_o, lat_o, lon_min, lon_max, lat_min, lat_max)
 
         # Clips the lat lons
         lon_o = lon_o[i_min:i_max]
@@ -395,7 +428,7 @@ class TrafficSector(Sector):
         while len(tas) < tstep_num:
             # TODO sum over year
             path = os.path.join(temp_dir, 'tas_{0}{1}.nc'.format(date.year, str(date.month + 1).zfill(2)))
-            print 'Getting temperature from {0}'.format(path)
+            self.logger.write_log('Getting temperature from {0}'.format(path), message_level=2)
             nc = Dataset(path, mode='r')
             i_time = 0
             new_tas = nc.variables['tas'][i_time:i_time + ((tstep_num - len(tas))*tstep_freq): tstep_freq, j_min:j_max,
@@ -559,7 +592,7 @@ class TrafficSector(Sector):
     def calculate_hourly_speed(self, df):
         spent_time = timeit.default_timer()
 
-        df = df.merge(self.speed_hourly, left_on='profile_id', right_on='PROFILE_ID', how='left')
+        df = df.merge(self.speed_hourly, left_on='profile_id', right_on='P_speed', how='left')
         df['speed'] = df.groupby('hour').apply(lambda x: x[[str(x.name)]])
 
         self.logger.write_time_log('TrafficSector', 'calculate_hourly_speed', timeit.default_timer() - spent_time)
@@ -581,21 +614,24 @@ class TrafficSector(Sector):
                 exit()
 
         # Monthly factor
-        df = df.merge(self.monthly_profiles, left_on='aadt_m_mn', right_on='PROFILE_ID', how='left')
-        df['MF'] = df.groupby('month').apply(lambda x: x[[calendar.month_abbr[x.name].upper()]])
+        df = df.merge(self.monthly_profiles.reset_index(), left_on='aadt_m_mn', right_on='P_month', how='left')
+        df['MF'] = df.groupby('month').apply(lambda x: x[[x.name]])
+        df.drop(columns=range(1, 12 + 1), inplace=True)
 
         # Daily factor
-        df = df.merge(self.weekly_profiles, left_on='aadt_week', right_on='PROFILE_ID', how='left')
-        df['WF'] = df.groupby('week_day').apply(lambda x: x[[calendar.day_name[x.name].upper()]])
+        df = df.merge(self.weekly_profiles.reset_index(), left_on='aadt_week', right_on='P_week', how='left')
+
+        df['WF'] = df.groupby('week_day').apply(lambda x: x[[x.name]])
+        df.drop(columns=range(0, 7), inplace=True)
 
         # Hourly factor
         df['hourly_profile'] = df.groupby('week_day').apply(lambda x: x[[get_hourly_id_from_weekday(x.name)]])
         df.loc[df['hourly_profile'] == '', 'hourly_profile'] = df['aadt_h_mn']
 
         df['hourly_profile'] = df['hourly_profile'].astype(str)
-        self.hourly_profiles['PROFILE_ID'] = self.hourly_profiles['PROFILE_ID'].astype(str)
+        self.hourly_profiles['P_hour'] = self.hourly_profiles['P_hour'].astype(str)
 
-        df = df.merge(self.hourly_profiles, left_on='hourly_profile', right_on='PROFILE_ID', how='left')
+        df = df.merge(self.hourly_profiles, left_on='hourly_profile', right_on='P_hour', how='left')
         df['HF'] = df.groupby('hour').apply(lambda x: x[[str(x.name)]])
 
         self.logger.write_time_log('TrafficSector', 'calculate_temporal_factor', timeit.default_timer() - spent_time)
@@ -627,6 +663,8 @@ class TrafficSector(Sector):
             df.loc[df['week_day'] == 4, 'profile_id'] = df['sp_hour_fr']
             df.loc[df['week_day'] == 5, 'profile_id'] = df['sp_hour_sa']
             df.loc[df['week_day'] == 6, 'profile_id'] = df['sp_hour_su']
+
+            df['profile_id'] = df['profile_id'].astype(int)
 
             # Selecting flat profile for 0 and nan's
             df.loc[df['profile_id'] == 0, 'profile_id'] = 1
@@ -706,21 +744,20 @@ class TrafficSector(Sector):
             if pollutant != 'nh3':
 
                 ef_code_slope_road, ef_code_slope, ef_code_road, ef_code = self.read_ef('hot', pollutant)
-
                 df_code_slope_road = expanded_aux.merge(
                     ef_code_slope_road, left_on=['Fleet_Code', 'road_grad', 'Road_type'],
-                    right_on=['CODE_HERMESv3', 'Road.Slope', 'Mode'], how='inner')
+                    right_on=['Code', 'Road.Slope', 'Mode'], how='inner')
                 df_code_slope = expanded_aux.merge(ef_code_slope, left_on=['Fleet_Code', 'road_grad'],
-                                                   right_on=['CODE_HERMESv3', 'Road.Slope'], how='inner')
+                                                   right_on=['Code', 'Road.Slope'], how='inner')
                 df_code_road = expanded_aux.merge(ef_code_road, left_on=['Fleet_Code', 'Road_type'],
-                                                  right_on=['CODE_HERMESv3', 'Mode'], how='inner')
-                df_code = expanded_aux.merge(ef_code, left_on=['Fleet_Code'], right_on=['CODE_HERMESv3'], how='inner')
+                                                  right_on=['Code', 'Mode'], how='inner')
+                df_code = expanded_aux.merge(ef_code, left_on=['Fleet_Code'], right_on=['Code'], how='inner')
 
                 del ef_code_slope_road, ef_code_slope, ef_code_road, ef_code
 
                 expanded_aux = pd.concat([df_code_slope_road, df_code_slope, df_code_road, df_code])
 
-                del expanded_aux['CODE_HERMESv3'], expanded_aux['Road.Slope'], expanded_aux['Mode']
+                del expanded_aux['Code'], expanded_aux['Road.Slope'], expanded_aux['Mode']
                 try:
                     del expanded_aux['index']
                 except:
@@ -728,9 +765,9 @@ class TrafficSector(Sector):
             else:
                 ef_code_road = self.read_ef('hot', pollutant)
                 expanded_aux = expanded_aux.merge(ef_code_road, left_on=['Fleet_Code', 'Road_type'],
-                                                  right_on=['CODE_HERMESv3', 'Mode'], how='inner')
+                                                  right_on=['Code', 'Mode'], how='inner')
 
-                del expanded_aux['CODE_HERMESv3'], expanded_aux['Mode']
+                del expanded_aux['Code'], expanded_aux['Mode']
 
             # Warnings and Errors
             original_ef_profile = self.expanded['Fleet_Code'].unique()
@@ -745,8 +782,8 @@ class TrafficSector(Sector):
 
             m_corr = self.read_mcorr_file(pollutant)
             if m_corr is not None:
-                expanded_aux = expanded_aux.merge(m_corr, left_on='Fleet_Code', right_on='CODE_HERMESv3', how='left')
-                del expanded_aux['CODE_HERMESv3']
+                expanded_aux = expanded_aux.merge(m_corr, left_on='Fleet_Code', right_on='Code', how='left')
+                del expanded_aux['Code']
 
             for tstep in xrange(self.timestep_num):
                 ef_name = 'ef_{0}_{1}'.format(pollutant, tstep)
@@ -855,11 +892,11 @@ class TrafficSector(Sector):
                 ef_cold.loc[ef_cold['Max.Speed'].isnull(), 'Max.Speed'] = 999
 
             c_expanded_p = c_expanded.merge(ef_cold, left_on=['Fleet_Code', 'Road_type'],
-                                            right_on=['CODE_HERMESv3', 'Mode'], how='inner')
+                                            right_on=['Code', 'Mode'], how='inner')
             cold_exp_p_aux = c_expanded_p.copy()
 
             del cold_exp_p_aux['index_right_x'], cold_exp_p_aux['Road_type'], cold_exp_p_aux['Fleet_value']
-            del cold_exp_p_aux['CODE_HERMESv3']
+            del cold_exp_p_aux['Code']
 
             for tstep in xrange(self.timestep_num):
                 v_column = 'v_{0}'.format(tstep)
@@ -961,8 +998,8 @@ class TrafficSector(Sector):
         pollutants = ['pm']
         for pollutant in pollutants:
             ef_tyre = self.read_ef('tyre', pollutant)
-            df = self.expanded.merge(ef_tyre, left_on='Fleet_Code', right_on='CODE_HERMESv3', how='inner')
-            del df['road_grad'], df['Road_type'], df['CODE_HERMESv3']
+            df = self.expanded.merge(ef_tyre, left_on='Fleet_Code', right_on='Code', how='inner')
+            del df['road_grad'], df['Road_type'], df['Code']
             for tstep in xrange(self.timestep_num):
                 p_column = '{0}_{1}'.format(pollutant, tstep)
                 f_column = 'f_{0}'.format(tstep)
@@ -996,8 +1033,8 @@ class TrafficSector(Sector):
         pollutants = ['pm']
         for pollutant in pollutants:
             ef_tyre = self.read_ef('brake', pollutant)
-            df = self.expanded.merge(ef_tyre, left_on='Fleet_Code', right_on='CODE_HERMESv3', how='inner')
-            del df['road_grad'], df['Road_type'], df['CODE_HERMESv3']
+            df = self.expanded.merge(ef_tyre, left_on='Fleet_Code', right_on='Code', how='inner')
+            del df['road_grad'], df['Road_type'], df['Code']
             for tstep in xrange(self.timestep_num):
                 p_column = '{0}_{1}'.format(pollutant, tstep)
                 f_column = 'f_{0}'.format(tstep)
@@ -1031,8 +1068,8 @@ class TrafficSector(Sector):
         pollutants = ['pm']
         for pollutant in pollutants:
             ef_tyre = self.read_ef('road', pollutant)
-            df = self.expanded.merge(ef_tyre, left_on='Fleet_Code', right_on='CODE_HERMESv3', how='inner')
-            del df['road_grad'], df['Road_type'], df['CODE_HERMESv3']
+            df = self.expanded.merge(ef_tyre, left_on='Fleet_Code', right_on='Code', how='inner')
+            del df['road_grad'], df['Road_type'], df['Code']
             for tstep in xrange(self.timestep_num):
                 p_column = '{0}_{1}'.format(pollutant, tstep)
                 f_column = 'f_{0}'.format(tstep)
@@ -1080,11 +1117,11 @@ class TrafficSector(Sector):
         pollutants = ['pm']
         for pollutant in pollutants:
             ef_tyre = self.read_ef('resuspension', pollutant)
-            df = self.expanded.merge(ef_tyre, left_on='Fleet_Code', right_on='CODE_HERMESv3', how='inner')
+            df = self.expanded.merge(ef_tyre, left_on='Fleet_Code', right_on='Code', how='inner')
             if self.resuspension_correction:
                 df = df.merge(road_link_aux, left_on='Link_ID', right_on='Link_ID', how='left')
 
-            del df['road_grad'], df['Road_type'], df['CODE_HERMESv3']
+            del df['road_grad'], df['Road_type'], df['Code']
             for tstep in xrange(self.timestep_num):
                 p_column = '{0}_{1}'.format(pollutant, tstep)
                 f_column = 'f_{0}'.format(tstep)
@@ -1129,8 +1166,7 @@ class TrafficSector(Sector):
             df_aux['tstep'] = tstep
 
             df_list.append(df_aux)
-            for p_name in pollutants_renamed:
-                del df[p_name]
+            df.drop(columns=pollutants_renamed, inplace=True)
 
         df = pd.concat(df_list, ignore_index=True)
         self.logger.write_time_log('TrafficSector', 'transform_df', timeit.default_timer() - spent_time)
@@ -1140,91 +1176,86 @@ class TrafficSector(Sector):
         spent_time = timeit.default_timer()
 
         # Reads speciation profile
-        speciation = pd.read_csv(speciation, sep=';')
+        speciation = self.read_profiles(speciation)
         del speciation['Copert_V_name']
 
         # Transform dataset into timestep rows instead of timestep columns
         df = self.transform_df(df)
 
-        # Makes input list from input dataframe
         in_list = list(df.columns.values)
         in_columns = ['Link_ID', 'Fleet_Code', 'tstep']
         for in_col in in_columns:
-            try:
-                in_list.remove(in_col)
-            except:
-                print 'ERROR', in_col
+            in_list.remove(in_col)
 
         df_out_list = []
 
         # PMC
         if not set(speciation.columns.values).isdisjoint(pmc_list):
             out_p = set(speciation.columns.values).intersection(pmc_list).pop()
-            speciation_by_in_p = speciation.loc[:, [out_p] + ['CODE_HERMESv3']]
+            speciation_by_in_p = speciation.loc[:, [out_p] + ['Code']]
 
             speciation_by_in_p.rename(columns={out_p: 'f_{0}'.format(out_p)}, inplace=True)
             df_aux = df.loc[:, ['pm10', 'pm25', 'Fleet_Code', 'tstep', 'Link_ID']]
-            df_aux = df_aux.merge(speciation_by_in_p, left_on='Fleet_Code', right_on='CODE_HERMESv3', how='left')
-            try:
-                del df['CODE_HERMESv3']
-                del df['index_right']
-            except:
-                pass
+            df_aux = df_aux.merge(speciation_by_in_p, left_on='Fleet_Code', right_on='Code', how='left')
+            df_aux.drop(columns=['Code'], inplace=True)
 
             df_aux.loc[:, out_p] = df_aux['pm10'] - df_aux['pm25']
-            if self.output_type == 'R-LINE':
-                # from g/km.h to g/m.s
-                df_aux.loc[:, out_p] = df_aux.loc[:, out_p] / (1000 * 3600)
-            elif self.output_type == 'CMAQ':
-                # from g/km.h to mol/km.s
-                df_aux.loc[:, out_p] = df_aux.loc[:, out_p] / 3600
-            elif self.output_type == 'MONARCH':
-                # from g/km.h to Kg/km.s
-                df_aux.loc[:, out_p] = df_aux.loc[:, out_p] / (1000 * 3600)
+            # from g/km.h to g/km.s
+            df_aux.loc[:, out_p] = df_aux.loc[:, out_p] / 3600
+            # if self.output_type == 'R-LINE':
+            #     # from g/km.h to g/m.s
+            #     df_aux.loc[:, out_p] = df_aux.loc[:, out_p] / (1000 * 3600)
+            # elif self.output_type == 'CMAQ':
+            #     # from g/km.h to mol/km.s
+            #     df_aux.loc[:, out_p] = df_aux.loc[:, out_p] / 3600
+            # elif self.output_type == 'MONARCH':
+            #     # from g/km.h to Kg/km.s
+            #     df_aux.loc[:, out_p] = df_aux.loc[:, out_p] / (1000 * 3600)
 
             df_out_list.append(df_aux.loc[:, [out_p] + ['tstep', 'Link_ID']].groupby(['tstep', 'Link_ID']).sum())
             del df_aux[out_p]
-
         for in_p in in_list:
+            involved_out_pollutants = [key for key, value in self.speciation_map.iteritems() if value == in_p]
             # Selecting only necessary speciation profiles
-            speciation_by_in_p = speciation.loc[:, self.output_pollutants + ['CODE_HERMESv3']]
+            speciation_by_in_p = speciation.loc[:, involved_out_pollutants + ['Code']]
 
             # Adding "f_" in the formula column names
-            for p in self.output_pollutants:
+            for p in involved_out_pollutants:
                 speciation_by_in_p.rename(columns={p: 'f_{0}'.format(p)}, inplace=True)
             # Getting a slice of the full dataset to be merged
             df_aux = df.loc[:, [in_p] + ['Fleet_Code', 'tstep', 'Link_ID']]
-            df_aux = df_aux.merge(speciation_by_in_p, left_on='Fleet_Code', right_on='CODE_HERMESv3', how='left')
-            try:
-                # Cleaning dataframe
-                del df['CODE_HERMESv3']
-                del df['index_right']
-            except:
-                pass
+            df_aux = df_aux.merge(speciation_by_in_p, left_on='Fleet_Code', right_on='Code', how='left')
+            df_aux.drop(columns=['Code'], inplace=True)
+
             # Renaming pollutant columns by adding "old_" to the beginning.
             df_aux.rename(columns={in_p: 'old_{0}'.format(in_p)}, inplace=True)
-            for p in self.output_pollutants:
+            for p in involved_out_pollutants:
                 if in_p is not np.nan:
                     if in_p != 0:
                         df_aux.loc[:, p] = df_aux['old_{0}'.format(in_p)].multiply(df_aux['f_{0}'.format(p)])
                         try:
-                            mol_w = self.molecular_weights[in_p]
-                        except IndexError:
-                            raise AttributeError('{0} not found in the molecular weights file.'.format(in_p))
-
-                        if self.output_type == 'R-LINE':
-                            # from g/km.h to g/m.s
-                            df_aux.loc[:, p] = df_aux.loc[:, p] / (1000 * 3600)
-                        elif self.output_type == 'CMAQ':
-                            # from g/km.h to mol/km.s or g/km.s (aerosols)
-                            df_aux.loc[:, p] = df_aux.loc[:, p] / (3600 * mol_w)
-                        elif self.output_type == 'MONARCH':
-                            if p.lower() in aerosols:
-                                # from g/km.h to kg/km.s
-                                df_aux.loc[:, p] = df_aux.loc[:, p] / (1000 * 3600 * mol_w)
+                            if in_p == 'nmvoc':
+                                mol_w = 1.0
                             else:
-                                # from g/km.h to mol/km.s
-                                df_aux.loc[:, p] = df_aux.loc[:, p] / (3600 * mol_w)
+                                mol_w = self.molecular_weights[in_p]
+                        except KeyError:
+                            raise AttributeError('{0} not found in the molecular weights file.'.format(in_p))
+                        # from g/km.h to mol/km.s or g/km.s (aerosols)
+                        df_aux.loc[:, p] = df_aux.loc[:, p] / (3600 * mol_w)
+
+                        # if self.output_type == 'R-LINE':
+                        #     # from g/km.h to g/m.s
+                        #     df_aux.loc[:, p] = df_aux.loc[:, p] / (1000 * 3600)
+                        # elif self.output_type == 'CMAQ':
+                        #     # from g/km.h to mol/km.s or g/km.s (aerosols)
+                        #     df_aux.loc[:, p] = df_aux.loc[:, p] / (3600 * mol_w)
+                        # elif self.output_type == 'MONARCH':
+                        #     if p.lower() in aerosols:
+                        #         # from g/km.h to kg/km.s
+                        #         df_aux.loc[:, p] = df_aux.loc[:, p] / (1000 * 3600 * mol_w)
+                        #     else:
+                        #         # from g/km.h to mol/km.s
+                        #         df_aux.loc[:, p] = df_aux.loc[:, p] / (3600 * mol_w)
                     else:
                         df_aux.loc[:, p] = 0
 
@@ -1261,20 +1292,23 @@ class TrafficSector(Sector):
                                                 right_on='Link_ID', how='left')
         df_accum = gpd.GeoDataFrame(df_accum, crs=self.crs)
         df_accum.set_index(['Link_ID', 'tstep'], inplace=True)
+
+        df_accum = self.links_to_grid(df_accum)
         self.logger.write_time_log('TrafficSector', 'calculate_emissions', timeit.default_timer() - spent_time)
         return df_accum
 
-    def links_to_grid(self, link_emissions, grid_shape):
+    def links_to_grid(self, link_emissions):
         spent_time = timeit.default_timer()
 
         link_emissions.reset_index(inplace=True)
         if not os.path.exists(self.link_to_grid_csv):
             link_emissions_aux = link_emissions.loc[link_emissions['tstep'] == 0, :]
-            link_emissions_aux = link_emissions_aux.to_crs(grid_shape.crs)
+            link_emissions_aux = link_emissions_aux.to_crs(self.grid_shp.crs)
 
-            link_emissions_aux = gpd.sjoin(link_emissions_aux, grid_shape, how="inner", op='intersects')
+            link_emissions_aux = gpd.sjoin(link_emissions_aux, self.grid_shp.reset_index(), how="inner", op='intersects')
             link_emissions_aux = link_emissions_aux.loc[:, ['Link_ID', 'geometry', 'FID']]
-            link_emissions_aux = link_emissions_aux.merge(grid_shape.loc[:, ['FID', 'geometry']], left_on='FID',
+
+            link_emissions_aux = link_emissions_aux.merge(self.grid_shp.reset_index().loc[:, ['FID', 'geometry']], left_on='FID',
                                                           right_on='FID', how='left')
 
             length_list = []
@@ -1291,21 +1325,17 @@ class TrafficSector(Sector):
                     length_list.append(aux.length / 1000)
 
             link_grid = pd.DataFrame({'Link_ID': link_id_list, 'FID': fid_list, 'length': length_list})
-
-            # link_grid.to_csv(self.link_to_grid_csv)
+            # data = self.comm.gather(link_grid, root=0)
+            # if self.comm.Get_rank() == 0:
+            #     data = pd.concat(data)
+            #     data.to_csv(self.link_to_grid_csv)
         else:
             link_grid = pd.read_csv(self.link_to_grid_csv)
 
-        del grid_shape['geometry'], link_emissions['geometry']
+        del link_emissions['geometry']
 
         link_grid = link_grid.merge(link_emissions, left_on='Link_ID', right_on='Link_ID')
-        try:
-            del link_grid['Unnamed: 0']
-        except:
-            pass
-        del link_grid['Link_ID']
-
-        # print link_grid
+        # link_grid.drop(columns=['Unnamed: 0'], inplace=True)
 
         cols_to_update = list(link_grid.columns.values)
         cols_to_update.remove('length')
@@ -1315,110 +1345,57 @@ class TrafficSector(Sector):
             # print col
             link_grid.loc[:, col] = link_grid[col] * link_grid['length']
         del link_grid['length']
+        link_grid.drop(columns=['Link_ID'], inplace=True)
+        link_grid['layer'] = 0
+        link_grid = link_grid.groupby(['FID', 'layer', 'tstep']).sum()
+        # link_grid.reset_index(inplace=True)
+        #
+        # link_grid_list = self.comm.gather(link_grid, root=0)
+        # if self.comm.Get_rank() == 0:
+        #     link_grid = pd.concat(link_grid_list)
+        #     link_grid = link_grid.groupby(['tstep', 'FID']).sum()
+        #     # link_grid.sort_index(inplace=True)
+        #     link_grid.reset_index(inplace=True)
+        #
+        #     emission_list = []
+        #     out_poll_names = list(link_grid.columns.values)
+        #     out_poll_names.remove('tstep')
+        #     out_poll_names.remove('FID')
+        #
+        #     for p in out_poll_names:
+        #         # print p
+        #         data = np.zeros((self.timestep_num, len(grid_shape)))
+        #         for tstep in xrange(self.timestep_num):
+        #             data[tstep, link_grid.loc[link_grid['tstep'] == tstep, 'FID']] = \
+        #                 link_grid.loc[link_grid['tstep'] == tstep, p]
+        #
+        #         dict_aux = {
+        #             'name': p,
+        #             'units': None,
+        #             'data': data
+        #         }
+        #
+        #         if self.output_type == 'R-LINE':
+        #             # from g/km.h to g/m.s
+        #             pass
+        #         elif self.output_type == 'CMAQ':
+        #             # from g/km.h to mol/km.s
+        #             if p.lower() in aerosols:
+        #                 dict_aux['units'] = '0.001 kg.s-1'
+        #             else:
+        #                 dict_aux['units'] = 'kat'
+        #         elif self.output_type == 'MONARCH':
+        #             if p.lower() in aerosols:
+        #                 dict_aux['units'] = 'kg.s-1'
+        #             else:
+        #                 dict_aux['units'] = 'kat'
+        #         emission_list.append(dict_aux)
+        #
+        self.logger.write_time_log('TrafficSector', 'links_to_grid', timeit.default_timer() - spent_time)
 
-        link_grid = link_grid.groupby(['tstep', 'FID']).sum()
-        link_grid.reset_index(inplace=True)
-
-        link_grid_list = self.comm.gather(link_grid, root=0)
-        if self.comm.Get_rank() == 0:
-            link_grid = pd.concat(link_grid_list)
-            link_grid = link_grid.groupby(['tstep', 'FID']).sum()
-            # link_grid.sort_index(inplace=True)
-            link_grid.reset_index(inplace=True)
-
-            emission_list = []
-            out_poll_names = list(link_grid.columns.values)
-            out_poll_names.remove('tstep')
-            out_poll_names.remove('FID')
-
-            for p in out_poll_names:
-                # print p
-                data = np.zeros((self.timestep_num, len(grid_shape)))
-                for tstep in xrange(self.timestep_num):
-                    data[tstep, link_grid.loc[link_grid['tstep'] == tstep, 'FID']] = \
-                        link_grid.loc[link_grid['tstep'] == tstep, p]
-
-                dict_aux = {
-                    'name': p,
-                    'units': None,
-                    'data': data
-                }
-
-                if self.output_type == 'R-LINE':
-                    # from g/km.h to g/m.s
-                    pass
-                elif self.output_type == 'CMAQ':
-                    # from g/km.h to mol/km.s
-                    if p.lower() in aerosols:
-                        dict_aux['units'] = '0.001 kg.s-1'
-                    else:
-                        dict_aux['units'] = 'kat'
-                elif self.output_type == 'MONARCH':
-                    if p.lower() in aerosols:
-                        dict_aux['units'] = 'kg.s-1'
-                    else:
-                        dict_aux['units'] = 'kat'
-                emission_list.append(dict_aux)
-
-            self.logger.write_time_log('TrafficSector', 'links_to_grid', timeit.default_timer() - spent_time)
-
-            return emission_list
-        else:
-            return None
-
-    def links_to_grid_new(self, link_emissions, grid_shape):
-        spent_time = timeit.default_timer()
-
-        if not os.path.exists(self.link_to_grid_csv):
-            link_emissions.reset_index(inplace=True)
-            link_emissions_aux = link_emissions.loc[link_emissions['tstep'] == 0, :]
-            link_emissions_aux = link_emissions_aux.to_crs(grid_shape.crs)
-
-            link_emissions_aux = gpd.sjoin(link_emissions_aux, grid_shape, how="inner", op='intersects')
-            link_emissions_aux = link_emissions_aux.loc[:, ['Link_ID', 'geometry', 'FID']]
-            link_emissions_aux = link_emissions_aux.merge(grid_shape.loc[:, ['FID', 'geometry']], left_on='FID',
-                                                          right_on='FID', how='left')
-
-            length_list = []
-            link_id_list = []
-            fid_list = []
-            count = 1
-            for i, line in link_emissions_aux.iterrows():
-                # print "{0}/{1}".format(count, len(link_emissions_aux))
-                count += 1
-                aux = line.get('geometry_x').intersection(line.get('geometry_y'))
-                if not aux.is_empty:
-                    link_id_list.append(line.get('Link_ID'))
-                    fid_list.append(line.get('FID'))
-                    length_list.append(aux.length / 1000)
-
-            link_grid = pd.DataFrame({'Link_ID': link_id_list, 'FID': fid_list, 'length': length_list})
-
-        else:
-            link_grid = pd.read_csv(self.link_to_grid_csv)
-
-        del grid_shape['geometry'], link_emissions['geometry']
-
-        link_grid = link_grid.merge(link_emissions, left_on='Link_ID', right_on='Link_ID')
-
-        try:
-            del link_grid['Unnamed: 0']
-        except:
-            pass
-        del link_grid['Link_ID']
-
-        p_list = [e for e in list(link_grid.columns.values) if e not in ('length', 'tstep', 'FID')]
-
-        link_grid.loc[:, p_list] = link_grid[p_list].multiply(link_grid['length'], axis=0)
-
-        del link_grid['length']
-
-        link_grid = link_grid.groupby(['FID', 'tstep']).sum()
-
-        self.logger.write_time_log('TrafficSector', 'links_to_grid_new', timeit.default_timer() - spent_time)
         return link_grid
 
-    def write_rline(self, emissions, output_dir, start_date):
+    def write_rline_output(self, emissions, output_dir, start_date):
         from datetime import timedelta
         spent_time = timeit.default_timer()
 
@@ -1448,7 +1425,7 @@ class TrafficSector(Sector):
 
         self.comm.Barrier()
 
-        self.logger.write_time_log('TrafficSector', 'write_rline', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'write_rline_output', timeit.default_timer() - spent_time)
         return True
 
     def write_rline_roadlinks(self, df_in):

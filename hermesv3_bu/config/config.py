@@ -331,6 +331,39 @@ class Config(ArgParser):
         p.add_argument('--point_source_speciation_profiles', required=False, help='...')
         p.add_argument('--point_source_measured_emissions', required=False, help='...')
 
+        # ***** TRAFFIC SECTOR *****
+        p.add_argument('--do_hot', required=False, help='...')
+        p.add_argument('--do_cold', required=False, help='...')
+        p.add_argument('--do_tyre_wear', required=False, help='...')
+        p.add_argument('--do_brake_wear', required=False, help='...')
+        p.add_argument('--do_road_wear', required=False, help='...')
+        p.add_argument('--do_resuspension', required=False, help='...')
+        p.add_argument('--resuspension_correction', required=False, help='...')
+        p.add_argument('--write_rline', required=False, help='...')
+
+        p.add_argument('--traffic_pollutants', required=False, help='...')
+        p.add_argument('--vehicle_types', required=False, help='...')
+        p.add_argument('--load', type=float, required=False, help='...')
+        p.add_argument('--road_link_path', required=False, help='...')
+        p.add_argument('--fleet_compo_path', required=False, help='...')
+        p.add_argument('--traffic_ef_path', required=False, help='...')
+        p.add_argument('--traffic_speed_hourly_path', required=False, help='...')
+        p.add_argument('--traffic_monthly_profiles', required=False, help='...')
+        p.add_argument('--traffic_weekly_profiles', required=False, help='...')
+        p.add_argument('--traffic_hourly_profiles_mean', required=False, help='...')
+        p.add_argument('--traffic_hourly_profiles_weekday', required=False, help='...')
+        p.add_argument('--traffic_hourly_profiles_saturday', required=False, help='...')
+        p.add_argument('--traffic_hourly_profiles_sunday', required=False, help='...')
+        p.add_argument('--traffic_speciation_profile_hot_cold', required=False, help='...')
+        p.add_argument('--traffic_speciation_profile_tyre', required=False, help='...')
+        p.add_argument('--traffic_speciation_profile_road', required=False, help='...')
+        p.add_argument('--traffic_speciation_profile_brake', required=False, help='...')
+        p.add_argument('--traffic_speciation_profile_resuspension', required=False, help='...')
+
+        # ***** TRAFFIC AREA SECTOR *****
+        p.add_argument('--do_evaporative', required=False, help='...')
+        p.add_argument('--do_other_cities', required=False, help='...')
+
         arguments = p.parse_args()
 
         for item in vars(arguments):
@@ -419,6 +452,24 @@ class Config(ArgParser):
         # Point Source lists
         arguments.point_source_pollutants = self._parse_list(arguments.point_source_pollutants)
         arguments.point_source_snaps = self._parse_list(arguments.point_source_snaps)
+
+        # Traffic bools
+        arguments.do_hot = self._parse_bool(arguments.do_hot)
+        arguments.do_cold = self._parse_bool(arguments.do_cold)
+        arguments.do_tyre_wear = self._parse_bool(arguments.do_tyre_wear)
+        arguments.do_brake_wear = self._parse_bool(arguments.do_brake_wear)
+        arguments.do_road_wear = self._parse_bool(arguments.do_road_wear)
+        arguments.do_resuspension = self._parse_bool(arguments.do_resuspension)
+        arguments.resuspension_correction = self._parse_bool(arguments.resuspension_correction)
+        arguments.write_rline = self._parse_bool(arguments.write_rline)
+
+        # Traffic lists
+        arguments.traffic_pollutants = self._parse_list(arguments.traffic_pollutants)
+        arguments.vehicle_types = self._parse_list(arguments.vehicle_types)
+
+        # Traffic area bools
+        arguments.do_evaporative = self._parse_bool(arguments.do_evaporative)
+        arguments.do_other_cities = self._parse_bool(arguments.do_other_cities)
 
         return arguments
 

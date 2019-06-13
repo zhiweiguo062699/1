@@ -112,8 +112,12 @@ class Sector(object):
         :rtype: pandas.DataFrame
         """
         spent_time = timeit.default_timer()
-        dataframe = pd.read_csv(path)
-        dataframe.set_index('ID', inplace=True)
+        if path is None:
+            dataframe = None
+        else:
+            dataframe = pd.read_csv(path)
+            dataframe.set_index('ID', inplace=True)
+
         self.logger.write_time_log('Sector', 'read_speciation_profiles', timeit.default_timer() - spent_time)
         return dataframe
 

@@ -171,7 +171,27 @@ class SectorManager(object):
                         'v10_wind_speed_dir': arguments.v10_wind_speed_dir,
                         'u_wind_speed_4d_dir': arguments.u_wind_speed_4d_dir,
                         'v_wind_speed_4d_dir': arguments.v_wind_speed_4d_dir})
+            elif sector == 'traffic' and comm_world.Get_rank() in sector_procs:
+                from hermesv3_bu.sectors.traffic_sector import TrafficSector
+                self.sector = TrafficSector(
+                    comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.logger,
+                    arguments.auxiliary_files_path, grid.shapefile, clip, date_array, arguments.traffic_pollutants,
+                    grid.vertical_desctiption, arguments.road_link_path, arguments.fleet_compo_path,
+                    arguments.traffic_speed_hourly_path, arguments.traffic_monthly_profiles,
+                    arguments.traffic_weekly_profiles, arguments.traffic_hourly_profiles_mean,
+                    arguments.traffic_hourly_profiles_weekday, arguments.traffic_hourly_profiles_saturday,
+                    arguments.traffic_hourly_profiles_sunday, arguments.traffic_ef_path, arguments.vehicle_types,
+                    arguments.load, arguments.speciation_map, arguments.traffic_speciation_profile_hot_cold,
+                    arguments.traffic_speciation_profile_tyre, arguments.traffic_speciation_profile_road,
+                    arguments.traffic_speciation_profile_brake, arguments.traffic_speciation_profile_resuspension,
+                    arguments.temperature_hourly_files_path, arguments.output_dir, arguments.molecular_weights,
+                    arguments.resuspension_correction, arguments.precipitation_files_path, arguments.do_hot,
+                    arguments.do_cold, arguments.do_tyre_wear, arguments.do_brake_wear, arguments.do_road_wear,
+                    arguments.do_resuspension)
 
+            elif sector == 'traffic_area' and comm_world.Get_rank() in sector_procs:
+                from hermesv3_bu.sectors.point_source_sector import PointSourceSector
+                self.sector = None
             color += 1
 
         self.logger.write_time_log('SectorManager', '__init__', timeit.default_timer() - spent_time)

@@ -13,7 +13,7 @@ pmc_list = ['pmc', 'PMC']
 
 
 class TrafficAreaSector(Sector):
-    def __init__(self, global_path, auxiliary_dir,
+    def __init__(self, population_tiff_path, auxiliary_dir,
                  do_evaporative=True, gasoline_path=None, total_pop_by_prov=None, nuts_shapefile=None,
                  do_small_cities=True, small_cities_shp=None):
         spent_time = timeit.default_timer()
@@ -24,11 +24,11 @@ class TrafficAreaSector(Sector):
             os.makedirs(os.path.join(auxiliary_dir, 'population'))
 
         if do_evaporative:
-            self.evaporative = self.init_evaporative(global_path, auxiliary_dir, nuts_shapefile, gasoline_path,
+            self.evaporative = self.init_evaporative(population_tiff_path, auxiliary_dir, nuts_shapefile, gasoline_path,
                                                      total_pop_by_prov)
 
         if do_small_cities:
-            self.small_cities = self.init_small_cities(global_path, auxiliary_dir, small_cities_shp)
+            self.small_cities = self.init_small_cities(population_tiff_path, auxiliary_dir, small_cities_shp)
 
         self.logger.write_time_log('TrafficAreaSector', '__init__', timeit.default_timer() - spent_time)
 
