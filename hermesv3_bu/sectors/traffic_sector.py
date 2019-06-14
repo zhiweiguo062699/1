@@ -1313,11 +1313,12 @@ class TrafficSector(Sector):
             link_emissions_aux = link_emissions.loc[link_emissions['tstep'] == 0, :]
             link_emissions_aux = link_emissions_aux.to_crs(self.grid_shp.crs)
 
-            link_emissions_aux = gpd.sjoin(link_emissions_aux, self.grid_shp.reset_index(), how="inner", op='intersects')
+            link_emissions_aux = gpd.sjoin(link_emissions_aux, self.grid_shp.reset_index(),
+                                           how="inner", op='intersects')
             link_emissions_aux = link_emissions_aux.loc[:, ['Link_ID', 'geometry', 'FID']]
 
-            link_emissions_aux = link_emissions_aux.merge(self.grid_shp.reset_index().loc[:, ['FID', 'geometry']], left_on='FID',
-                                                          right_on='FID', how='left')
+            link_emissions_aux = link_emissions_aux.merge(self.grid_shp.reset_index().loc[:, ['FID', 'geometry']],
+                                                          on='FID', how='left')
 
             length_list = []
             link_id_list = []
