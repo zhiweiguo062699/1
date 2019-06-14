@@ -527,6 +527,8 @@ class TrafficAreaSector(Sector):
             dataset = self.evaporative
         elif self.do_small_cities:
             dataset = self.small_cities
+        else:
+            raise ValueError('No traffic area emission selected. do_evaporative and do_small_cities are False')
 
         dataset['layer'] = 0
         dataset = dataset.groupby(['FID', 'layer', 'tstep']).sum()
