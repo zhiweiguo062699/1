@@ -397,6 +397,7 @@ class TrafficSector(Sector):
         from netCDF4 import Dataset
         import cf_units
         from shapely.geometry import Point
+        from datetime import timedelta
         spent_time = timeit.default_timer()
 
         path = os.path.join(temp_dir, 'tas_{0}{1}.nc'.format(date.year, str(date.month).zfill(2)))
@@ -432,8 +433,8 @@ class TrafficSector(Sector):
         nc.close()
         # That condition is fot the cases that the needed temperature is in a different NetCDF.
         while len(tas) < tstep_num:
-            # TODO sum over year
-            path = os.path.join(temp_dir, 'tas_{0}{1}.nc'.format(date.year, str(date.month + 1).zfill(2)))
+            aux_date = date + timedelta(hours=len(tas) + 1)
+            path = os.path.join(temp_dir, 'tas_{0}{1}.nc'.format(aux_date.year, str(aux_date.month).zfill(2)))
             self.logger.write_log('Getting temperature from {0}'.format(path), message_level=2)
             nc = Dataset(path, mode='r')
             i_time = 0
@@ -493,12 +494,13 @@ class TrafficSector(Sector):
 
         # Reads the tas variable of the xone and the times needed.
         prlr = nc.variables['prlr'][i_time:i_time + len(dates_to_extract), j_min:j_max, i_min:i_max]
-
         nc.close()
         # That condition is fot the cases that the needed temperature is in a different NetCDF.
         while len(prlr) < len(dates_to_extract):
-            path = os.path.join(precipitation_dir, 'prlr_{0}{1}.nc'.format(
-                dates_to_extract[len(prlr)].year, str(dates_to_extract[len(prlr)].month).zfill(2)))
+            aux_date = dates_to_extract[len(prlr)]
+            path = os.path.join(precipitation_dir, 'prlr_{0}{1}.nc'.format(aux_date.year, str(aux_date.month).zfill(2)))
+            # path = os.path.join(precipitation_dir, 'prlr_{0}{1}.nc'.format(
+            #     dates_to_extract[len(prlr)].year, str(dates_to_extract[len(prlr)].month).zfill(2)))
             self.logger.write_log('Getting precipitation from {0}'.format(path), message_level=2)
             nc = Dataset(path, mode='r')
             i_time = 0
@@ -518,7 +520,7 @@ class TrafficSector(Sector):
             dst[time, :] = (last + prlr[time, :]) * prlr[time, :]
             last = dst[time, :]
 
-        dst = dst[-24:, :]
+        dst = dst[47:, :]
         dst = 1 - np.exp(- RECOVERY_RATIO * dst)
         # It is assumed that after 48 h without rain the potential emission is equal to one
         dst[dst >= (1 - np.exp(- RECOVERY_RATIO * 48))] = 1.
@@ -526,6 +528,7 @@ class TrafficSector(Sector):
         # Creates the GeoDataFrame
         df = gpd.GeoDataFrame(dst.T, geometry=[Point(xy) for xy in zip(lon, lat)])
         df.columns = ['PR_{0}'.format(x) for x in df.columns.values[:-1]] + ['geometry']
+
         df.loc[:, 'REC'] = df.index
 
         self.logger.write_time_log('TrafficSector', 'get_precipitation', timeit.default_timer() - spent_time)
