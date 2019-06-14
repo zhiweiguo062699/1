@@ -180,7 +180,7 @@ class Sector(object):
         """
         spent_time = timeit.default_timer()
         dataframe = pd.read_csv(path)
-        dataframe = dataframe.loc[dataframe['Specie'].isin(self.source_pollutants)]
+        # dataframe = dataframe.loc[dataframe['Specie'].isin(self.source_pollutants)]
 
         mol_wei = dict(zip(dataframe['Specie'], dataframe['MW']))
         self.logger.write_time_log('Sector', 'read_molecular_weights', timeit.default_timer() - spent_time)

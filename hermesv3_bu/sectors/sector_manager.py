@@ -187,7 +187,7 @@ class SectorManager(object):
                     arguments.temperature_hourly_files_path, arguments.output_dir, arguments.molecular_weights,
                     arguments.resuspension_correction, arguments.precipitation_files_path, arguments.do_hot,
                     arguments.do_cold, arguments.do_tyre_wear, arguments.do_brake_wear, arguments.do_road_wear,
-                    arguments.do_resuspension)
+                    arguments.do_resuspension, arguments.write_rline)
 
             elif sector == 'traffic_area' and comm_world.Get_rank() in sector_procs:
                 from hermesv3_bu.sectors.point_source_sector import PointSourceSector
