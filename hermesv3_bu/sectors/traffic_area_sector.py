@@ -7,32 +7,41 @@ import geopandas as gpd
 import pandas as pd
 import numpy as np
 from hermesv3_bu.sectors.sector import Sector
-from hermesv3_bu.sectors.traffic_sector import TrafficSector
 
 pmc_list = ['pmc', 'PMC']
 
 
 class TrafficAreaSector(Sector):
-    def __init__(self, population_tiff_path, auxiliary_dir,
-                 do_evaporative=True, gasoline_path=None, total_pop_by_prov=None, nuts_shapefile=None,
-                 do_small_cities=True, small_cities_shp=None):
+    def __init__(self, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+                 population_tiff_path, speciation_map_path, molecular_weights_path,
+                 do_evaporative, gasoline_path, total_pop_by_prov, nuts_shapefile, speciation_profiles_evaporative,
+                 evaporative_ef_file, temperature_dir,
+                 do_small_cities, small_cities_shp, speciation_profiles_small_cities, small_cities_ef_file,
+                 small_cities_monthly_profile, small_cities_weekly_profile, small_cities_hourly_profile):
         spent_time = timeit.default_timer()
+        logger.write_log('===== TRAFFIC AREA SECTOR =====')
 
-        self.auxiliary_dir = auxiliary_dir
+        super(TrafficAreaSector, self).__init__(
+            comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+            None, None, None, speciation_map_path, None, molecular_weights_path)
 
-        if not os.path.exists(os.path.join(auxiliary_dir, 'population')):
-            os.makedirs(os.path.join(auxiliary_dir, 'population'))
-
+        self.do_evaporative = do_evaporative
+        self.temperature_dir = temperature_dir
+        self.speciation_profiles_evaporative = self.read_speciation_profiles(speciation_profiles_evaporative)
+        self.evaporative_ef_file = evaporative_ef_file
         if do_evaporative:
             self.evaporative = self.init_evaporative(population_tiff_path, auxiliary_dir, nuts_shapefile, gasoline_path,
                                                      total_pop_by_prov)
-
+        self.do_small_cities = do_small_cities
+        self.speciation_profiles_small_cities = self.read_speciation_profiles(speciation_profiles_small_cities)
+        self.small_cities_ef_file = small_cities_ef_file
+        self.small_cities_monthly_profile = self.read_monthly_profiles(small_cities_monthly_profile)
+        self.small_cities_weekly_profile = self.read_weekly_profiles(small_cities_weekly_profile)
+        self.small_cities_hourly_profile = self.read_hourly_profiles(small_cities_hourly_profile)
         if do_small_cities:
             self.small_cities = self.init_small_cities(population_tiff_path, auxiliary_dir, small_cities_shp)
 
         self.logger.write_time_log('TrafficAreaSector', '__init__', timeit.default_timer() - spent_time)
-
-        return None
 
     def init_evaporative(self, global_path, auxiliary_dir, provinces_shapefile, gasoline_path, total_pop_by_prov):
         spent_time = timeit.default_timer()
@@ -173,6 +182,91 @@ class TrafficAreaSector(Sector):
         self.logger.write_time_log('TrafficAreaSector', 'make_vehicles_by_cell', timeit.default_timer() - spent_time)
         return df
 
+    def read_temperature(self, lon_min, lon_max, lat_min, lat_max, temp_dir, date, tstep_num, tstep_freq):
+        """
+        Reads the temperature from the ERA5 tas value.
+        It will return only the involved cells of the NetCDF in DataFrame format.
+
+        To clip the global NetCDF to the desired region it is needed the minimum and maximum value of the latitudes and
+        longitudes of the centroids of all the road links.
+
+        :param lon_min: Minimum longitude of the centroid of the road links.
+        :type lon_min: float
+
+        :param lon_max: Maximum longitude of the centroid of the road links.
+        :type lon_max: float
+
+        :param lat_min: Minimum latitude of the centroid of the road links.
+        :type lat_min: float
+
+        :param lat_max: Maximum latitude of the centroid of the road links.
+        :type lat_max: float
+
+        :return: Temperature, centroid of the cell and cell identificator (REC).
+            Each time step is each column with the name t_<timestep>.
+        :rtype: geopandas.GeoDataFrame
+        """
+        from netCDF4 import Dataset
+        import cf_units
+        from shapely.geometry import Point
+        from datetime import timedelta
+        spent_time = timeit.default_timer()
+
+        path = os.path.join(temp_dir, 'tas_{0}{1}.nc'.format(date.year, str(date.month).zfill(2)))
+        self.logger.write_log('Getting temperature from {0}'.format(path), message_level=2)
+
+        nc = Dataset(path, mode='r')
+        lat_o = nc.variables['latitude'][:]
+        lon_o = nc.variables['longitude'][:]
+        time = nc.variables['time']
+        # From time array to list of dates.
+        time_array = cf_units.num2date(time[:], time.units,  cf_units.CALENDAR_STANDARD)
+        i_time = np.where(time_array == date)[0][0]
+
+        # Correction to set the longitudes from -180 to 180 instead of from 0 to 360.
+        if lon_o.max() > 180:
+            lon_o[lon_o > 180] -= 360
+
+        # Finds the array positions for the clip.
+        i_min, i_max, j_min, j_max = self.find_index(lon_o, lat_o, lon_min, lon_max, lat_min, lat_max)
+
+        # Clips the lat lons
+        lon_o = lon_o[i_min:i_max]
+        lat_o = lat_o[j_min:j_max]
+
+        # From 1D to 2D
+        lat = np.array([lat_o[:]] * len(lon_o[:])).T.flatten()
+        lon = np.array([lon_o[:]] * len(lat_o[:])).flatten()
+        del lat_o, lon_o
+
+        # Reads the tas variable of the xone and the times needed.
+        tas = nc.variables['tas'][i_time:i_time + (tstep_num*tstep_freq): tstep_freq, j_min:j_max, i_min:i_max]
+
+        nc.close()
+        # That condition is fot the cases that the needed temperature is in a different NetCDF.
+        while len(tas) < tstep_num:
+            aux_date = date + timedelta(hours=len(tas) + 1)
+            path = os.path.join(temp_dir, 'tas_{0}{1}.nc'.format(aux_date.year, str(aux_date.month).zfill(2)))
+            self.logger.write_log('Getting temperature from {0}'.format(path), message_level=2)
+            nc = Dataset(path, mode='r')
+            i_time = 0
+            new_tas = nc.variables['tas'][i_time:i_time + ((tstep_num - len(tas))*tstep_freq): tstep_freq, j_min:j_max,
+                                          i_min:i_max]
+
+            tas = np.concatenate([tas, new_tas])
+
+            nc.close()
+
+        # From Kelvin to Celsius degrees
+        tas = (tas - 273.15).reshape((tas.shape[0], tas.shape[1] * tas.shape[2]))
+        # Creates the GeoDataFrame
+        df = gpd.GeoDataFrame(tas.T, geometry=[Point(xy) for xy in zip(lon, lat)])
+        df.columns = ['t_{0}'.format(x) for x in df.columns.values[:-1]] + ['geometry']
+        df.loc[:, 'REC'] = df.index
+
+        self.logger.write_time_log('TrafficSector', 'read_temperature', timeit.default_timer() - spent_time)
+        return df
+
     def get_profiles_from_temperature(self, temperature, default=False):
         spent_time = timeit.default_timer()
 
@@ -204,8 +298,7 @@ class TrafficAreaSector(Sector):
                                    timeit.default_timer() - spent_time)
         return temperature
 
-    def calculate_evaporative_emissions(self, temperature_dir, ef_file, date, tstep_num, tstep_frq, speciation_map_path,
-                                        speciation_profile_path):
+    def calculate_evaporative_emissions(self):
         spent_time = timeit.default_timer()
 
         veh_list = list(self.evaporative.columns.values)
@@ -223,10 +316,10 @@ class TrafficAreaSector(Sector):
         self.evaporative['c_lon'] = aux_df.centroid.x
         self.evaporative['centroid'] = aux_df.centroid
 
-        temperature = TrafficSector.read_temperature(
+        temperature = self.read_temperature(
             self.evaporative['c_lon'].min(), self.evaporative['c_lon'].max(), self.evaporative['c_lat'].min(),
-            self.evaporative['c_lat'].max(), temperature_dir, date.replace(hour=0, minute=0, second=0, microsecond=0),
-            24, 1)
+            self.evaporative['c_lat'].max(), self.temperature_dir,
+            self.date_array[0].replace(hour=0, minute=0, second=0, microsecond=0), 24, 1)
 
         temperature_mean = gpd.GeoDataFrame(temperature[['t_{0}'.format(x) for x in xrange(24)]].mean(axis=1),
                                             columns=['temp'], geometry=temperature.geometry)
@@ -244,7 +337,7 @@ class TrafficAreaSector(Sector):
 
         self.evaporative = self.evaporative.merge(temperature_mean, left_on='T_REC', right_on='REC', how='left')
 
-        ef_df = pd.read_csv(ef_file, sep=';')
+        ef_df = pd.read_csv(self.evaporative_ef_file, sep=';')
         del ef_df['canister'], ef_df['Copert_V_name']
         ef_df.loc[ef_df['Tmin'].isnull(), 'Tmin'] = -999
         ef_df.loc[ef_df['Tmax'].isnull(), 'Tmax'] = 999
@@ -266,17 +359,15 @@ class TrafficAreaSector(Sector):
         # TODO change units function 3600 cell area
         self.evaporative = self.speciate_evaporative()
 
-        self.evaporative = self.evaporative_temporal_distribution(
-            self.get_profiles_from_temperature(temperature), date, tstep_num, tstep_frq)
+        self.evaporative = self.evaporative_temporal_distribution(self.get_profiles_from_temperature(temperature))
 
         self.evaporative.set_index(['FID', 'tstep'], inplace=True)
 
         self.logger.write_time_log('TrafficAreaSector', 'calculate_evaporative_emissions',
                                    timeit.default_timer() - spent_time)
-        return True
+        return self.evaporative
 
-    def evaporative_temporal_distribution(self, temporal_profiles, date, tstep_num, tstep_frq):
-        from datetime import timedelta
+    def evaporative_temporal_distribution(self, temporal_profiles):
         spent_time = timeit.default_timer()
 
         aux = self.evaporative.merge(temporal_profiles, left_on='T_REC', right_on='REC', how='left')
@@ -284,12 +375,11 @@ class TrafficAreaSector(Sector):
         temporal_df_list = []
         pollutant_list = [e for e in self.evaporative.columns.values if e not in ('T_REC', 'FID', 'geometry')]
 
-        for tstep in xrange(tstep_num):
+        for tstep, date in enumerate(self.date_array):
             aux_temporal = aux[pollutant_list].multiply(aux['t_{0}'.format(date.hour)], axis=0)
             aux_temporal['FID'] = aux['FID']
             aux_temporal['tstep'] = tstep
             temporal_df_list.append(aux_temporal)
-            date = date + timedelta(hours=tstep_frq)
         df = pd.concat(temporal_df_list)
 
         self.logger.write_time_log('TrafficAreaSector', 'evaporative_temporal_distribution',
@@ -308,12 +398,12 @@ class TrafficAreaSector(Sector):
         self.logger.write_time_log('TrafficAreaSector', 'speciate_evaporative', timeit.default_timer() - spent_time)
         return speciated_df
 
-    def small_cities_emissions_by_population(self, df, ef_file):
+    def small_cities_emissions_by_population(self, df):
         spent_time = timeit.default_timer()
 
         df = df.loc[:, ['data', 'FID']].groupby('FID').sum()
         # print pop_nut_cell
-        ef_df = pd.read_csv(ef_file, sep=';')
+        ef_df = pd.read_csv(self.small_cities_ef_file, sep=';')
         # print ef_df
         ef_df.drop(['CODE_HERMESv3', 'Copert_V_name'], axis=1, inplace=True)
         for pollutant in ef_df.columns.values:
@@ -368,7 +458,7 @@ class TrafficAreaSector(Sector):
         self.logger.write_time_log('TrafficAreaSector', 'add_timezones', timeit.default_timer() - spent_time)
         return grid
 
-    def temporal_distribution_small(self, small_cities, starting_date, tstep_num, tstep_frq):
+    def temporal_distribution_small(self, small_cities):
         import pytz
         spent_time = timeit.default_timer()
 
@@ -377,14 +467,14 @@ class TrafficAreaSector(Sector):
         small_cities = small_cities.merge(self.grid_shp.loc[:, ['timezone']], left_index=True, right_index=True,
                                           how='left')
 
-        small_cities.loc[:, 'utc'] = starting_date
+        small_cities.loc[:, 'utc'] = self.date_array[0]
         small_cities['date'] = small_cities.groupby('timezone')['utc'].apply(
             lambda x: pd.to_datetime(x).dt.tz_localize(pytz.utc).dt.tz_convert(x.name).dt.tz_localize(None))
         small_cities.drop(['utc', 'timezone'], inplace=True, axis=1)
         # print small_cities
 
         df_list = []
-        for tstep in xrange(tstep_num):
+        for tstep in xrange(len(self.date_array)):
             small_cities['month'] = small_cities['date'].dt.month
             small_cities['weekday'] = small_cities['date'].dt.dayofweek
             small_cities['hour'] = small_cities['date'].dt.hour
@@ -393,35 +483,67 @@ class TrafficAreaSector(Sector):
             small_cities.loc[small_cities['weekday'] == 6, 'day_type'] = 'Sunday'
 
             for i, aux in small_cities.groupby(['month', 'weekday', 'hour', 'day_type']):
-                small_cities.loc[aux.index, 'f'] = self.montly_profile.loc[str(i[0]), 1] * \
-                                                   self.weekly_profile.loc[str(i[1]), 1] * \
-                                                   self.hourly_profile.loc[str(i[2]), i[3]] * \
-                                                   1/3600
+                small_cities.loc[aux.index, 'f'] = self.small_cities_monthly_profile.loc['default', str(i[0])] * \
+                                                   self.small_cities_weekly_profile.loc['default', str(i[1])] * \
+                                                   self.small_cities_hourly_profile.loc[i[3], str(i[2])] * \
+                                                   1 / 3600
 
             aux_df = small_cities.loc[:, p_names].multiply(small_cities['f'], axis=0)
             aux_df['tstep'] = tstep
             aux_df.set_index('tstep', append=True, inplace=True)
             df_list.append(aux_df)
 
-            small_cities['date'] = small_cities['date'] + pd.to_timedelta(tstep_frq, unit='h')
+            small_cities['date'] = small_cities['date'] + pd.to_timedelta(1, unit='h')
         df = pd.concat(df_list)
 
         self.logger.write_time_log('TrafficAreaSector', 'temporal_distribution_small',
                                    timeit.default_timer() - spent_time)
         return df
 
-    def calculate_small_cities_emissions(self, ef_file, starting_date, tstep_num, tstep_frq):
+    def calculate_small_cities_emissions(self):
         spent_time = timeit.default_timer()
 
         # EF
-        self.small_cities = self.small_cities_emissions_by_population(self.small_cities, ef_file)
+        self.small_cities = self.small_cities_emissions_by_population(self.small_cities)
 
         # Spectiacion
         self.small_cities = self.speciate_small_cities(self.small_cities)
         # Temporal
-        grid = self.add_timezones(gpd.read_file(os.path.join(self.auxiliary_dir, 'shapefile', 'grid_shapefile.shp')),
-                                  default=True)
-        self.small_cities = self.temporal_distribution_small(self.small_cities, starting_date, tstep_num, tstep_frq)
+        # grid = self.add_timezones(gpd.read_file(os.path.join(self.auxiliary_dir, 'shapefile', 'grid_shapefile.shp')),
+        #                           default=True)
+        self.small_cities = self.temporal_distribution_small(self.small_cities)
 
         self.logger.write_time_log('TrafficAreaSector', 'calculate_small_cities_emissions',
                                    timeit.default_timer() - spent_time)
+
+        return True
+
+    def to_grid(self):
+        spent_time = timeit.default_timer()
+
+        if self.do_evaporative and self.do_small_cities:
+            dataset = pd.concat([self.evaporative, self.small_cities])
+        elif self.do_evaporative:
+            dataset = self.evaporative
+        elif self.do_small_cities:
+            dataset = self.small_cities
+
+        dataset['layer'] = 0
+        dataset = dataset.groupby(['FID', 'layer', 'tstep']).sum()
+
+        self.logger.write_time_log('TrafficAreaSector', 'to_grid', timeit.default_timer() - spent_time)
+        return dataset
+
+    def calculate_emissions(self):
+        spent_time = timeit.default_timer()
+
+        if self.do_evaporative:
+            self.calculate_evaporative_emissions()
+        if self.do_small_cities:
+            self.calculate_small_cities_emissions()
+
+        emissions = self.to_grid()
+
+        self.logger.write_time_log('TrafficAreaSector', 'calculate_emissions', timeit.default_timer() - spent_time)
+        return emissions
+

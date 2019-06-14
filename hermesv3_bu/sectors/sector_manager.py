@@ -190,8 +190,20 @@ class SectorManager(object):
                     arguments.do_resuspension, arguments.write_rline)
 
             elif sector == 'traffic_area' and comm_world.Get_rank() in sector_procs:
-                from hermesv3_bu.sectors.point_source_sector import PointSourceSector
-                self.sector = None
+                from hermesv3_bu.sectors.traffic_area_sector import TrafficAreaSector
+                self.sector = TrafficAreaSector(
+                    comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.logger,
+                    arguments.auxiliary_files_path, grid.shapefile, clip, date_array, arguments.traffic_area_pollutants,
+                    grid.vertical_desctiption, arguments.population_density_map, arguments.speciation_map,
+                    arguments.molecular_weights, arguments.do_evaporative, arguments.traffic_area_gas_path,
+                    arguments.popullation_by_municipality, arguments.nut_shapefile_prov,
+                    arguments.traffic_area_speciation_profiles_evaporative, arguments.traffic_area_evaporative_ef_file,
+                    arguments.temperature_hourly_files_path, arguments.do_small_cities,
+                    arguments.traffic_area_small_cities_path, arguments.traffic_area_speciation_profiles_small_cities,
+                    arguments.traffic_area_small_cities_ef_file, arguments.small_cities_monthly_profile,
+                    arguments.small_cities_weekly_profile, arguments.small_cities_hourly_profile
+                )
+
             color += 1
 
         self.logger.write_time_log('SectorManager', '__init__', timeit.default_timer() - spent_time)

@@ -361,8 +361,19 @@ class Config(ArgParser):
         p.add_argument('--traffic_speciation_profile_resuspension', required=False, help='...')
 
         # ***** TRAFFIC AREA SECTOR *****
+        p.add_argument('--traffic_area_pollutants', required=False, help='...')
         p.add_argument('--do_evaporative', required=False, help='...')
-        p.add_argument('--do_other_cities', required=False, help='...')
+        p.add_argument('--traffic_area_gas_path', required=False, help='...')
+        p.add_argument('--popullation_by_municipality', required=False, help='...')
+        p.add_argument('--traffic_area_speciation_profiles_evaporative', required=False, help='...')
+        p.add_argument('--traffic_area_evaporative_ef_file', required=False, help='...')
+        p.add_argument('--do_small_cities', required=False, help='...')
+        p.add_argument('--traffic_area_small_cities_path', required=False, help='...')
+        p.add_argument('--traffic_area_speciation_profiles_small_cities', required=False, help='...')
+        p.add_argument('--traffic_area_small_cities_ef_file', required=False, help='...')
+        p.add_argument('--small_cities_hourly_profile', required=False, help='...')
+        p.add_argument('--small_cities_weekly_profile', required=False, help='...')
+        p.add_argument('--small_cities_monthly_profile', required=False, help='...')
 
         arguments = p.parse_args()
 
@@ -469,7 +480,10 @@ class Config(ArgParser):
 
         # Traffic area bools
         arguments.do_evaporative = self._parse_bool(arguments.do_evaporative)
-        arguments.do_other_cities = self._parse_bool(arguments.do_other_cities)
+        arguments.do_small_cities = self._parse_bool(arguments.do_small_cities)
+
+        # Traffic area lists
+        arguments.traffic_area_pollutants = self._parse_list(arguments.traffic_area_pollutants)
 
         return arguments
 
