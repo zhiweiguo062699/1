@@ -192,7 +192,6 @@ class IoRaster(IoServer):
         :return:
         """
         from shapely.geometry import Polygon
-        from hermesv3_bu.grids.grid import Grid
 
         if self.comm.Get_rank() == rank:
             ds = rasterio.open(raster_path)

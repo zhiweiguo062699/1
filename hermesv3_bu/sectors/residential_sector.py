@@ -51,7 +51,7 @@ class ResidentialSector(Sector):
                                                                 population_type_map, create_pop_csv=False)
         else:
             self.fuel_distribution = None
-        self.fuel_distribution = IoShapefile().split_shapefile(self.fuel_distribution)
+        self.fuel_distribution = IoShapefile(self.comm).split_shapefile(self.fuel_distribution)
 
         self.heating_degree_day_path = heating_degree_day_path
         self.temperature_path = temperature_path
@@ -153,17 +153,17 @@ class ResidentialSector(Sector):
 
         if not os.path.exists(fuel_distribution_path):
 
-            population_density = IoRaster().clip_raster_with_shapefile_poly(
+            population_density = IoRaster(self.comm).clip_raster_with_shapefile_poly(
                 population_density_map, self.clip.shapefile,
                 os.path.join(self.auxiliary_dir, 'residential', 'population_density.tif'))
-            population_density = IoRaster().to_shapefile(population_density)
+            population_density = IoRaster(self.comm).to_shapefile(population_density)
 
             population_density.rename(columns={'data': 'pop'}, inplace=True)
 
-            population_type = IoRaster().clip_raster_with_shapefile_poly(
+            population_type = IoRaster(self.comm).clip_raster_with_shapefile_poly(
                 population_type_map, self.clip.shapefile,
                 os.path.join(self.auxiliary_dir, 'residential', 'population_type.tif'))
-            population_type = IoRaster().to_shapefile(population_type)
+            population_type = IoRaster(self.comm).to_shapefile(population_type)
             population_type.rename(columns={'data': 'type'}, inplace=True)
 
             population_density['type'] = population_type['type']
@@ -240,9 +240,9 @@ class ResidentialSector(Sector):
                                 energy_consumption / total_pop)
             fuel_distribution = self.to_dst_resolution(fuel_distribution)
 
-            IoShapefile().write_shapefile(fuel_distribution, fuel_distribution_path)
+            IoShapefile(self.comm).write_shapefile(fuel_distribution, fuel_distribution_path)
         else:
-            fuel_distribution = IoShapefile().read_serial_shapefile(fuel_distribution_path)
+            fuel_distribution = IoShapefile(self.comm).read_serial_shapefile(fuel_distribution_path)
 
         self.logger.write_time_log('ResidentialSector', 'get_fuel_distribution', timeit.default_timer() - spent_time)
         return fuel_distribution
