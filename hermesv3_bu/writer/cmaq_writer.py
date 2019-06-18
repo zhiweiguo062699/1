@@ -198,8 +198,8 @@ class CmaqWriter(Writer):
                     atts_dict[att] = np.array(df.loc[df['attribute'] == att, 'value'].item().split(),
                                               dtype=np.float32)
             except ValueError:
-                self.logger.write_log('WARNING: The global attribute {0} is not defined;'.format(att) +
-                                      ' Using default value {0}'.format(atts_dict[att]))
+                self.logger.write_log("WARNING: The global attribute {0} is not defined;".format(att) +
+                                      " Using default value '{0}'".format(atts_dict[att]))
                 if self.comm_write.Get_rank() == 0:
                     warn('WARNING: The global attribute {0} is not defined; Using default value {1}'.format(
                         att, atts_dict[att]))
