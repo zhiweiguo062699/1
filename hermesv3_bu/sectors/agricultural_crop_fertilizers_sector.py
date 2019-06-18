@@ -147,14 +147,16 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
     def get_gridded_constants(self, gridded_ph_cec_path, ph_path, clipped_ph_path, cec_path, clipped_cec_path):
         spent_time = timeit.default_timer()
         if not os.path.exists(gridded_ph_cec_path):
-            IoRaster(self.comm).clip_raster_with_shapefile_poly(ph_path, self.clip.shapefile, clipped_ph_path, nodata=255)
+            IoRaster(self.comm).clip_raster_with_shapefile_poly(ph_path, self.clip.shapefile, clipped_ph_path,
+                                                                nodata=255)
             ph_gridded = IoRaster(self.comm).to_shapefile(clipped_ph_path, nodata=255)
             ph_gridded.rename(columns={'data': 'ph'}, inplace=True)
             # To correct input data
             ph_gridded['ph'] = ph_gridded['ph'] / 10
             ph_gridded = self.to_dst_resolution(ph_gridded, value='ph')
 
-            IoRaster(self.comm).clip_raster_with_shapefile_poly(cec_path, self.clip.shapefile, clipped_cec_path, nodata=-32768)
+            IoRaster(self.comm).clip_raster_with_shapefile_poly(cec_path, self.clip.shapefile, clipped_cec_path,
+                                                                nodata=-32768)
             cec_gridded = IoRaster(self.comm).to_shapefile(clipped_cec_path, nodata=-32768)
             cec_gridded.rename(columns={'data': 'cec'}, inplace=True)
             cec_gridded = self.to_dst_resolution(cec_gridded, value='cec')

@@ -554,4 +554,3 @@ class TrafficAreaSector(Sector):
 
         self.logger.write_time_log('TrafficAreaSector', 'calculate_emissions', timeit.default_timer() - spent_time)
         return emissions
-
