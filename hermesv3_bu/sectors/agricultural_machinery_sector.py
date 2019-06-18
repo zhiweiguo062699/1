@@ -86,9 +86,9 @@ class AgriculturalMachinerySector(AgriculturalSector):
             crop_distribution.drop(columns=self.crop_list, inplace=True)
             crop_distribution.rename(columns={nut_code: 'NUT_code'}, inplace=True)
 
-            IoShapefile().write_shapefile(crop_distribution, crop_distribution_nut_path)
+            IoShapefile(self.comm).write_shapefile(crop_distribution, crop_distribution_nut_path)
         else:
-            crop_distribution = IoShapefile().read_shapefile(crop_distribution_nut_path)
+            crop_distribution = IoShapefile(self.comm).read_shapefile(crop_distribution_nut_path)
 
         self.logger.write_time_log('AgriculturalMachinerySector', 'get_crop_distribution_by_nut',
                                    timeit.default_timer() - spent_time)

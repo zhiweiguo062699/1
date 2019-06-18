@@ -47,9 +47,9 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
             self.gridded_constants = None
             self.ef_by_crop = None
 
-        # self.crop_distribution = IoShapefile().split_shapefile(self.crop_distribution)
-        self.gridded_constants = IoShapefile().split_shapefile(self.gridded_constants)
-        self.ef_by_crop = IoShapefile().split_shapefile(self.ef_by_crop)
+        # self.crop_distribution = IoShapefile(self.comm).split_shapefile(self.crop_distribution)
+        self.gridded_constants = IoShapefile(self.comm).split_shapefile(self.gridded_constants)
+        self.ef_by_crop = IoShapefile(self.comm).split_shapefile(self.ef_by_crop)
 
         self.fertilizer_denominator_yearly_factor_path = fertilizer_denominator_yearly_factor_path
         self.crop_calendar = self.read_profiles(crop_calendar)
@@ -147,15 +147,15 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
     def get_gridded_constants(self, gridded_ph_cec_path, ph_path, clipped_ph_path, cec_path, clipped_cec_path):
         spent_time = timeit.default_timer()
         if not os.path.exists(gridded_ph_cec_path):
-            IoRaster().clip_raster_with_shapefile_poly(ph_path, self.clip.shapefile, clipped_ph_path, nodata=255)
-            ph_gridded = IoRaster().to_shapefile(clipped_ph_path, nodata=255)
+            IoRaster(self.comm).clip_raster_with_shapefile_poly(ph_path, self.clip.shapefile, clipped_ph_path, nodata=255)
+            ph_gridded = IoRaster(self.comm).to_shapefile(clipped_ph_path, nodata=255)
             ph_gridded.rename(columns={'data': 'ph'}, inplace=True)
             # To correct input data
             ph_gridded['ph'] = ph_gridded['ph'] / 10
             ph_gridded = self.to_dst_resolution(ph_gridded, value='ph')
 
-            IoRaster().clip_raster_with_shapefile_poly(cec_path, self.clip.shapefile, clipped_cec_path, nodata=-32768)
-            cec_gridded = IoRaster().to_shapefile(clipped_cec_path, nodata=-32768)
+            IoRaster(self.comm).clip_raster_with_shapefile_poly(cec_path, self.clip.shapefile, clipped_cec_path, nodata=-32768)
+            cec_gridded = IoRaster(self.comm).to_shapefile(clipped_cec_path, nodata=-32768)
             cec_gridded.rename(columns={'data': 'cec'}, inplace=True)
             cec_gridded = self.to_dst_resolution(cec_gridded, value='cec')
 
@@ -170,9 +170,9 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
             # Selecting only PH and CEC cells that have also some crop.
             gridded_ph_cec = gridded_ph_cec.loc[self.crop_distribution.index, :]
 
-            IoShapefile().write_shapefile(gridded_ph_cec.reset_index(), gridded_ph_cec_path)
+            IoShapefile(self.comm).write_shapefile(gridded_ph_cec.reset_index(), gridded_ph_cec_path)
         else:
-            gridded_ph_cec = IoShapefile().read_serial_shapefile(gridded_ph_cec_path)
+            gridded_ph_cec = IoShapefile(self.comm).read_serial_shapefile(gridded_ph_cec_path)
             gridded_ph_cec.set_index('FID', inplace=True)
         self.logger.write_time_log('AgriculturalCropFertilizersSector', 'get_gridded_constants',
                                    timeit.default_timer() - spent_time)

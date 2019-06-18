@@ -59,7 +59,7 @@ def select_writer(logger, arguments, grid, date_array):
     if arguments.output_model == 'DEFAULT':
         from hermesv3_bu.writer.default_writer import DefaultWriter
         writer = DefaultWriter(comm_world, comm_write, logger, arguments.output_name, grid, date_array, pollutant_info,
-                               rank_distribution)
+                               rank_distribution, arguments.emission_summary)
     logger.write_time_log('Writer', 'select_writer', timeit.default_timer() - spent_time)
 
     return writer
@@ -131,7 +131,7 @@ def get_distribution(logger, processors, shape):
 
 class Writer(object):
     def __init__(self, comm_world, comm_write, logger, netcdf_path, grid, date_array, pollutant_info,
-                 rank_distribution):
+                 rank_distribution, emission_summary=False):
         """
         Initialise the Writer class.
 
@@ -174,6 +174,7 @@ class Writer(object):
         :type rank_distribution: dict
         """
         spent_time = timeit.default_timer()
+
         self.comm_world = comm_world
         self.comm_write = comm_write
         self.logger = logger
@@ -182,6 +183,17 @@ class Writer(object):
         self.date_array = date_array
         self.pollutant_info = pollutant_info
         self.rank_distribution = rank_distribution
+        self.emission_summary = emission_summary
+
+        if self.emission_summary and self.comm_write.Get_rank() == 0:
+            self.emission_summary_paths = {
+                'hourly_layer_summary_path': self.netcdf_path.replace('.nc', '_summary_hourly_layer.csv'),
+                'hourly_summary_path': self.netcdf_path.replace('.nc', '_summary_hourly.csv'),
+                'total_summary_path': self.netcdf_path.replace('.nc', '_summary.csv')
+            }
+        else:
+            self.emission_summary_paths = None
+
         self.logger.write_time_log('Writer', '__init__', timeit.default_timer() - spent_time)
 
     def gather_emissions(self, emissions):
@@ -217,6 +229,10 @@ class Writer(object):
             new_emissions = None
 
         self.comm_world.Barrier()
+
+        if self.emission_summary and self.comm_world.Get_rank() in self.rank_distribution.iterkeys():
+            self.make_summary(new_emissions)
+
         self.logger.write_time_log('Writer', 'gather_emissions', timeit.default_timer() - spent_time)
 
         return new_emissions
@@ -264,3 +280,49 @@ class Writer(object):
         self.logger.write_time_log('Writer', 'write', timeit.default_timer() - spent_time)
 
         return True
+
+    def unit_change(self, emissions):
+        """
+        Implemented on the inner classes
+
+        :rtype: pandas.DataFrame
+        """
+        pass
+
+    def write_netcdf(self, emissions):
+        """
+        Implemented on the inner classes
+        """
+        pass
+
+    def make_summary(self, emissions):
+        """
+        Create the files with the summary of the emissions.
+
+        It will create 3 files:
+        - Total emissions per pollutant
+        - Total emissions per pollutant and hour
+        - Total emissions per pollutant, hour and layer
+
+        :param emissions: Emissions
+        :type emissions: pandas.DataFrame
+
+        :return: True if everything goes OK
+        :rtype: bool
+        """
+        spent_time = timeit.default_timer()
+
+        summary = emissions.groupby(['tstep', 'layer']).sum().reset_index()
+
+        summary = self.comm_write.gather(summary, root=0)
+
+        if self.comm_write.Get_rank() == 0:
+            summary = pd.concat(summary)
+            summary = summary.groupby(['tstep', 'layer']).sum()
+            summary.to_csv(self.emission_summary_paths['hourly_layer_summary_path'])
+            summary.reset_index(inplace=True)
+            summary.drop(columns=['layer'], inplace=True)
+            summary.groupby('tstep').sum().to_csv(self.emission_summary_paths['hourly_summary_path'])
+            summary.drop(columns=['tstep'], inplace=True)
+            summary.sum().to_csv(self.emission_summary_paths['total_summary_path'])
+        self.logger.write_time_log('Writer', 'make_summary', timeit.default_timer() - spent_time)

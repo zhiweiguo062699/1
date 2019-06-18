@@ -282,7 +282,7 @@ class AgriculturalSector(Sector):
         :type tot_crop_by_nut: pandas.DataFrame
 
         :return: Fraction of involved crop for NUT.
-        :rtype: pandas.DataFrame
+        :rtype: pandas.DataFrame(
         """
         spent_time = timeit.default_timer()
 
@@ -413,7 +413,7 @@ class AgriculturalSector(Sector):
 
                 crop_by_nut = self.land_use_to_crop_by_nut(land_use_by_nut)
                 tot_crop_by_nut = self.land_use_to_crop_by_nut(
-                    tot_land_use_by_nut, nuts=np.unique(land_use_by_nut['NUT']))
+                    tot_land_use_by_nut, nuts=list(np.unique(land_use_by_nut['NUT'])))
 
                 crop_shape_by_nut = self.get_crop_shape_by_nut(crop_by_nut, tot_crop_by_nut)
                 crop_area_by_nut = self.get_crop_area_by_nut(crop_shape_by_nut)
@@ -424,7 +424,7 @@ class AgriculturalSector(Sector):
                 crop_distribution_dst = self.get_crop_distribution_in_dst_cells(crop_distribution_src)
 
                 crop_distribution_dst = self.add_timezone(crop_distribution_dst)
-                IoShapefile().write_shapefile(crop_distribution_dst, file_path)
+                IoShapefile(self.comm).write_shapefile(crop_distribution_dst, file_path)
             else:
                 self.logger.write_log('Waiting for the master process that creates the crop distribution shapefile.',
                                       message_level=2)

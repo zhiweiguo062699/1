@@ -10,7 +10,7 @@ from hermesv3_bu.logger.log import Log
 
 class DefaultWriter(Writer):
     def __init__(self, comm_wolrd, comm_write, logger, netcdf_path, grid, date_array, pollutant_info,
-                 rank_distribution):
+                 rank_distribution, emission_summary=False):
         """
         Initilise the Default writer that will write a NetCDF CF-1.6 complient.
 
@@ -51,11 +51,15 @@ class DefaultWriter(Writer):
             1: {'fid_min': 50, 'y_min': 5, 'y_max': 10, 'fid_max': 100, 'shape': (24, 48, 5, 10), 'x_max': 10,
                 'x_min': 0}}
         :type rank_distribution: dict
+
+        :param emission_summary: Indicates if you want to create the emission summary files.
+        :type emission_summary: bool
         """
         spent_time = timeit.default_timer()
         logger.write_log('Default writer selected.')
         super(DefaultWriter, self).__init__(comm_wolrd, comm_write, logger, netcdf_path, grid, date_array,
-                                            pollutant_info, rank_distribution)
+                                            pollutant_info, rank_distribution, emission_summary)
+
         self.logger.write_time_log('DefaultWriter', '__init__', timeit.default_timer() - spent_time)
 
     def unit_change(self, emissions):

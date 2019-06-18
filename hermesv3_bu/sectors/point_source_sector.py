@@ -115,7 +115,7 @@ class PointSourceSector(Sector):
         else:
             catalog_df = None
         self.comm.Barrier()
-        catalog_df = IoShapefile().split_shapefile(catalog_df)
+        catalog_df = IoShapefile(self.comm).split_shapefile(catalog_df)
         self.logger.write_time_log('PointSourceSector', 'read_catalog', timeit.default_timer() - spent_time)
         return catalog_df
 
@@ -293,7 +293,6 @@ class PointSourceSector(Sector):
         import pandas as pd
         import geopandas as gpd
 
-        # print dataframe
         nc = Dataset(netcdf_path, mode='r')
         lats = nc.variables['lat'][:]
         lons = nc.variables['lon'][:]
@@ -582,7 +581,6 @@ class PointSourceSector(Sector):
 
         # catalog_by_layer = pd.concat(catalog_by_layer)
 
-        # print catalog
         unused = catalog.loc[catalog['percent'] > 0, :]
 
         # catalog_by_layer.set_index(['Code', 'tstep', 'layer'], inplace=True)
@@ -673,7 +671,6 @@ class PointSourceSector(Sector):
         else:
             catalog = self.to_geodataframe(catalog)
             catalog = self.add_dates(catalog)
-            # print catalog
             catalog = self.add_measured_emissions(catalog)
 
             catalog.set_index(['Code', 'tstep'], inplace=True)

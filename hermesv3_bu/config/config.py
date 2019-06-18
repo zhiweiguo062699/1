@@ -62,6 +62,8 @@ class Config(ArgParser):
         p.add_argument('--output_name', required=True,
                        help="Name of the output file. You can add the string '<date>' that will be substitute by the " +
                             "starting date of the simulation day.")
+        p.add_argument('--emission_summary', required=False, type=str, default='False',
+                       help='Indicates if you want to create the emission summary files.')
         p.add_argument('--start_date', required=True, help='Starting Date to simulate (UTC)')
         p.add_argument('--end_date', required=False, default=None,
                        help='If you want to simulate more than one day you have to specify the ending date of ' +
@@ -394,6 +396,7 @@ class Config(ArgParser):
                     arguments.__dict__[item] = arguments.__dict__[item].replace('<resolution>', '{1}_{2}'.format(
                         item, arguments.inc_x, arguments.inc_y))
 
+        arguments.emission_summary = self._parse_bool(arguments.emission_summary)
         arguments.start_date = self._parse_start_date(arguments.start_date)
         arguments.end_date = self._parse_end_date(arguments.end_date, arguments.start_date)
         arguments.output_name = self.get_output_name(arguments)
