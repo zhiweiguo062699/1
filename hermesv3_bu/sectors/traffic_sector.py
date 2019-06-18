@@ -392,7 +392,7 @@ class TrafficSector(Sector):
 
         :return: Temperature, centroid of the cell and cell identificator (REC).
             Each time step is each column with the name t_<timestep>.
-        :rtype: geopandas.GeoDataFrame
+        :rtype: GeoDataFrame
         """
         from netCDF4 import Dataset
         import cf_units

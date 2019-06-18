@@ -67,7 +67,7 @@ class ResidentialSector(Sector):
         :type path: str
 
         :return: Dataframe with the emission factors read.
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
 

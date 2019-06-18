@@ -29,7 +29,7 @@ class Sector(object):
         :type auxiliary_dir: str
 
         :param grid_shp: Shapefile with the grid horizontal distribution.
-        :type grid_shp: geopandas.GeoDataFrame
+        :type grid_shp: GeoDataFrame
 
         :param date_array: List of datetimes.
         :type date_array: list(datetime.datetime, ...)
@@ -109,7 +109,7 @@ class Sector(object):
         :type path: str
 
         :return: Dataframe with the speciation profile and the ID as index.
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
         if path is None:
@@ -198,7 +198,7 @@ class Sector(object):
         :type sep: str
 
         :return: DataFrame with the profiles.
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
         dataframe = pd.read_csv(path, sep=sep)
@@ -214,7 +214,7 @@ class Sector(object):
         :type path: str
 
         :return: DataFrame of the monthly profiles.
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
         if path is None:
@@ -240,7 +240,7 @@ class Sector(object):
         :type path: str
 
         :return: Dataset od the weekly profiles.
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
         if path is None:
@@ -263,7 +263,7 @@ class Sector(object):
         :type path: str
 
         :return: Dataset od the monthly profiles.
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
         if path is None:
@@ -358,11 +358,11 @@ class Sector(object):
         The dataframe will be replicated as many times as time steps to calculate.
 
         :param dataframe: Geodataframe to be extended with the dates.
-        :type dataframe: geopandas.GeoDataFrame
+        :type dataframe: GeoDataFrame
 
         :return: Geodataframe with the dates. The length of the new dataframe is the length of the input dataframe
             multiplied by the number of time steps.
-        :rtype: geopandas.GeoDataFrame
+        :rtype: GeoDataFrame
         """
         spent_time = timeit.default_timer()
         dataframe = self.add_timezone(dataframe)
@@ -406,10 +406,10 @@ class Sector(object):
         Set the local date with the correspondent timezone substituting the UTC date.
 
         :param dataframe: DataFrame with the UTC date column.
-        :type dataframe: pandas.DataFrame
+        :type dataframe: DataFrame
 
         :return: Catalog with the local date column.
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
         dataframe['date'] = dataframe.groupby('timezone')['date'].apply(

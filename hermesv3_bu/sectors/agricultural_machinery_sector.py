@@ -266,10 +266,10 @@ class AgriculturalMachinerySector(AgriculturalSector):
             Get the Weekly Factor for the given dataframe depending on the date.
 
             :param df: DataFrame where find the weekly factor. df.name is the date.
-            :type df: pandas.DataFrame
+            :type df: DataFrame
 
             :return: DataFrame with only the WF column.
-            :rtype: pandas.DataFrame
+            :rtype: DataFrame
             """
             weekly_profile = self.calculate_rebalanced_weekly_profile(self.weekly_profiles.loc['default', :].to_dict(),
                                                                       df.name)
@@ -281,10 +281,10 @@ class AgriculturalMachinerySector(AgriculturalSector):
             Get the Hourly Factor for the given dataframe depending on the hour.
 
             :param df: DataFrame where find the hourly factor. df.name is the hour.
-            :type df: pandas.DataFrame
+            :type df: DataFrame
 
             :return: DataFrame with only the HF column.
-            :rtype: pandas.DataFrame
+            :rtype: DataFrame
             """
             hourly_profile = self.hourly_profiles.loc['default', :].to_dict()
             hour_factor = hourly_profile[df.name]

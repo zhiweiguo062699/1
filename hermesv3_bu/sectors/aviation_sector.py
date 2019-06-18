@@ -50,7 +50,7 @@ class AviationSector(Sector):
         :type auxiliary_dir: str
 
         :param grid_shp: Shapefile with the grid horizontal distribution.
-        :type grid_shp: geopandas.GeoDataFrame
+        :type grid_shp: GeoDataFrame
 
         :param date_array: List of datetimes.
         :type date_array: list(datetime.datetime, ...)
@@ -178,7 +178,7 @@ class AviationSector(Sector):
         :type runways_path: str
 
         :return: GeoDataFrame with the trajectories information, their praction and staring point.
-        :rtype: geopandas.GeoDataFrame
+        :rtype: GeoDataFrame
         """
         spent_time = timeit.default_timer()
         trajectories = gpd.read_file(trajectories_path)
@@ -209,7 +209,7 @@ class AviationSector(Sector):
         :type airport_runways_shapefile_path: str
 
         :return: GeoDataFrame with the runways information.
-        :rtype: geopandas.GeoDataFrame, None
+        :rtype: GeoDataFrame, None
         """
         spent_time = timeit.default_timer()
         if self.comm.Get_rank() == 0:
@@ -235,7 +235,7 @@ class AviationSector(Sector):
         :type path: str
 
         :return: Dataset od the monthly profiles.
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
         if path is None:
@@ -269,7 +269,7 @@ class AviationSector(Sector):
 
         :return: DataFrame with the amount operations by month. The operations are detailed with the plane_code, airport
             and phase.
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
         check = False
@@ -303,7 +303,7 @@ class AviationSector(Sector):
         :type planes_path: str
 
         :return: Dataframe with the planes information
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
         check = False
@@ -326,7 +326,7 @@ class AviationSector(Sector):
         :type times_path: str
 
         :return: Dataframe with the times of each phase
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
         dataframe = pd.read_csv(times_path)
@@ -348,7 +348,7 @@ class AviationSector(Sector):
         :type conf_airport_list: list
 
         :param airport_shapefile: Shapefile with the 'ICAO' information.
-        :type airport_shapefile:  geopandas.GeoDataFrame
+        :type airport_shapefile:  GeoDataFrame
 
         :return: List with the airports to calculate.
         :rtype: list
@@ -395,10 +395,10 @@ class AviationSector(Sector):
         All the emissions that have to be distributed on the airport polygon goes to the surface layer.
 
         :param airport_shapefile: Shapefile with the airport polygon geometries.
-        :type airport_shapefile: geopandas.GeoDataFrame
+        :type airport_shapefile: GeoDataFrame
 
         :return: DataFrame with the location (FID) and fraction for each airport.
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
         self.logger.write_log('\t\tCalculating airport distribution', message_level=2)
@@ -438,13 +438,13 @@ class AviationSector(Sector):
         All the emissions that have to be distributed on the runway line goes to the surface layer.
 
         :param runway_shapefile: Shapefile with the runway line geometries.
-        :type runway_shapefile: geopandas.GeoDataFrame
+        :type runway_shapefile: GeoDataFrame
 
         :param phase_type: Phase type to distribute. Arrival or Departure.
         :type phase_type: str
 
         :return: DataFrame with the location (FID) and fraction for each airport.
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
 
@@ -508,13 +508,13 @@ class AviationSector(Sector):
         That emissions have to be distributed also vertically.
 
         :param airport_trajectories_shapefile: Shapefile with the trajectories information.
-        :type airport_trajectories_shapefile: geopandas.GeoDataFrame
+        :type airport_trajectories_shapefile: GeoDataFrame
 
         :param phase_type: 'arrival' or 'departure' to indicate teh type of approach.
         :type phase_type: str
 
         :return: DataFrame with the location (FID & level) and fraction for each airport.
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
 
@@ -617,7 +617,7 @@ class AviationSector(Sector):
         :type phase: str
 
         :return: Dataframe with the emissions of the phase py airport.
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
 
@@ -722,7 +722,7 @@ class AviationSector(Sector):
         :type phase: str
 
         :return: Dataframe with the emissions of the phase py airport.
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
 
@@ -820,7 +820,7 @@ class AviationSector(Sector):
         :type phase: str
 
         :return: Dataframe with the emissions of the phase py airport.
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
 
@@ -919,13 +919,13 @@ class AviationSector(Sector):
         Distributes the airport emissions by the given distribution.
 
         :param dataframe: Emissions by airport.
-        :type dataframe: pandas.DataFrame
+        :type dataframe: DataFrame
 
         :param distribution: Involved cells by airport.
-        :type distribution: pandas.DataFrame
+        :type distribution: DataFrame
 
         :return: Emissions distributed by cell (FID)
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
         pollutants = dataframe.columns.values
@@ -946,7 +946,7 @@ class AviationSector(Sector):
         Main function to calculate the emissions for the Landing and take off airport emissions.
 
         :return: Airport emissions distributed by cell (FID), layer and time step.
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
         self.logger.write_log('\tCalculating emissions')

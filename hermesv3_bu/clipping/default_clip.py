@@ -37,7 +37,7 @@ class DefaultClip(Clip):
         :type grid: Grid
 
         :return: Clip shapefile
-        :rtype: geopandas.GeoDataFrame
+        :rtype: GeoDataFrame
         """
         spent_time = timeit.default_timer()
         if not os.path.exists(self.shapefile_path):

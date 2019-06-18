@@ -23,7 +23,7 @@ class IoShapefile(IoServer):
         """
 
         :param data: GeoDataset to be written
-        :type data: geopandas.GeoDataFrame
+        :type data: GeoDataFrame
 
         :param path:
 
@@ -46,7 +46,7 @@ class IoShapefile(IoServer):
         """
 
         :param data: GeoDataset to be written
-        :type data: geopandas.GeoDataFrame
+        :type data: GeoDataFrame
 
         :param path:
 

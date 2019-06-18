@@ -36,7 +36,7 @@ class AgriculturalSector(Sector):
         :type auxiliary_dir: str
 
         :param grid_shp: Shapefile with the grid horizontal distribution.
-        :type grid_shp: geopandas.GeoDataFrame
+        :type grid_shp: GeoDataFrame
 
         :param date_array: List of datetimes.
         :type date_array: list(datetime.datetime, ...)
@@ -216,7 +216,7 @@ class AgriculturalSector(Sector):
         """
 
         :param land_use_distribution_src_nut: Shapefile with the polygons of all the land uses for each NUT.
-        :type land_use_distribution_src_nut: geopandas.GeoDataFrame
+        :type land_use_distribution_src_nut: GeoDataFrame
 
         :param land_uses: Land uses to take into account.
         :type land_uses: list
@@ -240,13 +240,13 @@ class AgriculturalSector(Sector):
         Get the amount of crop by involved NUT.
 
         :param land_use_by_nut: Area of each land use for each NUT
-        :type land_use_by_nut: pandas.DataFrame
+        :type land_use_by_nut: DataFrame
 
         :param nuts: NUT list to take into account. None for all of them.
         :type nuts: list
 
         :return: Amount of crop by NUT.
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
         if nuts is not None:
@@ -276,13 +276,13 @@ class AgriculturalSector(Sector):
         Calculate the fraction of crop for each NUT involved on the simulated domain.
 
         :param crop_by_nut: Amount of crop by NUT on the simulated domain.
-        :type crop_by_nut: pandas.DataFrame
+        :type crop_by_nut: DataFrame
 
         :param tot_crop_by_nut: Total amount of crop by NUT.
-        :type tot_crop_by_nut: pandas.DataFrame
+        :type tot_crop_by_nut: DataFrame
 
         :return: Fraction of involved crop for NUT.
-        :rtype: pandas.DataFrame(
+        :rtype: DataFrame(
         """
         spent_time = timeit.default_timer()
 
@@ -299,10 +299,10 @@ class AgriculturalSector(Sector):
 
         :param crop_share_by_nut: GeoDataFrame with the fraction of crop for each NUT. That fraction means the quantity
             of the NUT crop involved on the simulation. If the complete NUT is fulfilled on the domain is it 1.
-        :type crop_share_by_nut: pandas.DataFrame
+        :type crop_share_by_nut: DataFrame
 
         :return: Amount of crop for each NUT.
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
 
@@ -322,13 +322,13 @@ class AgriculturalSector(Sector):
         Calculate the crop distribution on the source resolution.
 
         :param crop_area_by_nut: Amount of crop on each NUT.
-        :type crop_area_by_nut: pandas.DataFrame
+        :type crop_area_by_nut: DataFrame
 
         :param land_use_distribution_src_nut: Source distribution land uses with their calculated areas.
-        :type land_use_distribution_src_nut: geopandas.GeoDataFrame
+        :type land_use_distribution_src_nut: GeoDataFrame
 
         :return: Crop distribution on the source resolution.
-        :rtype: geopandas.GeoDataFrame
+        :rtype: GeoDataFrame
         """
         spent_time = timeit.default_timer()
 
@@ -397,7 +397,7 @@ class AgriculturalSector(Sector):
         :type file_path: str
 
         :return: GeoDataFrame with the crop distribution over the grid cells.
-        :rtype: geopandas.GeoDataFrame
+        :rtype: GeoDataFrame
         """
         spent_time = timeit.default_timer()
         if not os.path.exists(file_path):

@@ -37,7 +37,7 @@ class CustomClip(Clip):
         :type points_str: str
 
         :return: Clip shapefile
-        :rtype: geopandas.GeoDataFrame
+        :rtype: GeoDataFrame
         """
         import re
         from shapely.geometry import Point, Polygon

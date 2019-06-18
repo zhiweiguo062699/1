@@ -28,7 +28,7 @@ class ShippingPortSector(Sector):
         :type auxiliary_dir: str
 
         :param grid_shp: Shapefile with the grid horizontal distribution.
-        :type grid_shp: geopandas.GeoDataFrame
+        :type grid_shp: GeoDataFrame
 
         :param date_array: List of datetimes.
         :type date_array: list(datetime.datetime, ...)
@@ -116,7 +116,7 @@ class ShippingPortSector(Sector):
         :type path: str
 
         :return: DataFrame of the monthly profiles.
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
         if path is None:
@@ -139,13 +139,13 @@ class ShippingPortSector(Sector):
         Overwrites the method of the super class.
 
         :param dataframe: DataFrame where add the timezone.
-        :type dataframe: pandas.DataFrame
+        :type dataframe: DataFrame
 
         :param shapefile_path: Path to the shapefile that contains the port geometries.
         :type shapefile_path: str
 
         :return: DataFrame with the timezone.
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         from timezonefinder import TimezoneFinder
         spent_time = timeit.default_timer()
@@ -172,11 +172,11 @@ class ShippingPortSector(Sector):
         The dataframe will be replicated as many times as time steps to calculate.
 
         :param dataframe: Geodataframe to be extended with the dates.
-        :type dataframe: geopandas.GeoDataFrame
+        :type dataframe: GeoDataFrame
 
         :return: DataFrame with the dates. The length of the new dataframe is the length of the input dataframe
             multiplied by the number of time steps.
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
 
         """
         spent_time = timeit.default_timer()
@@ -226,7 +226,7 @@ class ShippingPortSector(Sector):
             :type df: pandas.Dataframe
 
             :return: DataFrame with whe N column.
-            :rtype: pandas.DataFrame
+            :rtype: DataFrame
             """
             aux = self.tonnage.loc[:, ['N_{0}'.format(df.name)]].reset_index()
             aux['vessel'] = df.name
@@ -242,7 +242,7 @@ class ShippingPortSector(Sector):
             :type df: pandas.Dataframe
 
             :return: DataFrame with whe P column.
-            :rtype: pandas.DataFrame
+            :rtype: DataFrame
             """
             aux = self.tonnage.loc[:, ['GT_{0}'.format(df.name)]].reset_index()
             aux.rename(columns={'GT_{0}'.format(df.name): 'GT'}, inplace=True)
@@ -262,7 +262,7 @@ class ShippingPortSector(Sector):
             :type df: pandas.Dataframe
 
             :return: DataFrame with whe Rae column.
-            :rtype: pandas.DataFrame
+            :rtype: DataFrame
             """
             df['Rae'] = self.power_values.loc[self.power_values['Type_vessel'] == df.name, 'Ratio_AE'].values[0]
             return df.loc[:, ['Rae']]
@@ -278,7 +278,7 @@ class ShippingPortSector(Sector):
             :type phase: str
 
             :return: DataFrame with whe T_<phase> column.
-            :rtype: pandas.DataFrame
+            :rtype: DataFrame
             """
             df['T'] = self.load_factor.loc[(self.load_factor['Type_vessel'] == df.name) &
                                            (self.load_factor['Phase'] == phase), 'time'].values[0]
@@ -298,7 +298,7 @@ class ShippingPortSector(Sector):
             :type engine: str
 
             :return: DataFrame with whe T_<phase><engine> column.
-            :rtype: pandas.DataFrame
+            :rtype: DataFrame
             """
             if engine == 'main':
                 col_name = 'LF_ME'
@@ -322,7 +322,7 @@ class ShippingPortSector(Sector):
             :type engine: str
 
             :return: DataFrame with whe T_<phase><engine> column.
-            :rtype: pandas.DataFrame
+            :rtype: DataFrame
             """
 
             if engine == 'main':
@@ -394,10 +394,10 @@ class ShippingPortSector(Sector):
         Add 'month', 'weekday' and 'hour' columns to the given dataframe.
 
         :param dataframe: DataFrame where add the 'month', 'weekday' and 'hour' columns.
-        :type dataframe: pandas.DataFrame
+        :type dataframe: DataFrame
 
         :return: DataFrame with the 'month', 'weekday' and 'hour' columns.
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
         dataframe['month'] = dataframe['date'].dt.month
@@ -413,7 +413,7 @@ class ShippingPortSector(Sector):
         Calculate the monthly emissions by port.
 
         :param dataframe: DataFrame with the yearly emissions by port and vessel.
-        :type dataframe: pandas.DataFrame
+        :type dataframe: DataFrame
 
         :return:
         """
@@ -424,10 +424,10 @@ class ShippingPortSector(Sector):
             Get the Monthly Factor for the given dataframe depending on the vessel and the month.
 
             :param df: DataFrame where find the monthly factor. df.name is (vessel, month)
-            :type df: pandas.DataFrame
+            :type df: DataFrame
 
             :return: DataFrame with only the MF column.
-            :rtype: pandas.DataFrame
+            :rtype: DataFrame
             """
             vessel = df.name[0]
             month = df.name[1]
@@ -459,10 +459,10 @@ class ShippingPortSector(Sector):
         Calcualte the hourly emissions by port.
 
         :param dataframe: DataFrame with the Monthly emissions by port.
-        :type dataframe: pandas.DataFrame
+        :type dataframe: DataFrame
 
         :return: Hourly emissions DataFrame
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
 
@@ -471,10 +471,10 @@ class ShippingPortSector(Sector):
             Get the Weekly Factor for the given dataframe depending on the date.
 
             :param df: DataFrame where find the weekly factor. df.name is the date.
-            :type df: pandas.DataFrame
+            :type df: DataFrame
 
             :return: DataFrame with only the WF column.
-            :rtype: pandas.DataFrame
+            :rtype: DataFrame
             """
             weekly_profile = self.calculate_rebalanced_weekly_profile(self.weekly_profiles.loc['default', :].to_dict(),
                                                                       df.name)
@@ -486,10 +486,10 @@ class ShippingPortSector(Sector):
             Get the Hourly Factor for the given dataframe depending on the hour.
 
             :param df: DataFrame where find the hourly factor. df.name is the hour.
-            :type df: pandas.DataFrame
+            :type df: DataFrame
 
             :return: DataFrame with only the HF column.
-            :rtype: pandas.DataFrame
+            :rtype: DataFrame
             """
             hourly_profile = self.hourly_profiles.loc['default', :].to_dict()
             hour_factor = hourly_profile[df.name]
@@ -551,10 +551,10 @@ class ShippingPortSector(Sector):
         Regrid the emissions from port geometries to grid geometries.
 
         :param dataframe: DataFrame with the hourly emissions distributed by port.
-        :type dataframe: geopandas.GeoDataFrame
+        :type dataframe: GeoDataFrame
 
         :return: DataFrame with the hourly emissions distributed by grid cell.
-        :rtype: geopandas.GeoDataFrame
+        :rtype: GeoDataFrame
         """
         spent_time = timeit.default_timer()
 

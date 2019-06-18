@@ -90,7 +90,7 @@ class IoRaster(IoServer):
         :type raster_path: str
 
         :param geo: Shapefile with the polygons where clip the input raster.
-        :type geo: geopandas.GeoDataFrame
+        :type geo: GeoDataFrame
 
         :param clipped_raster_path: Place to store the clipped raster.
         :type clipped_raster_path: str

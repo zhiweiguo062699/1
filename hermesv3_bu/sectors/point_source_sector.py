@@ -77,7 +77,7 @@ class PointSourceSector(Sector):
         :type sector_list: list
 
         :return: catalog
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
 
@@ -130,7 +130,7 @@ class PointSourceSector(Sector):
         :type sector_list: list
 
         :return: catalog
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
 
@@ -167,10 +167,10 @@ class PointSourceSector(Sector):
         Convert a simple DataFrame with Lat, Lon columns into a GeoDataFrame as a shape
 
         :param catalog: DataFrame with all the information of each point source.
-        :type catalog: pandas.DataFrame
+        :type catalog: DataFrame
 
         :return: GeoDataFrame with all the information of each point source.
-        :rtype: geopandas.GeoDataFrame
+        :rtype: GeoDataFrame
         """
         from shapely.geometry import Point
         spent_time = timeit.default_timer()
@@ -188,10 +188,10 @@ class PointSourceSector(Sector):
 
         :param catalog: Catalog with the activity factor (AF) column and all the emission factor column for each
         pollutant.
-        :type catalog: pandas.DataFrame
+        :type catalog: DataFrame
 
         :return: Catalog with yearly emissions of each point source for all the pollutants (as column names).
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
 
@@ -209,10 +209,10 @@ class PointSourceSector(Sector):
 
         :param catalog: Catalog with the activity factor (AF) column and all the emission factor column for each
         pollutant.
-        :type catalog: pandas.DataFrame
+        :type catalog: DataFrame
 
         :return: Catalog with yearly emissions of each point source for all the pollutants (as column names).
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
 
@@ -259,10 +259,10 @@ class PointSourceSector(Sector):
         Calculate the hourly emissions
 
         :param catalog: Catalog to calculate.
-        :type catalog: pandas.DataFrame
+        :type catalog: DataFrame
 
         :return: Catalog with the hourly emissions.
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
 
@@ -607,10 +607,10 @@ class PointSourceSector(Sector):
         Add the layer column to indicate at what layer the emission have to go.
 
         :param catalog: Catalog to calculate.
-        :type catalog: pandas.DataFrame
+        :type catalog: DataFrame
 
         :return: Catalog with the level.
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
 

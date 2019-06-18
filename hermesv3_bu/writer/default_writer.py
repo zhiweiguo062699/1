@@ -9,13 +9,13 @@ from hermesv3_bu.logger.log import Log
 
 
 class DefaultWriter(Writer):
-    def __init__(self, comm_wolrd, comm_write, logger, netcdf_path, grid, date_array, pollutant_info,
+    def __init__(self, comm_world, comm_write, logger, netcdf_path, grid, date_array, pollutant_info,
                  rank_distribution, emission_summary=False):
         """
-        Initilise the Default writer that will write a NetCDF CF-1.6 complient.
+        Initialise the Default writer that will write a NetCDF CF-1.6 complient.
 
-        :param comm_wolrd: Global communicator for all the calculation process
-        :type comm_wolrd: MPI.COMM
+        :param comm_world: Global communicator for all the calculation process
+        :type comm_world: MPI.COMM
 
         :param comm_write: Sector communicator.
         :type comm_write: MPI.Intracomm
@@ -33,7 +33,7 @@ class DefaultWriter(Writer):
         :type date_array: list of datetime.datetime
 
         :param pollutant_info: Information related with the output pollutants, short description, units...
-        :type pollutant_info: pandas.DataFrame
+        :type pollutant_info: DataFrame
 
         :param rank_distribution: Information of the writing process. That argument is a dictionary with the writing
             process rank as key and another dictionary as value. That other dictionary contains:
@@ -57,7 +57,7 @@ class DefaultWriter(Writer):
         """
         spent_time = timeit.default_timer()
         logger.write_log('Default writer selected.')
-        super(DefaultWriter, self).__init__(comm_wolrd, comm_write, logger, netcdf_path, grid, date_array,
+        super(DefaultWriter, self).__init__(comm_world, comm_write, logger, netcdf_path, grid, date_array,
                                             pollutant_info, rank_distribution, emission_summary)
 
         self.logger.write_time_log('DefaultWriter', '__init__', timeit.default_timer() - spent_time)
@@ -67,10 +67,10 @@ class DefaultWriter(Writer):
         No unit changes.
 
         :param emissions: Emissions on dataframe.
-        :type emissions: pandas.DataFrame
+        :type emissions: DataFrame
 
         :return: Same emissions as input
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         self.logger.write_time_log('DefaultWriter', 'unit_change', 0.0)
 
@@ -82,7 +82,7 @@ class DefaultWriter(Writer):
 
         :param emissions: Emissions to write in the NetCDF with 'FID, level & time step as index and pollutant as
             columns.
-        :type emissions: pandas.DataFrame
+        :type emissions: DataFrame
         """
         from cf_units import Unit
         spent_time = timeit.default_timer()
@@ -109,7 +109,7 @@ class DefaultWriter(Writer):
             var_dim = ('rlat', 'rlon')
             lat_dim = lon_dim = var_dim
         else:
-            var_dim = lat_dim = None
+            var_dim = lat_dim = lon_dim = None
 
         netcdf.createDimension('nv', len(self.grid.boundary_latitudes[0, 0]))
 

@@ -79,7 +79,7 @@ class Config(ArgParser):
 
         # ===== DOMAIN =====
         p.add_argument('--output_model', required=True, help='Name of the output model.',
-                       choices=['MONARCH', 'CMAQ', 'R-LINE', 'WRF_CHEM', 'DEFAULT'])
+                       choices=['MONARCH', 'CMAQ', 'WRF_CHEM', 'DEFAULT'])
         p.add_argument('--writing_processors', required=False, type=int,
                        help='Number of processors dedicated to write. ' +
                             'Maximum number accepted is the number of rows of the destiny grid.')

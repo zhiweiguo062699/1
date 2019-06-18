@@ -177,7 +177,7 @@ class Grid(object):
         Create a shapefile with the grid.
 
         :return: Grid shapefile
-        :rtype: geopandas.GeoDataFrame
+        :rtype: GeoDataFrame
         """
         import geopandas as gpd
         import pandas as pd

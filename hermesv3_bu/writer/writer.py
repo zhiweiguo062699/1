@@ -60,6 +60,10 @@ def select_writer(logger, arguments, grid, date_array):
         from hermesv3_bu.writer.default_writer import DefaultWriter
         writer = DefaultWriter(comm_world, comm_write, logger, arguments.output_name, grid, date_array, pollutant_info,
                                rank_distribution, arguments.emission_summary)
+    elif arguments.output_model == 'CMAQ':
+        from hermesv3_bu.writer.cmaq_writer import CmaqWriter
+        writer = CmaqWriter(comm_world, comm_write, logger, arguments.output_name, grid, date_array, pollutant_info,
+                            rank_distribution, arguments.output_attributes, arguments.emission_summary)
     logger.write_time_log('Writer', 'select_writer', timeit.default_timer() - spent_time)
 
     return writer
@@ -154,7 +158,7 @@ class Writer(object):
         :type date_array: list of datetime.datetime
 
         :param pollutant_info: Information related with the output pollutants, short description, units...
-        :type pollutant_info: pandas.DataFrame
+        :type pollutant_info: DataFrame
 
         :param rank_distribution: Information of the writing process. That argument is a dictionary with the writing
             process rank as key and another dictionary as value. That other dictionary contains:
@@ -203,11 +207,11 @@ class Writer(object):
         Each calculation process sends a part of the emissions to each writing processor.
 
         :param emissions: Emissions to be split and sent to the writing processors.
-        :type emissions: pandas.DataFrame
+        :type emissions: DataFrame
 
         :return: The writing processors will return the emissions to write but the non writer processors will return
             None.
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
         # Sending
@@ -242,7 +246,7 @@ class Writer(object):
         Set the dataframe emissions to a 4D numpy array in the way taht have to be written.
 
         :param dataframe: Dataframe with the FID, level and time step as index and pollutant as columns.
-        :type dataframe: pandas.DataFrame
+        :type dataframe: DataFrame
 
         :return: 4D array with the emissions to be written.
         :rtype: numpy.array
@@ -265,7 +269,7 @@ class Writer(object):
         Do all the process to write the emissions.
 
         :param emissions: Emissions to be written.
-        :type emissions: pandas.DataFrame
+        :type emissions: DataFrame
 
         :return: True if everything finish OK.
         :rtype: bool
@@ -285,7 +289,7 @@ class Writer(object):
         """
         Implemented on the inner classes
 
-        :rtype: pandas.DataFrame
+        :rtype: DataFrame
         """
         pass
 
@@ -305,7 +309,7 @@ class Writer(object):
         - Total emissions per pollutant, hour and layer
 
         :param emissions: Emissions
-        :type emissions: pandas.DataFrame
+        :type emissions: DataFrame
 
         :return: True if everything goes OK
         :rtype: bool
