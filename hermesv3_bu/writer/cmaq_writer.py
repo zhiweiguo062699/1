@@ -248,10 +248,10 @@ class CmaqWriter(Writer):
             global_attributes['P_GAM'] = np.float(self.grid.attributes['lon_0'])
             global_attributes['XCENT'] = np.float(self.grid.attributes['lon_0'])
             global_attributes['YCENT'] = np.float(self.grid.attributes['lat_0'])
-            global_attributes['XORIG'] = np.float(self.grid.attributes['x_0']) - \
-                                         np.float(self.grid.attributes['inc_x']) / 2
-            global_attributes['YORIG'] = np.float(self.grid.attributes['y_0']) - \
-                                         np.float(self.grid.attributes['inc_y']) / 2
+            global_attributes['XORIG'] = np.float(self.grid.attributes['x_0']) - np.float(
+                self.grid.attributes['inc_x']) / 2
+            global_attributes['YORIG'] = np.float(self.grid.attributes['y_0']) - np.float(
+                self.grid.attributes['inc_y']) / 2
             global_attributes['XCELL'] = np.float(self.grid.attributes['inc_x'])
             global_attributes['YCELL'] = np.float(self.grid.attributes['inc_y'])
 
