@@ -60,6 +60,10 @@ def select_writer(logger, arguments, grid, date_array):
         from hermesv3_bu.writer.default_writer import DefaultWriter
         writer = DefaultWriter(comm_world, comm_write, logger, arguments.output_name, grid, date_array, pollutant_info,
                                rank_distribution, arguments.emission_summary)
+    elif arguments.output_model == 'MONARCH':
+        from hermesv3_bu.writer.monarch_writer import MonarchWriter
+        writer = MonarchWriter(comm_world, comm_write, logger, arguments.output_name, grid, date_array, pollutant_info,
+                               rank_distribution, arguments.emission_summary)
     elif arguments.output_model == 'CMAQ':
         from hermesv3_bu.writer.cmaq_writer import CmaqWriter
         writer = CmaqWriter(comm_world, comm_write, logger, arguments.output_name, grid, date_array, pollutant_info,
@@ -70,7 +74,7 @@ def select_writer(logger, arguments, grid, date_array):
                                rank_distribution, arguments.output_attributes, arguments.emission_summary)
     else:
         raise TypeError("Unknown output model '{0}'. ".format(arguments.output_model) +
-                        "Only MONARCH, CMAQ, WRF_CHEM or DEFAULT are available")
+                        "Only MONARCH, CMAQ, WRF_CHEM or DEFAULT writers are available")
 
     logger.write_time_log('Writer', 'select_writer', timeit.default_timer() - spent_time)
     return writer
