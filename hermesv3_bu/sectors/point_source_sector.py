@@ -109,8 +109,8 @@ class PointSourceSector(Sector):
 
             catalog_df = self.to_geodataframe(catalog_df)
 
-            catalog_df = gpd.sjoin(catalog_df, self.clip.shapefile.to_crs({'init': 'epsg:4326'}), how='inner')
-            catalog_df.drop(columns=['index_right', 'FID'], inplace=True)
+            catalog_df = gpd.sjoin(catalog_df, self.clip.shapefile.to_crs(catalog_df.crs), how='inner')
+            catalog_df.drop(columns=['index_right'], inplace=True)
 
         else:
             catalog_df = None
@@ -734,10 +734,10 @@ class PointSourceSector(Sector):
         # Drops duplicates when the point source is on the boundary of the cell
         catalog = catalog[~catalog.index.duplicated(keep='first')]
 
-        try:
-            catalog.drop(['Code', 'index_right'], axis=1, inplace=True)
-        except ValueError:
-            pass
+        columns_to_drop = ['Code', 'index_right', 'index']
+        for del_col in columns_to_drop:
+            if del_col in catalog.columns.values:
+                catalog.drop(columns=[del_col], inplace=True)
 
         catalog = catalog.groupby(['FID', 'layer', 'tstep']).sum()
 
@@ -764,6 +764,7 @@ class PointSourceSector(Sector):
         emissions = pd.concat(emis_list)
 
         emissions = self.point_source_to_fid(emissions)
+
         self.logger.write_time_log('PointSourceSector', 'calculate_emissions', timeit.default_timer() - spent_time)
 
         return emissions

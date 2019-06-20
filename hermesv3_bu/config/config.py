@@ -245,7 +245,6 @@ class Config(ArgParser):
         p.add_argument('--livestock_monthly_profiles', required=False, help='...')
         p.add_argument('--livestock_weekly_profiles', required=False, help='...')
         p.add_argument('--livestock_hourly_profiles', required=False, help='...')
-        p.add_argument('--livestock_speciation_map', required=False, help='...')
         p.add_argument('--livestock_speciation_profiles', required=False, help='...')
 
         # ***** AGRICULTURAL SECTOR*****
