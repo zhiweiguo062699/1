@@ -207,6 +207,7 @@ class LivestockSector(Sector):
         :rtype: geopandas.GeoDataframe
         """
         spent_time = timeit.default_timer()
+        self.logger.write_log('\tCreating animal distribution', message_level=2)
         # Work for master MPI process
         if self.comm.Get_rank() == 0:
             animals_df = self.create_animals_shapefile(gridded_livestock_path)
@@ -262,9 +263,11 @@ class LivestockSector(Sector):
         :rtype: geopandas.GeoDataframe
         """
         spent_time = timeit.default_timer()
+        self.logger.write_log('\t\tCreating animal shapefile into source resolution', message_level=3)
         animal_distribution = None
         # For each one of the animals of the animal list
         for animal in self.animal_list:
+            self.logger.write_log('\t\t\t {0}'.format(animal), message_level=3)
             # Each one of the animal distributions will be stored separately
             animal_distribution_path = os.path.join(self.auxiliary_dir, 'livestock', 'animal_distribution', animal,
                                                     '{0}.shp'.format(animal))
@@ -310,6 +313,7 @@ class LivestockSector(Sector):
         :rtype: geopandas.GeoDataframe
         """
         spent_time = timeit.default_timer()
+        self.logger.write_log('\t\tCreating animal shapefile into destiny resolution', message_level=3)
         self.grid_shp.reset_index(inplace=True, drop=True)
         # Changing coordinates sistem to the grid one
         animal_distribution.to_crs(self.grid_shp.crs, inplace=True)

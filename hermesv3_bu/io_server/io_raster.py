@@ -27,7 +27,7 @@ class IoRaster(IoServer):
     def read_raster(self):
         pass
 
-    def clip_raster_with_shapefile(self, raster_path, shape_path, clipped_raster_path, rank=0):
+    def clip_raster_with_shapefile(self, raster_path, shape_path, clipped_raster_path):
         """
         Clip a raster using given shapefile path.
 
@@ -55,32 +55,30 @@ class IoRaster(IoServer):
             import json
             return [json.loads(gdf.to_json())['features'][0]['geometry']]
 
-        if self.comm.Get_rank() == rank:
-            data = rasterio.open(raster_path)
-            geo = gpd.read_file(shape_path)
-            if len(geo) > 1:
-                geo = gpd.GeoDataFrame(geometry=[geo.geometry.unary_union], crs=geo.crs)
-            geo = geo.to_crs(crs=data.crs.data)
-            coords = getFeatures(geo)
+        data = rasterio.open(raster_path)
+        geo = gpd.read_file(shape_path)
+        if len(geo) > 1:
+            geo = gpd.GeoDataFrame(geometry=[geo.geometry.unary_union], crs=geo.crs)
+        geo = geo.to_crs(crs=data.crs.data)
+        coords = getFeatures(geo)
 
-            out_img, out_transform = mask(data, shapes=coords, crop=True)
-            out_meta = data.meta.copy()
+        out_img, out_transform = mask(data, shapes=coords, crop=True)
+        out_meta = data.meta.copy()
 
-            out_meta.update({
-                "driver": "GTiff",
-                "height": out_img.shape[1],
-                "width": out_img.shape[2],
-                "transform": out_transform,
-                "crs": data.crs})
-            if not os.path.exists(os.path.dirname(clipped_raster_path)):
-                os.makedirs(os.path.dirname(clipped_raster_path))
-            dst = rasterio.open(clipped_raster_path, "w", **out_meta)
-            dst.write(out_img)
-        self.comm.Barrier()
+        out_meta.update({
+            "driver": "GTiff",
+            "height": out_img.shape[1],
+            "width": out_img.shape[2],
+            "transform": out_transform,
+            "crs": data.crs})
+        if not os.path.exists(os.path.dirname(clipped_raster_path)):
+            os.makedirs(os.path.dirname(clipped_raster_path))
+        dst = rasterio.open(clipped_raster_path, "w", **out_meta)
+        dst.write(out_img)
 
         return clipped_raster_path
 
-    def clip_raster_with_shapefile_poly(self, raster_path, geo, clipped_raster_path, rank=0, nodata=0):
+    def clip_raster_with_shapefile_poly(self, raster_path, geo, clipped_raster_path, nodata=0):
         """
         Clip a raster using given shapefile.
 
@@ -111,30 +109,28 @@ class IoRaster(IoServer):
             import json
             return [json.loads(gdf.to_json())['features'][0]['geometry']]
 
-        if self.comm.Get_rank() == rank:
-            data = rasterio.open(raster_path)
+        data = rasterio.open(raster_path)
 
-            if len(geo) > 1:
-                geo = gpd.GeoDataFrame(geometry=[geo.geometry.unary_union], crs=geo.crs)
-            geo = geo.to_crs(crs=data.crs.data)
-            coords = get_features(geo)
+        if len(geo) > 1:
+            geo = gpd.GeoDataFrame(geometry=[geo.geometry.unary_union], crs=geo.crs)
+        geo = geo.to_crs(crs=data.crs.data)
+        coords = get_features(geo)
 
-            out_img, out_transform = mask(data, shapes=coords, crop=True, all_touched=True, nodata=nodata)
-            out_meta = data.meta.copy()
+        out_img, out_transform = mask(data, shapes=coords, crop=True, all_touched=True, nodata=nodata)
+        out_meta = data.meta.copy()
 
-            out_meta.update(
-                {
-                    "driver": "GTiff",
-                    "height": out_img.shape[1],
-                    "width": out_img.shape[2],
-                    "transform": out_transform,
-                    "crs": data.crs
-                })
-            if not os.path.exists(os.path.dirname(clipped_raster_path)):
-                os.makedirs(os.path.dirname(clipped_raster_path))
-            dst = rasterio.open(clipped_raster_path, "w", **out_meta)
-            dst.write(out_img)
-        self.comm.Barrier()
+        out_meta.update(
+            {
+                "driver": "GTiff",
+                "height": out_img.shape[1],
+                "width": out_img.shape[2],
+                "transform": out_transform,
+                "crs": data.crs
+            })
+        if not os.path.exists(os.path.dirname(clipped_raster_path)):
+            os.makedirs(os.path.dirname(clipped_raster_path))
+        dst = rasterio.open(clipped_raster_path, "w", **out_meta)
+        dst.write(out_img)
 
         return clipped_raster_path
 
