@@ -27,30 +27,30 @@ def select_grid(comm, logger, arguments):
         if arguments.domain_type == 'regular':
             from hermesv3_bu.grids.grid_latlon import LatLonGrid
             grid = LatLonGrid(
-                logger, arguments.auxiliary_files_path, arguments.output_timestep_num, arguments.vertical_description,
-                arguments.inc_lat, arguments.inc_lon, arguments.lat_orig, arguments.lon_orig, arguments.n_lat,
-                arguments.n_lon)
+                comm, logger, arguments.auxiliary_files_path, arguments.output_timestep_num,
+                arguments.vertical_description, arguments.inc_lat, arguments.inc_lon, arguments.lat_orig,
+                arguments.lon_orig, arguments.n_lat, arguments.n_lon)
 
         elif arguments.domain_type == 'lcc':
             from hermesv3_bu.grids.grid_lcc import LccGrid
             grid = LccGrid(
-                logger, arguments.auxiliary_files_path, arguments.output_timestep_num, arguments.vertical_description,
-                arguments.lat_1, arguments.lat_2, arguments.lon_0, arguments.lat_0, arguments.nx, arguments.ny,
-                arguments.inc_x, arguments.inc_y, arguments.x_0, arguments.y_0)
+                comm, logger, arguments.auxiliary_files_path, arguments.output_timestep_num,
+                arguments.vertical_description, arguments.lat_1, arguments.lat_2, arguments.lon_0, arguments.lat_0,
+                arguments.nx, arguments.ny, arguments.inc_x, arguments.inc_y, arguments.x_0, arguments.y_0)
 
         elif arguments.domain_type == 'rotated':
             from hermesv3_bu.grids.grid_rotated import RotatedGrid
             grid = RotatedGrid(
-                logger, arguments.auxiliary_files_path, arguments.output_timestep_num, arguments.vertical_description,
-                arguments.centre_lat, arguments.centre_lon, arguments.west_boundary, arguments.south_boundary,
-                arguments.inc_rlat, arguments.inc_rlon)
+                comm, logger, arguments.auxiliary_files_path, arguments.output_timestep_num,
+                arguments.vertical_description, arguments.centre_lat, arguments.centre_lon, arguments.west_boundary,
+                arguments.south_boundary, arguments.inc_rlat, arguments.inc_rlon)
 
         elif arguments.domain_type == 'mercator':
             from hermesv3_bu.grids.grid_mercator import MercatorGrid
             grid = MercatorGrid(
-                logger, arguments.auxiliary_files_path, arguments.output_timestep_num, arguments.vertical_description,
-                arguments.lat_ts, arguments.lon_0, arguments.nx, arguments.ny, arguments.inc_x, arguments.inc_y,
-                arguments.x_0, arguments.y_0)
+                comm, logger, arguments.auxiliary_files_path, arguments.output_timestep_num,
+                arguments.vertical_description, arguments.lat_ts, arguments.lon_0, arguments.nx, arguments.ny,
+                arguments.inc_x, arguments.inc_y, arguments.x_0, arguments.y_0)
 
         else:
             raise NameError('Unknown grid type {0}'.format(arguments.domain_type))
@@ -64,7 +64,7 @@ def select_grid(comm, logger, arguments):
 
 class Grid(object):
 
-    def __init__(self, logger, attributes, auxiliary_path, vertical_description_path):
+    def __init__(self, comm, logger, attributes, auxiliary_path, vertical_description_path):
         """
         Initialise the Grid class
 
@@ -81,6 +81,7 @@ class Grid(object):
         :type vertical_description_path: str
         """
         spent_time = timeit.default_timer()
+        self.comm = comm
         self.logger = logger
         self.logger.write_log('\tGrid specifications: {0}'.format(attributes), 3)
         self.attributes = attributes
@@ -250,3 +251,14 @@ class Grid(object):
         self.logger.write_time_log('Grid', 'create_shapefile', timeit.default_timer() - spent_time, 2)
 
         return gdf
+
+    def add_cell_area(self):
+        from cdo import Cdo
+        # spent_time = timeit.default_timer()
+
+        # Initialises the CDO
+        cdo = Cdo()
+        cell_area = cdo.gridarea(input=self.netcdf_path, returnArray='cell_area')
+        self.shapefile['cell_area'] = cell_area.flatten()
+
+        # self.logger.write_time_log('Grid', 'add_cell_area', timeit.default_timer() - spent_time)

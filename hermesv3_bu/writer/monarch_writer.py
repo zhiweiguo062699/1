@@ -58,18 +58,23 @@ class MonarchWriter(Writer):
         spent_time = timeit.default_timer()
         logger.write_log('MONARCH writer selected.')
 
+        super(MonarchWriter, self).__init__(comm_world, comm_write, logger, netcdf_path, grid, date_array,
+                                            pollutant_info, rank_distribution, emission_summary)
+
         if self.grid.grid_type not in ['Rotated']:
             raise TypeError("ERROR: Only Rotated grid is implemented for MONARCH. " +
                             "The current grid type is '{0}'".format(self.grid.grid_type))
 
-        super(MonarchWriter, self).__init__(comm_world, comm_write, logger, netcdf_path, grid, date_array,
-                                            pollutant_info, rank_distribution, emission_summary)
+        for i, (pollutant, variable) in enumerate(self.pollutant_info.iterrows()):
+            if variable.get('units') not in ['mol.s-1.m-2', 'kg.s-1.m-2']:
+                raise ValueError("'{0}' unit is not supported for CMAQ emission ".format(variable.get('units')) +
+                                 "input file. Set mol.s-1.m-2 or kg.s-1.m-2 in the speciation_map file.")
 
         self.logger.write_time_log('MonarchWriter', '__init__', timeit.default_timer() - spent_time)
 
     def unit_change(self, emissions):
         """
-        No unit changes.
+        From mol/h or g/h to mol/km.s or g/km.s
 
         :param emissions: Emissions on dataframe.
         :type emissions: DataFrame
@@ -79,6 +84,21 @@ class MonarchWriter(Writer):
         """
         spent_time = timeit.default_timer()
 
+        if self.comm_write.Get_rank() == 0:
+            self.grid.add_cell_area()
+            cell_area = self.grid.shapefile[['FID', 'cell_area']]
+            cell_area.set_index('FID', inplace=True)
+        else:
+            cell_area = None
+        cell_area = self.comm_write.bcast(cell_area, root=0)
+
+        # From mol/h g/h to mol/m2.s g/m2.s
+        emissions = emissions.divide(cell_area['cell_area'].mul(3600), axis=0, level='FID')
+
+        for pollutant, info in self.pollutant_info.iterrows():
+            if info.get('units') == "kg.s-1.m-2":
+                # From g.s-1.m-2 to kg.s-1.m-2
+                emissions[[pollutant]] = emissions[[pollutant]].div(10**3)
         self.logger.write_time_log('MonarchWriter', '__init__', timeit.default_timer() - spent_time)
 
         return emissions

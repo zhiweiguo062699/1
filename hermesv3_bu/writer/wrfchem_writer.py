@@ -101,8 +101,25 @@ class WrfChemWriter(Writer):
         """
         spent_time = timeit.default_timer()
 
-        # From mol/h g/h to mol/s g/s
-        emissions = emissions / 3600.0
+        if self.comm_write.Get_rank() == 0:
+            self.grid.add_cell_area()
+
+            cell_area = self.grid.shapefile[['FID', 'cell_area']]
+            cell_area.set_index('FID', inplace=True)
+        else:
+            cell_area = None
+        cell_area = self.comm_write.bcast(cell_area, root=0)
+
+        # From mol/h or g/h to mol/m2.h or g/m2.h
+        emissions = emissions.divide(cell_area['cell_area'], axis=0, level='FID')
+
+        for pollutant, info in self.pollutant_info.iterrows():
+            if info.get('units') == "ug/m3 m/s":
+                # From g/m2.h to ug/m2.s
+                emissions[[pollutant]] = emissions[[pollutant]].mul(10**6 / 3600)
+            elif info.get('units') == "mol km^-2 hr^-1":
+                # From mol/m2.h to mol/km2.h
+                emissions[[pollutant]] = emissions[[pollutant]].mul(10**6)
 
         self.logger.write_time_log('WrfChemWriter', 'unit_change', timeit.default_timer() - spent_time)
         return emissions
@@ -116,7 +133,8 @@ class WrfChemWriter(Writer):
         """
         spent_time = timeit.default_timer()
 
-        new_pollutant_info = pd.DataFrame(columns=['pollutant', 'units', 'var_desc', 'long_name'])
+        new_pollutant_info = pd.DataFrame(columns=['pollutant', 'units', 'FieldType', 'MemoryOrder', 'description',
+                                                   'stagger', 'coordinates'])
 
         for i, (pollutant, variable) in enumerate(self.pollutant_info.iterrows()):
             if variable.get('units') not in ['mol.h-1.km-2', "mol km^-2 hr^-1", 'ug.s-1.m-2', "ug/m3 m/s"]:
