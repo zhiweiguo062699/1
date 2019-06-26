@@ -100,7 +100,7 @@ class Log(object):
         self.comm.Barrier()
         return True
 
-    def write_time_log(self, class_name, function_name, time, message_level=1):
+    def write_time_log(self, class_name, function_name, spent_time, message_level=1):
         """
         Add times to be written. Master process will write that log every times_log_refresh received messages.
 
@@ -110,8 +110,8 @@ class Log(object):
         :param function_name: Name of the function.
         :type function_name: str
 
-        :param time: Time spent in the function.
-        :type time: float
+        :param spent_time: Time spent in the function.
+        :type spent_time: float
 
         :param message_level: Importance of the message. From 1 (bottom) to 3 (top). Default 1
         :type message_level: int
@@ -121,7 +121,7 @@ class Log(object):
         """
         if message_level <= self.log_level:
             self.df_times = self.df_times.append(
-                {'Class': class_name, 'Function': function_name, self.comm.Get_rank(): time}, ignore_index=True)
+                {'Class': class_name, 'Function': function_name, self.comm.Get_rank(): spent_time}, ignore_index=True)
             # if self.time_log_refresh > 0:
             #     self.time_log_refresh -= 1
             # if self.time_log_refresh == 0:

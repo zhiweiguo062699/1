@@ -52,13 +52,7 @@ class Clip(object):
     def __init__(self, logger, auxiliary_path):
         spent_time = timeit.default_timer()
         self.logger = logger
-        self.clip_type = None
         self.shapefile = None
         self.shapefile_path = os.path.join(auxiliary_path, 'clip', 'clip.shp')
 
         self.logger.write_time_log('Clip', '__init__', timeit.default_timer() - spent_time)
-
-    def __str__(self):
-        text = "I'm a {0}. \n\tShapefile path: {1}\n\tClip polygon: {2}".format(
-            self.clip_type, self.shapefile_path, self.shapefile.loc[0, 'geometry'])
-        return text
