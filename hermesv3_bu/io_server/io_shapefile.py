@@ -36,13 +36,13 @@ class IoShapefile(IoServer):
 
         return True
 
-    def read_serial_shapefile(self, path):
+    def read_shapefile_serial(self, path):
 
         gdf = gpd.read_file(path)
 
         return gdf
 
-    def write_parallel_shapefile(self, data, path, rank):
+    def write_shapefile_parallel(self, data, path, rank):
         """
 
         :param data: GeoDataset to be written
@@ -75,9 +75,9 @@ class IoShapefile(IoServer):
 
         return gdf
 
-    def read_parallel_shapefile(self, path):
+    def read_shapefile_parallel(self, path):
         if self.comm.Get_rank() == 0:
-            data = self.read_serial_shapefile(path)
+            data = self.read_shapefile_serial(path)
         else:
             data = None
 

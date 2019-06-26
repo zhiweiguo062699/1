@@ -365,7 +365,7 @@ class LivestockSector(Sector):
             dataframe = self.animals_shapefile_to_dst_resolution(dataframe)
             IoShapefile(self.comm).write_shapefile(dataframe, animal_distribution_path)
         else:
-            dataframe = IoShapefile(self.comm).read_serial_shapefile(animal_distribution_path)
+            dataframe = IoShapefile(self.comm).read_shapefile_serial(animal_distribution_path)
         self.logger.write_time_log('LivestockSector', 'create_animals_shapefile', timeit.default_timer() - spent_time)
 
         return dataframe
@@ -459,7 +459,7 @@ class LivestockSector(Sector):
             dataframe = self.add_timezone(dataframe)
             IoShapefile(self.comm).write_shapefile(dataframe, animal_distribution_path)
         else:
-            dataframe = IoShapefile(self.comm).read_serial_shapefile(animal_distribution_path)
+            dataframe = IoShapefile(self.comm).read_shapefile_serial(animal_distribution_path)
         self.logger.write_time_log('LivestockSector', 'animal_distribution_by_category',
                                    timeit.default_timer() - spent_time)
 

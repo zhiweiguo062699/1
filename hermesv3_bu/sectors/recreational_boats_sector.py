@@ -57,7 +57,7 @@ class RecreationalBoatsSector(Sector):
 
                 IoShapefile(self.comm).write_shapefile(src_density_map, density_map_auxpath)
             else:
-                src_density_map = IoShapefile(self.comm).read_serial_shapefile(density_map_auxpath)
+                src_density_map = IoShapefile(self.comm).read_shapefile_serial(density_map_auxpath)
         else:
             src_density_map = None
         src_density_map = IoShapefile(self.comm).split_shapefile(src_density_map)

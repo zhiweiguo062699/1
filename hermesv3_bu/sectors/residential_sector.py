@@ -242,7 +242,7 @@ class ResidentialSector(Sector):
 
             IoShapefile(self.comm).write_shapefile(fuel_distribution, fuel_distribution_path)
         else:
-            fuel_distribution = IoShapefile(self.comm).read_serial_shapefile(fuel_distribution_path)
+            fuel_distribution = IoShapefile(self.comm).read_shapefile_serial(fuel_distribution_path)
 
         self.logger.write_time_log('ResidentialSector', 'get_fuel_distribution', timeit.default_timer() - spent_time)
         return fuel_distribution

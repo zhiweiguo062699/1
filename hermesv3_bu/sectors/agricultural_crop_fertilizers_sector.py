@@ -174,7 +174,7 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
 
             IoShapefile(self.comm).write_shapefile(gridded_ph_cec.reset_index(), gridded_ph_cec_path)
         else:
-            gridded_ph_cec = IoShapefile(self.comm).read_serial_shapefile(gridded_ph_cec_path)
+            gridded_ph_cec = IoShapefile(self.comm).read_shapefile_serial(gridded_ph_cec_path)
             gridded_ph_cec.set_index('FID', inplace=True)
         self.logger.write_time_log('AgriculturalCropFertilizersSector', 'get_gridded_constants',
                                    timeit.default_timer() - spent_time)

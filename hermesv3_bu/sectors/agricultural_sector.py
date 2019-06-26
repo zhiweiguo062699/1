@@ -432,12 +432,12 @@ class AgriculturalSector(Sector):
             self.comm_agr.Barrier()
             if self.comm.Get_rank() == 0 and self.comm_agr.Get_rank() != 0:
                 # Every master rank read the created crop distribution shapefile.
-                crop_distribution_dst = IoShapefile(self.comm).read_serial_shapefile(file_path)
+                crop_distribution_dst = IoShapefile(self.comm).read_shapefile_serial(file_path)
             self.comm.Barrier()
 
             crop_distribution_dst = IoShapefile(self.comm).split_shapefile(crop_distribution_dst)
         else:
-            crop_distribution_dst = IoShapefile(self.comm).read_parallel_shapefile(file_path)
+            crop_distribution_dst = IoShapefile(self.comm).read_shapefile_parallel(file_path)
         crop_distribution_dst.set_index('FID', inplace=True, drop=True)
         # Filtering crops by used on the subsector (operations, fertilizers, machinery)
         crop_distribution_dst = crop_distribution_dst.loc[:, self.crop_list + ['timezone', 'geometry']]
