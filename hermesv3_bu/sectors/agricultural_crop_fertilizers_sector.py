@@ -172,7 +172,7 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
             # Selecting only PH and CEC cells that have also some crop.
             gridded_ph_cec = gridded_ph_cec.loc[self.crop_distribution.index, :]
 
-            IoShapefile(self.comm).write_shapefile(gridded_ph_cec.reset_index(), gridded_ph_cec_path)
+            IoShapefile(self.comm).write_shapefile_serial(gridded_ph_cec.reset_index(), gridded_ph_cec_path)
         else:
             gridded_ph_cec = IoShapefile(self.comm).read_shapefile_serial(gridded_ph_cec_path)
             gridded_ph_cec.set_index('FID', inplace=True)

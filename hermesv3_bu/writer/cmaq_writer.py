@@ -129,8 +129,6 @@ class CmaqWriter(Writer):
         """
         Create the content of the CMAQ variable TFLAG
 
-
-
         :return: Array with the content of TFLAG
         :rtype: numpy.array
         """

@@ -363,7 +363,7 @@ class LivestockSector(Sector):
         if not os.path.exists(animal_distribution_path):
             dataframe = self.create_animals_shapefile_src_resolution(gridded_livestock_path)
             dataframe = self.animals_shapefile_to_dst_resolution(dataframe)
-            IoShapefile(self.comm).write_shapefile(dataframe, animal_distribution_path)
+            IoShapefile(self.comm).write_shapefile_serial(dataframe, animal_distribution_path)
         else:
             dataframe = IoShapefile(self.comm).read_shapefile_serial(animal_distribution_path)
         self.logger.write_time_log('LivestockSector', 'create_animals_shapefile', timeit.default_timer() - spent_time)
@@ -457,7 +457,7 @@ class LivestockSector(Sector):
                 dataframe.drop(columns=[animal], inplace=True)
 
             dataframe = self.add_timezone(dataframe)
-            IoShapefile(self.comm).write_shapefile(dataframe, animal_distribution_path)
+            IoShapefile(self.comm).write_shapefile_serial(dataframe, animal_distribution_path)
         else:
             dataframe = IoShapefile(self.comm).read_shapefile_serial(animal_distribution_path)
         self.logger.write_time_log('LivestockSector', 'animal_distribution_by_category',

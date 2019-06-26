@@ -240,7 +240,7 @@ class ResidentialSector(Sector):
                                 energy_consumption / total_pop)
             fuel_distribution = self.to_dst_resolution(fuel_distribution)
 
-            IoShapefile(self.comm).write_shapefile(fuel_distribution, fuel_distribution_path)
+            IoShapefile(self.comm).write_shapefile_serial(fuel_distribution, fuel_distribution_path)
         else:
             fuel_distribution = IoShapefile(self.comm).read_shapefile_serial(fuel_distribution_path)
 

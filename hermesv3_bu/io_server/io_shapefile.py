@@ -19,7 +19,7 @@ class IoShapefile(IoServer):
 
         super(IoShapefile, self).__init__(comm)
 
-    def write_shapefile(self, data, path):
+    def write_shapefile_serial(self, data, path):
         """
 
         :param data: GeoDataset to be written
@@ -36,13 +36,7 @@ class IoShapefile(IoServer):
 
         return True
 
-    def read_shapefile_serial(self, path):
-
-        gdf = gpd.read_file(path)
-
-        return gdf
-
-    def write_shapefile_parallel(self, data, path, rank):
+    def write_shapefile_parallel(self, data, path, rank=0):
         """
 
         :param data: GeoDataset to be written
@@ -54,7 +48,7 @@ class IoShapefile(IoServer):
         :rtype: bool
         """
         data = self.comm.gather(data, root=rank)
-        if self.comm.Get_rank() == 0:
+        if self.comm.Get_rank() == rank:
             if not os.path.exists(os.path.dirname(path)):
                 os.makedirs(os.path.dirname(path))
             data = pd.concat(data)
@@ -64,49 +58,55 @@ class IoShapefile(IoServer):
 
         return True
 
-    def read_shapefile(self, path):
-        if self.comm.Get_rank() == 0:
+    def read_shapefile_serial(self, path):
+
+        gdf = gpd.read_file(path)
+
+        return gdf
+
+    def read_shapefile(self, path, rank=0):
+        if self.comm.Get_rank() == rank:
             gdf = gpd.read_file(path)
             gdf = np.array_split(gdf, self.comm.Get_size())
         else:
             gdf = None
 
-        gdf = self.comm.scatter(gdf, root=0)
+        gdf = self.comm.scatter(gdf, root=rank)
 
         return gdf
 
-    def read_shapefile_parallel(self, path):
-        if self.comm.Get_rank() == 0:
+    def read_shapefile_parallel(self, path, rank=0):
+        if self.comm.Get_rank() == rank:
             data = self.read_shapefile_serial(path)
         else:
             data = None
 
-        data = self.split_shapefile(data)
+        data = self.split_shapefile(data, rank)
 
         return data
 
-    def split_shapefile(self, data):
+    def split_shapefile(self, data, rank=0):
 
         if self.comm.Get_size() == 1:
             data = data
         else:
-            if self.comm.Get_rank() == 0:
+            if self.comm.Get_rank() == rank:
                 data = np.array_split(data, self.comm.Get_size())
             else:
                 data = None
-            data = self.comm.scatter(data, root=0)
+            data = self.comm.scatter(data, root=rank)
 
         return data
 
-    def balance(self, data):
+    def balance(self, data, rank=0):
 
-        data = self.comm.gather(data, root=0)
-        if self.comm.Get_rank() == 0:
+        data = self.comm.gather(data, root=rank)
+        if self.comm.Get_rank() == rank:
             data = pd.concat(data)
             data = np.array_split(data, self.comm.Get_size())
         else:
             data = None
 
-        data = self.comm.scatter(data, root=0)
+        data = self.comm.scatter(data, root=rank)
 
         return data

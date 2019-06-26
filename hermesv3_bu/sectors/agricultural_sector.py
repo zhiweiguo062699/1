@@ -424,7 +424,7 @@ class AgriculturalSector(Sector):
                 crop_distribution_dst = self.get_crop_distribution_in_dst_cells(crop_distribution_src)
 
                 crop_distribution_dst = self.add_timezone(crop_distribution_dst)
-                IoShapefile(self.comm).write_shapefile(crop_distribution_dst, file_path)
+                IoShapefile(self.comm).write_shapefile_serial(crop_distribution_dst, file_path)
             else:
                 self.logger.write_log('Waiting for the master process that creates the crop distribution shapefile.',
                                       message_level=2)

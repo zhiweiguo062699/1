@@ -55,7 +55,7 @@ class RecreationalBoatsSector(Sector):
                                                    geometry=self.grid_shp.loc[src_density_map.index, 'geometry'])
                 src_density_map.reset_index(inplace=True)
 
-                IoShapefile(self.comm).write_shapefile(src_density_map, density_map_auxpath)
+                IoShapefile(self.comm).write_shapefile_serial(src_density_map, density_map_auxpath)
             else:
                 src_density_map = IoShapefile(self.comm).read_shapefile_serial(density_map_auxpath)
         else:
