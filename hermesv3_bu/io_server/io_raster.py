@@ -21,12 +21,6 @@ class IoRaster(IoServer):
             comm = MPI.COMM_WORLD
         super(IoRaster, self).__init__(comm)
 
-    def write_raster(self):
-        pass
-
-    def read_raster(self):
-        pass
-
     def clip_raster_with_shapefile(self, raster_path, shape_path, clipped_raster_path):
         """
         Clip a raster using given shapefile path.
@@ -307,68 +301,5 @@ class IoRaster(IoServer):
             if not os.path.exists(os.path.dirname(out_path)):
                 os.makedirs(os.path.dirname(out_path))
             gdf.to_file(out_path)
-
-        return gdf
-
-    def value_to_shapefile(self, raster_path, value, out_path=None, crs=None, rank=0):
-        from hermesv3_bu.grids.grid import Grid
-        from shapely.geometry import Polygon
-
-        if self.comm.Get_rank() == rank:
-            ds = rasterio.open(raster_path)
-            data = ds.read(1).flatten()
-
-            grid_info = ds.transform
-
-            lons = np.arange(ds.width) * grid_info[1] + grid_info[0]
-            lats = np.arange(ds.height) * grid_info[5] + grid_info[3]
-
-            # 1D to 2D
-            c_lats = np.array([lats] * len(lons)).T.flatten()
-            c_lons = np.array([lons] * len(lats)).flatten()
-            del lons, lats
-
-            b_lons = Grid.create_bounds(c_lons, grid_info[1], number_vertices=4) + grid_info[1]/2
-            b_lats = Grid.create_bounds(c_lats, grid_info[1], number_vertices=4, inverse=True) + grid_info[5]/2
-
-            df_lats = pd.DataFrame(b_lats[0], columns=['b_lat_1', 'b_lat_2', 'b_lat_3', 'b_lat_4'])
-            df_lons = pd.DataFrame(b_lons[0], columns=['b_lon_1', 'b_lon_2', 'b_lon_3', 'b_lon_4'])
-            df = pd.concat([df_lats, df_lons], axis=1)
-            del df_lats, df_lons, b_lats, b_lons
-
-            index = np.where(data == value)[0]
-            data = data[index]
-
-            df = df[~df.index.isin(index)]
-
-            df['p1'] = zip(df.b_lon_1, df.b_lat_1)
-            del df['b_lat_1'], df['b_lon_1']
-            df['p2'] = zip(df.b_lon_2, df.b_lat_2)
-            del df['b_lat_2'], df['b_lon_2']
-            df['p3'] = zip(df.b_lon_3, df.b_lat_3)
-            del df['b_lat_3'], df['b_lon_3']
-            df['p4'] = zip(df.b_lon_4, df.b_lat_4)
-            del df['b_lat_4'], df['b_lon_4']
-
-            list_points = df.as_matrix()
-            del df['p1'], df['p2'], df['p3'], df['p4']
-
-            gdf = gpd.GeoDataFrame(data, columns=['data'], crs=ds.crs,
-                                   geometry=[Polygon(list(points)) for points in list_points])
-            gdf.loc[:, 'CELL_ID'] = index
-
-            gdf = gdf[gdf['data'] > 0]
-            if crs is not None:
-                gdf = gdf.to_crs(crs)
-
-            if out_path is not None:
-                if not os.path.exists(os.path.dirname(out_path)):
-                    os.makedirs(os.path.dirname(out_path))
-                gdf.to_file(out_path)
-            # gdf = np.array_split(gdf, self.size)
-        else:
-            gdf = None
-
-        gdf = self.comm.bcast(gdf, root=0)
 
         return gdf
