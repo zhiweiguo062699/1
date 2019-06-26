@@ -32,6 +32,9 @@ class TrafficAreaSector(Sector):
         if do_evaporative:
             self.evaporative = self.init_evaporative(population_tiff_path, nuts_shapefile, gasoline_path,
                                                      total_pop_by_prov)
+        else:
+            self.evaporative = None
+
         self.do_small_cities = do_small_cities
         self.speciation_profiles_small_cities = self.read_speciation_profiles(speciation_profiles_small_cities)
         self.small_cities_ef_file = small_cities_ef_file
@@ -40,6 +43,8 @@ class TrafficAreaSector(Sector):
         self.small_cities_hourly_profile = self.read_hourly_profiles(small_cities_hourly_profile)
         if do_small_cities:
             self.small_cities = self.init_small_cities(population_tiff_path, small_cities_shp)
+        else:
+            self.small_cities = None
 
         self.logger.write_time_log('TrafficAreaSector', '__init__', timeit.default_timer() - spent_time)
 
