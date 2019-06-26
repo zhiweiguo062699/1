@@ -603,7 +603,6 @@ class TrafficSector(Sector):
         return df['speed'] * df['speed_mean']
 
     def calculate_temporal_factor(self, df):
-        import calendar
         spent_time = timeit.default_timer()
 
         def get_hourly_id_from_weekday(weekday):

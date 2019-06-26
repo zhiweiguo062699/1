@@ -182,7 +182,7 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
 
         return dataframe_by_day
 
-    def calculate_hourly_emissions(self, ):
+    def calculate_hourly_emissions(self):
         spent_time = timeit.default_timer()
 
         def get_wf(df):

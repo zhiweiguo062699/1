@@ -31,7 +31,6 @@ class ResidentialSector(Sector):
 
         # Heating Degree Day constants
         self.hdd_base_temperature = 15.5
-        self.hdd_base_temperature = 15.5
         self.hdd_f_biomass = 0.0
         self.hdd_f_others = 0.2
 
