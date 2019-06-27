@@ -278,9 +278,9 @@ class LivestockSector(Sector):
                     os.path.join(self.auxiliary_dir, 'livestock', 'animal_distribution', animal,
                                  '{0}_clip.tiff'.format(animal)))
 
-                animal_df = IoRaster(self.comm).to_shapefile(clipped_raster_path, animal_distribution_path, write=True)
+                animal_df = IoRaster(self.comm).to_shapefile_serie(clipped_raster_path, animal_distribution_path, write=True)
             else:
-                animal_df = IoShapefile(self.comm).read_shapefile(animal_distribution_path)
+                animal_df = IoShapefile(self.comm).read_shapefile_serial(animal_distribution_path)
 
             animal_df.rename(columns={'data': animal}, inplace=True)
             animal_df.set_index('CELL_ID', inplace=True)

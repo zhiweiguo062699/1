@@ -12,7 +12,7 @@ with open("README.md", "r") as f:
     long_description = f.read()
 
 setup(
-    name='hermesv3_gr',
+    name='hermesv3_bu',
     # license='',
     # platforms=['GNU/Linux Debian'],
     version=version,
@@ -24,7 +24,6 @@ setup(
     url='https://earth.bsc.es/gitlab/es/hermesv3_bu',
 
     keywords=['emissions', 'cmaq', 'monarch', 'wrf-chem', 'atmospheric composition', 'air quality', 'earth science'],
-    # setup_requires=['pyproj'],
     install_requires=[
         'numpy',
         'netCDF4>=1.3.1',
