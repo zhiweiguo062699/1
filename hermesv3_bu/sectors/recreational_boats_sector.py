@@ -98,6 +98,7 @@ class RecreationalBoatsSector(Sector):
 
         data = pd.read_csv(self.boats_data_path, usecols=['code', 'number', 'nominal_power', 'Ann_hours', 'LF'])
         data['AF'] = data['number'] * data['Ann_hours'] * data['nominal_power'] * data['LF']
+        # Emission Factor in g/kWh
         ef_dataframe = pd.read_csv(self.ef_file_path)
         dataframe = pd.merge(data.loc[:, ['code', 'AF']], ef_dataframe, on='code')
         for in_p in self.source_pollutants:

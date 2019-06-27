@@ -92,6 +92,7 @@ class PointSourceSector(Sector):
                            "Lat": np.float64, "Height": np.float64, "AF": np.float64,
                            "P_month": np.str, "P_week": np.str, "P_hour": np.str, "P_spec": np.str}
             for pollutant in self.source_pollutants:
+                # EF in Kg / Activity factor
                 columns['EF_{0}'.format(pollutant)] = np.float64
 
             catalog_df = pd.read_csv(catalog_path, usecols=columns.keys(), dtype=columns)
@@ -764,6 +765,8 @@ class PointSourceSector(Sector):
         emissions = pd.concat(emis_list)
 
         emissions = self.point_source_to_fid(emissions)
+        # From kmol/h or kg/h to mol/h or g/h
+        emissions = emissions.mul(1000.0)
 
         self.logger.write_time_log('PointSourceSector', 'calculate_emissions', timeit.default_timer() - spent_time)
 

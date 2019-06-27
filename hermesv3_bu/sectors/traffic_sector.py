@@ -1204,17 +1204,6 @@ class TrafficSector(Sector):
             df_aux.drop(columns=['Code'], inplace=True)
 
             df_aux.loc[:, out_p] = df_aux['pm10'] - df_aux['pm25']
-            # from g/km.h to g/km.s
-            # df_aux.loc[:, out_p] = df_aux.loc[:, out_p] / 3600
-            # if self.output_type == 'R-LINE':
-            #     # from g/km.h to g/m.s
-            #     df_aux.loc[:, out_p] = df_aux.loc[:, out_p] / (1000 * 3600)
-            # elif self.output_type == 'CMAQ':
-            #     # from g/km.h to mol/km.s
-            #     df_aux.loc[:, out_p] = df_aux.loc[:, out_p] / 3600
-            # elif self.output_type == 'MONARCH':
-            #     # from g/km.h to Kg/km.s
-            #     df_aux.loc[:, out_p] = df_aux.loc[:, out_p] / (1000 * 3600)
 
             df_out_list.append(df_aux.loc[:, [out_p] + ['tstep', 'Link_ID']].groupby(['tstep', 'Link_ID']).sum())
             del df_aux[out_p]
@@ -1247,19 +1236,6 @@ class TrafficSector(Sector):
                         # from g/km.h to mol/km.h or g/km.h (aerosols)
                         df_aux.loc[:, p] = df_aux.loc[:, p] / mol_w
 
-                        # if self.output_type == 'R-LINE':
-                        #     # from g/km.h to g/m.s
-                        #     df_aux.loc[:, p] = df_aux.loc[:, p] / (1000 * 3600)
-                        # elif self.output_type == 'CMAQ':
-                        #     # from g/km.h to mol/km.s or g/km.s (aerosols)
-                        #     df_aux.loc[:, p] = df_aux.loc[:, p] / (3600 * mol_w)
-                        # elif self.output_type == 'MONARCH':
-                        #     if p.lower() in aerosols:
-                        #         # from g/km.h to kg/km.s
-                        #         df_aux.loc[:, p] = df_aux.loc[:, p] / (1000 * 3600 * mol_w)
-                        #     else:
-                        #         # from g/km.h to mol/km.s
-                        #         df_aux.loc[:, p] = df_aux.loc[:, p] / (3600 * mol_w)
                     else:
                         df_aux.loc[:, p] = 0
 
@@ -1332,6 +1308,7 @@ class TrafficSector(Sector):
                 if not aux.is_empty:
                     link_id_list.append(line.get('Link_ID'))
                     fid_list.append(line.get('FID'))
+                    # Length of road links from m to km
                     length_list.append(aux.length / 1000)
 
             link_grid = pd.DataFrame({'Link_ID': link_id_list, 'FID': fid_list, 'length': length_list})
@@ -1357,48 +1334,7 @@ class TrafficSector(Sector):
         link_grid.drop(columns=['Link_ID'], inplace=True)
         link_grid['layer'] = 0
         link_grid = link_grid.groupby(['FID', 'layer', 'tstep']).sum()
-        # link_grid.reset_index(inplace=True)
-        #
-        # link_grid_list = self.comm.gather(link_grid, root=0)
-        # if self.comm.Get_rank() == 0:
-        #     link_grid = pd.concat(link_grid_list)
-        #     link_grid = link_grid.groupby(['tstep', 'FID']).sum()
-        #     # link_grid.sort_index(inplace=True)
-        #     link_grid.reset_index(inplace=True)
-        #
-        #     emission_list = []
-        #     out_poll_names = list(link_grid.columns.values)
-        #     out_poll_names.remove('tstep')
-        #     out_poll_names.remove('FID')
-        #
-        #     for p in out_poll_names:
-        #         data = np.zeros((self.timestep_num, len(grid_shape)))
-        #         for tstep in xrange(self.timestep_num):
-        #             data[tstep, link_grid.loc[link_grid['tstep'] == tstep, 'FID']] = \
-        #                 link_grid.loc[link_grid['tstep'] == tstep, p]
-        #
-        #         dict_aux = {
-        #             'name': p,
-        #             'units': None,
-        #             'data': data
-        #         }
-        #
-        #         if self.output_type == 'R-LINE':
-        #             # from g/km.h to g/m.s
-        #             pass
-        #         elif self.output_type == 'CMAQ':
-        #             # from g/km.h to mol/km.s
-        #             if p.lower() in aerosols:
-        #                 dict_aux['units'] = '0.001 kg.s-1'
-        #             else:
-        #                 dict_aux['units'] = 'kat'
-        #         elif self.output_type == 'MONARCH':
-        #             if p.lower() in aerosols:
-        #                 dict_aux['units'] = 'kg.s-1'
-        #             else:
-        #                 dict_aux['units'] = 'kat'
-        #         emission_list.append(dict_aux)
-        #
+
         self.logger.write_time_log('TrafficSector', 'links_to_grid', timeit.default_timer() - spent_time)
 
         return link_grid
@@ -1410,6 +1346,7 @@ class TrafficSector(Sector):
         emissions.drop(columns=['geometry'], inplace=True)
         for poll in emissions.columns.values:
             mol_w = self.molecular_weights[self.speciation_map[poll]]
+            # From g/km.h to g/m.s
             emissions.loc[:, poll] = emissions.loc[:, poll] * mol_w / (1000 * 3600)
 
         emissions.reset_index(inplace=True)

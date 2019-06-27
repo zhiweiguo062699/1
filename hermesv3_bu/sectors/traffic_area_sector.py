@@ -494,8 +494,7 @@ class TrafficAreaSector(Sector):
             for i, aux in small_cities.groupby(['month', 'weekday', 'hour', 'day_type']):
                 small_cities.loc[aux.index, 'f'] = self.small_cities_monthly_profile.loc['default', i[0]] * \
                                                    self.small_cities_weekly_profile.loc['default', i[1]] * \
-                                                   self.small_cities_hourly_profile.loc[i[3], i[2]] * \
-                                                   1 / 3600
+                                                   self.small_cities_hourly_profile.loc[i[3], i[2]]
 
             aux_df = small_cities.loc[:, p_names].multiply(small_cities['f'], axis=0)
             aux_df['tstep'] = tstep
@@ -518,6 +517,8 @@ class TrafficAreaSector(Sector):
         # Spectiacion
         self.speciation_profile = self.speciation_profiles_small_cities
         self.small_cities = self.speciate(self.small_cities)
+        # From kmol/h or kg/h to mol/h or g/h
+        self.small_cities = self.small_cities.mul(1000.0)
 
         # Temporal
         # grid = self.add_timezones(gpd.read_file(os.path.join(self.auxiliary_dir, 'shapefile', 'grid_shapefile.shp')),
