@@ -223,16 +223,13 @@ class AgriculturalSector(Sector):
 
         :return:
         """
-        print land_use_distribution_src_nut
-        print land_uses
         spent_time = timeit.default_timer()
-        land_use_distribution_src_nut['area'] = land_use_distribution_src_nut.area
 
+        land_use_distribution_src_nut['area'] = land_use_distribution_src_nut.area
         land_use_by_nut = land_use_distribution_src_nut.groupby(['NUT', 'land_use']).sum().reset_index()
         land_use_by_nut = land_use_by_nut.loc[land_use_by_nut['land_use'].isin(land_uses), :]
+
         self.logger.write_time_log('AgriculturalSector', 'get_land_use_by_nut_csv', timeit.default_timer() - spent_time)
-        print land_use_by_nut
-        exit()
         return land_use_by_nut
 
     def land_use_to_crop_by_nut(self, land_use_by_nut, nuts=None):
