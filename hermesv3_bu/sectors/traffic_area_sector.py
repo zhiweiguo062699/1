@@ -7,6 +7,7 @@ import geopandas as gpd
 import pandas as pd
 import numpy as np
 from hermesv3_bu.sectors.sector import Sector
+from hermesv3_bu.io_server.io_shapefile import IoShapefile
 
 pmc_list = ['pmc', 'PMC']
 
@@ -51,37 +52,47 @@ class TrafficAreaSector(Sector):
     def init_evaporative(self, global_path, provinces_shapefile, gasoline_path, total_pop_by_prov):
         spent_time = timeit.default_timer()
 
-        if not os.path.exists(os.path.join(self.auxiliary_dir, 'traffic_area', 'vehicle_by_cell.shp')):
-            pop = self.get_clipped_population(
-                global_path, os.path.join(self.auxiliary_dir, 'traffic_area', 'population.shp'))
-            pop = self.make_population_by_nuts(
-                pop, provinces_shapefile, os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_NUT.shp'),
-                write_file=False)
-            pop = self.make_population_by_nuts_cell(
-                pop,  os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_NUT_cell.shp'))
+        if self.comm.Get_rank() == 0:
+            if not os.path.exists(os.path.join(self.auxiliary_dir, 'traffic_area', 'vehicle_by_cell.shp')):
+                pop = self.get_clipped_population(
+                    global_path, os.path.join(self.auxiliary_dir, 'traffic_area', 'population.shp'))
+                pop = self.make_population_by_nuts(
+                    pop, provinces_shapefile, os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_NUT.shp'),
+                    write_file=False)
+                pop = self.make_population_by_nuts_cell(
+                    pop,  os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_NUT_cell.shp'))
 
-            veh_cell = self.make_vehicles_by_cell(
-                pop, gasoline_path, pd.read_csv(total_pop_by_prov),
-                os.path.join(self.auxiliary_dir, 'traffic_area', 'vehicle_by_cell.shp'))
+                veh_cell = self.make_vehicles_by_cell(
+                    pop, gasoline_path, pd.read_csv(total_pop_by_prov),
+                    os.path.join(self.auxiliary_dir, 'traffic_area', 'vehicle_by_cell.shp'))
+            else:
+                veh_cell = IoShapefile(self.comm).read_shapefile_serial(
+                    os.path.join(self.auxiliary_dir, 'traffic_area', 'vehicle_by_cell.shp'))
         else:
-            veh_cell = gpd.read_file(os.path.join(self.auxiliary_dir, 'traffic_area', 'vehicle_by_cell.shp'))
+            veh_cell = None
+
+        veh_cell = IoShapefile(self.comm).split_shapefile(veh_cell)
 
         self.logger.write_time_log('TrafficAreaSector', 'init_evaporative', timeit.default_timer() - spent_time)
         return veh_cell
 
     def init_small_cities(self, global_path, small_cities_shapefile):
         spent_time = timeit.default_timer()
-
-        if not os.path.exists(os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_SMALL_cell.shp')):
-            pop = self.get_clipped_population(
-                global_path, os.path.join(self.auxiliary_dir, 'traffic_area', 'population.shp'))
-            pop = self.make_population_by_nuts(
-                pop, small_cities_shapefile, os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_SMALL.shp'),
-                write_file=False)
-            pop = self.make_population_by_nuts_cell(
-                pop, os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_SMALL_cell.shp'))
+        if self.comm.Get_rank() == 0:
+            if not os.path.exists(os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_SMALL_cell.shp')):
+                pop = self.get_clipped_population(
+                    global_path, os.path.join(self.auxiliary_dir, 'traffic_area', 'population.shp'))
+                pop = self.make_population_by_nuts(
+                    pop, small_cities_shapefile, os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_SMALL.shp'),
+                    write_file=False)
+                pop = self.make_population_by_nuts_cell(
+                    pop, os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_SMALL_cell.shp'))
+            else:
+                pop = IoShapefile(self.comm).read_shapefile_serial(
+                    os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_SMALL_cell.shp'))
         else:
-            pop = gpd.read_file(os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_SMALL_cell.shp'))
+            pop = None
+        pop = IoShapefile(self.comm).split_shapefile(pop)
 
         self.logger.write_time_log('TrafficAreaSector', 'init_small_cities', timeit.default_timer() - spent_time)
         return pop
@@ -94,9 +105,9 @@ class TrafficAreaSector(Sector):
             population_density = IoRaster(self.comm).clip_raster_with_shapefile_poly(
                 global_path, self.clip.shapefile,
                 os.path.join(self.auxiliary_dir, 'traffic_area', 'population.tif'))
-            population_density = IoRaster(self.comm).to_shapefile(population_density)
+            population_density = IoRaster(self.comm).to_shapefile_serie(population_density)
         else:
-            population_density = gpd.read_file(population_shapefile_path)
+            population_density = IoShapefile(self.comm).read_shapefile_serial(population_shapefile_path)
 
         self.logger.write_time_log('TrafficAreaSector', 'get_clipped_population', timeit.default_timer() - spent_time)
 
@@ -107,19 +118,19 @@ class TrafficAreaSector(Sector):
         spent_time = timeit.default_timer()
 
         if not os.path.exists(pop_by_nut_path):
-            nut_df = gpd.read_file(nut_shp)
+            nut_df = IoShapefile(self.comm).read_shapefile_serial(nut_shp)
             population_shape['area_in'] = population_shape.geometry.area
             df = gpd.overlay(population_shape, nut_df.to_crs(population_shape.crs), how='intersection')
             df.crs = population_shape.crs
             df.loc[:, 'data'] = df['data'] * (df.geometry.area / df['area_in'])
             del df['area_in']
             if write_file:
-                df.to_file(pop_by_nut_path)
+                IoShapefile(self.comm).write_shapefile_serial(df, pop_by_nut_path)
             if csv_path is not None:
                 df = df.loc[:, ['data', column_id]].groupby(column_id).sum()
                 df.to_csv(csv_path)
         else:
-            df = gpd.read_file(pop_by_nut_path)
+            df = IoShapefile(self.comm).read_shapefile_serial(pop_by_nut_path)
 
         self.logger.write_time_log('TrafficAreaSector', 'make_population_by_nuts', timeit.default_timer() - spent_time)
         return df
@@ -141,9 +152,9 @@ class TrafficAreaSector(Sector):
             df.loc[:, 'data'] = df['data'] * (df.geometry.area / df['area_in'])
             del pop_by_nut['area_in']
             if write_file:
-                df.to_file(pop_nut_cell_path)
+                IoShapefile(self.comm).write_shapefile_serial(df, pop_nut_cell_path)
         else:
-            df = gpd.read_file(pop_nut_cell_path)
+            df = IoShapefile(self.comm).read_shapefile_serial(pop_nut_cell_path)
 
         self.logger.write_time_log('TrafficAreaSector', 'make_population_by_nuts_cell',
                                    timeit.default_timer() - spent_time)
@@ -179,10 +190,9 @@ class TrafficAreaSector(Sector):
             geom = self.grid_shp.loc[aux_df.index, 'geometry']
 
             df = gpd.GeoDataFrame(aux_df, geometry=geom, crs=pop_nut_cell.crs)
-
-            df.to_file(veh_by_cell_path)
+            IoShapefile(self.comm).write_shapefile_serial(df, veh_by_cell_path)
         else:
-            df = gpd.read_file(veh_by_cell_path)
+            df = IoShapefile(self.comm).read_shapefile_serial(veh_by_cell_path)
 
         self.logger.write_time_log('TrafficAreaSector', 'make_vehicles_by_cell', timeit.default_timer() - spent_time)
         return df
@@ -359,8 +369,8 @@ class TrafficAreaSector(Sector):
                                                                df1=self.evaporative, df2=temperature_mean,
                                                                geom1_col='centroid', src_column='REC', axis=1)
             del self.evaporative['c_lat'], self.evaporative['c_lon'], self.evaporative['centroid']
-
-            self.evaporative.to_file(os.path.join(self.auxiliary_dir, 'traffic_area', 'vehicle_by_cell.shp'))
+            IoShapefile(self.comm).write_shapefile_serial(
+                self.evaporative, os.path.join(self.auxiliary_dir, 'traffic_area', 'vehicle_by_cell.shp'))
         else:
             del self.evaporative['c_lat'], self.evaporative['c_lon'], self.evaporative['centroid']
 
