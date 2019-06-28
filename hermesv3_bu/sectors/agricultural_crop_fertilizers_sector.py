@@ -116,7 +116,6 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
             f_by_nut = self.get_ftype_fcrop_fmode_by_nut(crop, np.unique(crop_ef['nut_code'].values))
 
             crop_ef = pd.merge(crop_ef.reset_index(), f_by_nut, how='left', on='nut_code')
-            print crop_ef
             crop_ef.set_index('FID', inplace=True)
 
             crop_ef['f_sum'] = np.exp(crop_ef['f_ph'] + crop_ef['f_cec'] + crop_ef['f_type'] + crop_ef['f_crop'] +
@@ -183,7 +182,6 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
             IoShapefile(self.comm).write_shapefile_serial(gridded_ph_cec.reset_index(), gridded_ph_cec_path)
         else:
             gridded_ph_cec = IoShapefile(self.comm).read_shapefile_serial(gridded_ph_cec_path)
-            print gridded_ph_cec
             gridded_ph_cec.set_index('FID', inplace=True)
         self.logger.write_time_log('AgriculturalCropFertilizersSector', 'get_gridded_constants',
                                    timeit.default_timer() - spent_time)
