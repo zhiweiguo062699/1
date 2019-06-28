@@ -147,7 +147,7 @@ class ResidentialSector(Sector):
     def get_fuel_distribution(self, prov_shapefile, ccaa_shapefile, population_density_map, population_type_map,
                               create_pop_csv=False):
         spent_time = timeit.default_timer()
-
+        self.logger.write_log('Calculating fuel distribution', message_level=2)
         fuel_distribution_path = os.path.join(self.auxiliary_dir, 'residential', 'fuel_distribution.shp')
 
         if not os.path.exists(fuel_distribution_path):
@@ -155,14 +155,14 @@ class ResidentialSector(Sector):
             population_density = IoRaster(self.comm).clip_raster_with_shapefile_poly(
                 population_density_map, self.clip.shapefile,
                 os.path.join(self.auxiliary_dir, 'residential', 'population_density.tif'))
-            population_density = IoRaster(self.comm).to_shapefile(population_density)
+            population_density = IoRaster(self.comm).to_shapefile_serie(population_density)
 
             population_density.rename(columns={'data': 'pop'}, inplace=True)
 
             population_type = IoRaster(self.comm).clip_raster_with_shapefile_poly(
                 population_type_map, self.clip.shapefile,
                 os.path.join(self.auxiliary_dir, 'residential', 'population_type.tif'))
-            population_type = IoRaster(self.comm).to_shapefile(population_type)
+            population_type = IoRaster(self.comm).to_shapefile_serie(population_type)
             population_type.rename(columns={'data': 'type'}, inplace=True)
 
             population_density['type'] = population_type['type']
