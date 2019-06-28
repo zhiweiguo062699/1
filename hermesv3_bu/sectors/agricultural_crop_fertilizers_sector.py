@@ -255,9 +255,6 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
                                           self.ef_by_crop.loc[:, ['nut_code']].reset_index(), how='left', on='FID')
 
         self.crop_distribution.set_index('FID', inplace=True)
-        # self.ef_by_crop.set_index('FID', drop=False, inplace=True)
-        self.ef_by_crop.to_file('~/temp/ef_by_crop_{0}.shp'.format(self.comm.Get_rank()))
-        self.crop_distribution.to_file('~/temp/crop_distribution_{0}.shp'.format(self.comm.Get_rank()))
         self.ef_by_crop = self.ef_by_crop.loc[self.crop_distribution.index, :]
 
         for crop in self.crop_list:
