@@ -80,6 +80,10 @@ class ShippingPortSector(Sector):
         """
         spent_time = timeit.default_timer()
         logger.write_log('===== SHIPPING PORT SECTOR =====')
+
+        if comm.Get_size() > 1:
+            raise ValueError('Shipping port sector is not parallelised set shipping_port_processors to 1')
+
         super(ShippingPortSector, self).__init__(
             comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
             monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
