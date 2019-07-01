@@ -7,9 +7,11 @@ import pandas as pd
 import geopandas as gpd
 import numpy as np
 from shapely.ops import nearest_points
+from datetime import timedelta
 import warnings
 from hermesv3_bu.logger.log import Log
 from hermesv3_bu.sectors.sector import Sector
+from hermesv3_bu.io_server.io_netcdf import IoNetcdf
 
 MIN_RAIN = 0.254  # After USEPA (2011)
 RECOVERY_RATIO = 0.0872  # After Amato et al. (2012)
@@ -370,152 +372,23 @@ class TrafficSector(Sector):
         self.logger.write_time_log('TrafficSector', 'read_ef', timeit.default_timer() - spent_time)
         return df
 
-    def read_temperature(self, lon_min, lon_max, lat_min, lat_max, temp_dir, date, tstep_num, tstep_freq):
-        """
-        Reads the temperature from the ERA5 tas value.
-        It will return only the involved cells of the NetCDF in DataFrame format.
-
-        To clip the global NetCDF to the desired region it is needed the minimum and maximum value of the latitudes and
-        longitudes of the centroids of all the road links.
-
-        :param lon_min: Minimum longitude of the centroid of the road links.
-        :type lon_min: float
-
-        :param lon_max: Maximum longitude of the centroid of the road links.
-        :type lon_max: float
-
-        :param lat_min: Minimum latitude of the centroid of the road links.
-        :type lat_min: float
-
-        :param lat_max: Maximum latitude of the centroid of the road links.
-        :type lat_max: float
-
-        :return: Temperature, centroid of the cell and cell identificator (REC).
-            Each time step is each column with the name t_<timestep>.
-        :rtype: GeoDataFrame
-        """
-        from netCDF4 import Dataset
-        import cf_units
-        from shapely.geometry import Point
-        from datetime import timedelta
-        spent_time = timeit.default_timer()
-
-        path = os.path.join(temp_dir, 'tas_{0}{1}.nc'.format(date.year, str(date.month).zfill(2)))
-        self.logger.write_log('Getting temperature from {0}'.format(path), message_level=2)
-
-        nc = Dataset(path, mode='r')
-        lat_o = nc.variables['latitude'][:]
-        lon_o = nc.variables['longitude'][:]
-        time = nc.variables['time']
-        # From time array to list of dates.
-        time_array = cf_units.num2date(time[:], time.units,  cf_units.CALENDAR_STANDARD)
-        i_time = np.where(time_array == date)[0][0]
-
-        # Correction to set the longitudes from -180 to 180 instead of from 0 to 360.
-        if lon_o.max() > 180:
-            lon_o[lon_o > 180] -= 360
-
-        # Finds the array positions for the clip.
-        i_min, i_max, j_min, j_max = self.find_index(lon_o, lat_o, lon_min, lon_max, lat_min, lat_max)
-
-        # Clips the lat lons
-        lon_o = lon_o[i_min:i_max]
-        lat_o = lat_o[j_min:j_max]
-
-        # From 1D to 2D
-        lat = np.array([lat_o[:]] * len(lon_o[:])).T.flatten()
-        lon = np.array([lon_o[:]] * len(lat_o[:])).flatten()
-        del lat_o, lon_o
-
-        # Reads the tas variable of the xone and the times needed.
-        tas = nc.variables['tas'][i_time:i_time + (tstep_num*tstep_freq): tstep_freq, j_min:j_max, i_min:i_max]
-
-        nc.close()
-        # That condition is fot the cases that the needed temperature is in a different NetCDF.
-        while len(tas) < tstep_num:
-            aux_date = date + timedelta(hours=len(tas) + 1)
-            path = os.path.join(temp_dir, 'tas_{0}{1}.nc'.format(aux_date.year, str(aux_date.month).zfill(2)))
-            self.logger.write_log('Getting temperature from {0}'.format(path), message_level=2)
-            nc = Dataset(path, mode='r')
-            i_time = 0
-            new_tas = nc.variables['tas'][i_time:i_time + ((tstep_num - len(tas))*tstep_freq): tstep_freq, j_min:j_max,
-                                          i_min:i_max]
-
-            tas = np.concatenate([tas, new_tas])
-
-            nc.close()
-
-        # From Kelvin to Celsius degrees
-        tas = (tas - 273.15).reshape((tas.shape[0], tas.shape[1] * tas.shape[2]))
-        # Creates the GeoDataFrame
-        df = gpd.GeoDataFrame(tas.T, geometry=[Point(xy) for xy in zip(lon, lat)])
-        df.columns = ['t_{0}'.format(x) for x in df.columns.values[:-1]] + ['geometry']
-        df.loc[:, 'REC'] = df.index
-
-        self.logger.write_time_log('TrafficSector', 'read_temperature', timeit.default_timer() - spent_time)
-        return df
-
-    def get_precipitation(self, lon_min, lon_max, lat_min, lat_max, precipitation_dir):
-        from datetime import timedelta
-        from netCDF4 import Dataset
-        import cf_units
-        from shapely.geometry import Point
+    def calculate_precipitation_factor(self, lon_min, lon_max, lat_min, lat_max, precipitation_dir):
         spent_time = timeit.default_timer()
 
         dates_to_extract = [self.date_array[0] + timedelta(hours=x - 47) for x in range(47)] + self.date_array
 
-        path = os.path.join(precipitation_dir, 'prlr_{0}{1}.nc'.format(
-            dates_to_extract[0].year, str(dates_to_extract[0].month).zfill(2)))
-        self.logger.write_log('Getting precipitation from {0}'.format(path), message_level=2)
+        precipitation = IoNetcdf(self.comm).get_hourly_data_from_netcdf(
+            lon_min, lon_max, lat_min, lat_max, precipitation_dir, 'prlr', dates_to_extract)
 
-        nc = Dataset(path, mode='r')
-        lat_o = nc.variables['latitude'][:]
-        lon_o = nc.variables['longitude'][:]
-        time = nc.variables['time']
-        # From time array to list of dates.
-        time_array = cf_units.num2date(time[:], time.units,  cf_units.CALENDAR_STANDARD)
-        i_time = np.where(time_array == dates_to_extract[0])[0][0]
+        precipitation.set_index('REC', inplace=True, drop=True)
 
-        # Correction to set the longitudes from -180 to 180 instead of from 0 to 360.
-        if lon_o.max() > 180:
-            lon_o[lon_o > 180] -= 360
-
-        # Finds the array positions for the clip.
-        i_min, i_max, j_min, j_max = self.find_index(lon_o, lat_o, lon_min, lon_max, lat_min, lat_max)
-
-        # Clips the lat lons
-        lon_o = lon_o[i_min:i_max]
-        lat_o = lat_o[j_min:j_max]
-
-        # From 1D to 2D
-        lat = np.array([lat_o[:]] * len(lon_o[:])).T.flatten()
-        lon = np.array([lon_o[:]] * len(lat_o[:])).flatten()
-        del lat_o, lon_o
-
-        # Reads the tas variable of the xone and the times needed.
-        prlr = nc.variables['prlr'][i_time:i_time + len(dates_to_extract), j_min:j_max, i_min:i_max]
-        nc.close()
-        # That condition is fot the cases that the needed temperature is in a different NetCDF.
-        while len(prlr) < len(dates_to_extract):
-            aux_date = dates_to_extract[len(prlr)]
-            path = os.path.join(precipitation_dir, 'prlr_{0}{1}.nc'.format(aux_date.year, str(aux_date.month).zfill(2)))
-            # path = os.path.join(precipitation_dir, 'prlr_{0}{1}.nc'.format(
-            #     dates_to_extract[len(prlr)].year, str(dates_to_extract[len(prlr)].month).zfill(2)))
-            self.logger.write_log('Getting precipitation from {0}'.format(path), message_level=2)
-            nc = Dataset(path, mode='r')
-            i_time = 0
-            new_prlr = nc.variables['prlr'][i_time:i_time + (len(dates_to_extract) - len(prlr)),
-                                            j_min:j_max, i_min:i_max]
-
-            prlr = np.concatenate([prlr, new_prlr])
-
-            nc.close()
+        prlr = precipitation.drop(columns='geometry').values.T
 
         # From m/s to mm/h
         prlr = prlr * (3600 * 1000)
         prlr = prlr <= MIN_RAIN
         dst = np.empty(prlr.shape)
-        last = np.zeros((prlr.shape[-2], prlr.shape[-1]))
+        last = np.zeros((prlr.shape[-1]))
         for time in xrange(prlr.shape[0]):
             dst[time, :] = (last + prlr[time, :]) * prlr[time, :]
             last = dst[time, :]
@@ -524,39 +397,14 @@ class TrafficSector(Sector):
         dst = 1 - np.exp(- RECOVERY_RATIO * dst)
         # It is assumed that after 48 h without rain the potential emission is equal to one
         dst[dst >= (1 - np.exp(- RECOVERY_RATIO * 48))] = 1.
-        dst = dst.reshape((dst.shape[0], dst.shape[1] * dst.shape[2]))
         # Creates the GeoDataFrame
-        df = gpd.GeoDataFrame(dst.T, geometry=[Point(xy) for xy in zip(lon, lat)])
+        df = gpd.GeoDataFrame(dst.T, geometry=precipitation.geometry)
         df.columns = ['PR_{0}'.format(x) for x in df.columns.values[:-1]] + ['geometry']
 
         df.loc[:, 'REC'] = df.index
 
-        self.logger.write_time_log('TrafficSector', 'get_precipitation', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'calculate_precipitation_factor', timeit.default_timer() - spent_time)
         return df
-
-    def find_index(self, lon, lat, lon_min, lon_max, lat_min, lat_max):
-        spent_time = timeit.default_timer()
-
-        aux = lon - lon_min
-        aux[aux > 0] = np.nan
-        i_min = np.where(aux == np.nanmax(aux))[0][0]
-
-        aux = lon - lon_max
-
-        aux[aux < 0] = np.nan
-
-        i_max = np.where(aux == np.nanmin(aux))[0][0]
-
-        aux = lat - lat_min
-        aux[aux > 0] = np.nan
-        j_max = np.where(aux == np.nanmax(aux))[0][0]
-
-        aux = lat - lat_max
-        aux[aux < 0] = np.nan
-        j_min = np.where(aux == np.nanmin(aux))[0][0]
-
-        self.logger.write_time_log('TrafficSector', 'find_index', timeit.default_timer() - spent_time)
-        return i_min, i_max+1, j_min, j_max+1
 
     def update_fleet_value(self, df):
         spent_time = timeit.default_timer()
@@ -866,9 +714,13 @@ class TrafficSector(Sector):
         link_lons = cold_links['geometry'].centroid.x
         link_lats = cold_links['geometry'].centroid.y
 
-        temperature = self.read_temperature(link_lons.min(), link_lons.max(), link_lats.min(), link_lats.max(),
-                                            self.temp_common_path, self.starting_date, self.timestep_num,
-                                            self.timestep_freq)
+        temperature = IoNetcdf(self.comm).get_hourly_data_from_netcdf(
+            link_lons.min(), link_lons.max(), link_lats.min(), link_lats.max(), self.temp_common_path, 'tas',
+            self.date_array)
+        temperature.rename(columns={x: 't_{0}'.format(x) for x in xrange(len(self.date_array))}, inplace=True)
+        # From Kelvin to Celsius degrees
+        temperature.loc[:, ['t_{0}'.format(x) for x in xrange(len(self.date_array))]] = \
+            temperature.loc[:, ['t_{0}'.format(x) for x in xrange(len(self.date_array))]] - 273.15
 
         unary_union = temperature.unary_union
         cold_links['REC'] = cold_links.apply(self.nearest, geom_union=unary_union, df1=cold_links, df2=temperature,
@@ -1105,8 +957,9 @@ class TrafficSector(Sector):
             road_link_aux.loc[:, 'centroid'] = road_link_aux['geometry'].centroid
             link_lons = road_link_aux['geometry'].centroid.x
             link_lats = road_link_aux['geometry'].centroid.y
-            p_factor = self.get_precipitation(link_lons.min(), link_lons.max(), link_lats.min(), link_lats.max(),
-                                              self.precipitation_path)
+
+            p_factor = self.calculate_precipitation_factor(link_lons.min(), link_lons.max(), link_lats.min(),
+                                                           link_lats.max(), self.precipitation_path)
 
             unary_union = p_factor.unary_union
             road_link_aux['REC'] = road_link_aux.apply(self.nearest, geom_union=unary_union, df1=road_link_aux,

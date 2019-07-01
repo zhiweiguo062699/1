@@ -1,9 +1,18 @@
 #!/usr/bin/env python
 
 import sys
+import os
 from mpi4py import MPI
-
+import cf_units
+from datetime import timedelta
 from hermesv3_bu.io_server.io_server import IoServer
+import numpy as np
+import geopandas as gpd
+from netCDF4 import Dataset
+from shapely.geometry import Point
+from cf_units import num2date, CALENDAR_STANDARD
+
+from geopandas import GeoDataFrame
 
 
 class IoNetcdf(IoServer):
@@ -34,12 +43,6 @@ class IoNetcdf(IoServer):
         :return: GeoDataframe with the data in the desired points.
         :rtype: geopandas.GeoDataframe
         """
-        import numpy as np
-        import geopandas as gpd
-        from netCDF4 import Dataset
-        from shapely.geometry import Point
-        from cf_units import num2date, CALENDAR_STANDARD
-
         nc = Dataset(netcdf_path, mode='r')
         lat_o = nc.variables['latitude'][:]
         lon_o = nc.variables['longitude'][:]
@@ -76,6 +79,83 @@ class IoNetcdf(IoServer):
         var_df.loc[:, 'REC'] = var_df.index
 
         return var_df
+
+    def get_hourly_data_from_netcdf(self, lon_min, lon_max, lat_min, lat_max, netcdf_dir, var_name, date_array):
+        """
+        Reads the temperature from the ERA5 var value.
+        It will return only the involved cells of the NetCDF in DataFrame format.
+
+        To clip the global NetCDF to the desired region it is needed the minimum and maximum value of the latitudes and
+        longitudes of the centroids of all the road links.
+
+        :param lon_min: Minimum longitude of the centroid of the road links.
+        :type lon_min: float
+
+        :param lon_max: Maximum longitude of the centroid of the road links.
+        :type lon_max: float
+
+        :param lat_min: Minimum latitude of the centroid of the road links.
+        :type lat_min: float
+
+        :param lat_max: Maximum latitude of the centroid of the road links.
+        :type lat_max: float
+
+        :return: Temperature, centroid of the cell and cell identificator (REC).
+            Each time step is each column with the name t_<timestep>.
+        :rtype: GeoDataFrame
+        """
+        path = os.path.join(netcdf_dir, '{0}_{1}{2}.nc'.format(var_name, date_array[0].year,
+                                                               str(date_array[0].month).zfill(2)))
+        # self.logger.write_log('Getting temperature from {0}'.format(path), message_level=2)
+
+        nc = Dataset(path, mode='r')
+        lat_o = nc.variables['latitude'][:]
+        lon_o = nc.variables['longitude'][:]
+        time = nc.variables['time']
+        # From time array to list of dates.
+        time_array = cf_units.num2date(time[:], time.units,  cf_units.CALENDAR_STANDARD)
+        i_time = np.where(time_array == date_array[0])[0][0]
+
+        # Correction to set the longitudes from -180 to 180 instead of from 0 to 360.
+        if lon_o.max() > 180:
+            lon_o[lon_o > 180] -= 360
+
+        # Finds the array positions for the clip.
+        i_min, i_max, j_min, j_max = self.find_lonlat_index(lon_o, lat_o, lon_min, lon_max, lat_min, lat_max)
+
+        # Clips the lat lons
+        lon_o = lon_o[i_min:i_max]
+        lat_o = lat_o[j_min:j_max]
+
+        # From 1D to 2D
+        lat = np.array([lat_o[:]] * len(lon_o[:])).T.flatten()
+        lon = np.array([lon_o[:]] * len(lat_o[:])).flatten()
+        del lat_o, lon_o
+
+        # Reads the var variable of the xone and the times needed.
+        var = nc.variables[var_name][i_time:i_time + (len(date_array)), j_min:j_max, i_min:i_max]
+
+        nc.close()
+        # That condition is fot the cases that the needed temperature is in a different NetCDF.
+        while len(var) < len(date_array):
+            aux_date = date_array[len(var) + 1]
+            path = os.path.join(netcdf_dir, '{0}_{1}{2}.nc'.format(var_name, aux_date.year,
+                                                                   str(aux_date.month).zfill(2)))
+            # self.logger.write_log('Getting {0} from {1}'.format(var_name, path), message_level=2)
+            nc = Dataset(path, mode='r')
+            i_time = 0
+            new_var = nc.variables[var_name][i_time:i_time + (len(date_array) - len(var)), j_min:j_max, i_min:i_max]
+
+            var = np.concatenate([var, new_var])
+
+            nc.close()
+
+        var = var.reshape((var.shape[0], var.shape[1] * var.shape[2]))
+        df = gpd.GeoDataFrame(var.T, geometry=[Point(xy) for xy in zip(lon, lat)])
+        # df.columns = ['t_{0}'.format(x) for x in df.columns.values[:-1]] + ['geometry']
+        df.loc[:, 'REC'] = df.index
+
+        return df
 
     @staticmethod
     def find_lonlat_index(lon, lat, lon_min, lon_max, lat_min, lat_max):

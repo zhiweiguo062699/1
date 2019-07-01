@@ -8,6 +8,7 @@ import pandas as pd
 import numpy as np
 from hermesv3_bu.sectors.sector import Sector
 from hermesv3_bu.io_server.io_shapefile import IoShapefile
+from hermesv3_bu.io_server.io_netcdf import IoNetcdf
 
 pmc_list = ['pmc', 'PMC']
 
@@ -197,115 +198,6 @@ class TrafficAreaSector(Sector):
         self.logger.write_time_log('TrafficAreaSector', 'make_vehicles_by_cell', timeit.default_timer() - spent_time)
         return df
 
-    def find_index(self, lon, lat, lon_min, lon_max, lat_min, lat_max):
-        spent_time = timeit.default_timer()
-
-        aux = lon - lon_min
-        aux[aux > 0] = np.nan
-        i_min = np.where(aux == np.nanmax(aux))[0][0]
-
-        aux = lon - lon_max
-
-        aux[aux < 0] = np.nan
-
-        i_max = np.where(aux == np.nanmin(aux))[0][0]
-
-        aux = lat - lat_min
-        aux[aux > 0] = np.nan
-        j_max = np.where(aux == np.nanmax(aux))[0][0]
-
-        aux = lat - lat_max
-        aux[aux < 0] = np.nan
-        j_min = np.where(aux == np.nanmin(aux))[0][0]
-
-        self.logger.write_time_log('TrafficSector', 'find_index', timeit.default_timer() - spent_time)
-        return i_min, i_max+1, j_min, j_max+1
-
-    def read_temperature(self, lon_min, lon_max, lat_min, lat_max, temp_dir, date, tstep_num, tstep_freq):
-        """
-        Reads the temperature from the ERA5 tas value.
-        It will return only the involved cells of the NetCDF in DataFrame format.
-
-        To clip the global NetCDF to the desired region it is needed the minimum and maximum value of the latitudes and
-        longitudes of the centroids of all the road links.
-
-        :param lon_min: Minimum longitude of the centroid of the road links.
-        :type lon_min: float
-
-        :param lon_max: Maximum longitude of the centroid of the road links.
-        :type lon_max: float
-
-        :param lat_min: Minimum latitude of the centroid of the road links.
-        :type lat_min: float
-
-        :param lat_max: Maximum latitude of the centroid of the road links.
-        :type lat_max: float
-
-        :return: Temperature, centroid of the cell and cell identificator (REC).
-            Each time step is each column with the name t_<timestep>.
-        :rtype: GeoDataFrame
-        """
-        from netCDF4 import Dataset
-        import cf_units
-        from shapely.geometry import Point
-        from datetime import timedelta
-        spent_time = timeit.default_timer()
-
-        path = os.path.join(temp_dir, 'tas_{0}{1}.nc'.format(date.year, str(date.month).zfill(2)))
-        self.logger.write_log('Getting temperature from {0}'.format(path), message_level=2)
-
-        nc = Dataset(path, mode='r')
-        lat_o = nc.variables['latitude'][:]
-        lon_o = nc.variables['longitude'][:]
-        time = nc.variables['time']
-        # From time array to list of dates.
-        time_array = cf_units.num2date(time[:], time.units,  cf_units.CALENDAR_STANDARD)
-        i_time = np.where(time_array == date)[0][0]
-
-        # Correction to set the longitudes from -180 to 180 instead of from 0 to 360.
-        if lon_o.max() > 180:
-            lon_o[lon_o > 180] -= 360
-
-        # Finds the array positions for the clip.
-        i_min, i_max, j_min, j_max = self.find_index(lon_o, lat_o, lon_min, lon_max, lat_min, lat_max)
-
-        # Clips the lat lons
-        lon_o = lon_o[i_min:i_max]
-        lat_o = lat_o[j_min:j_max]
-
-        # From 1D to 2D
-        lat = np.array([lat_o[:]] * len(lon_o[:])).T.flatten()
-        lon = np.array([lon_o[:]] * len(lat_o[:])).flatten()
-        del lat_o, lon_o
-
-        # Reads the tas variable of the xone and the times needed.
-        tas = nc.variables['tas'][i_time:i_time + (tstep_num*tstep_freq): tstep_freq, j_min:j_max, i_min:i_max]
-
-        nc.close()
-        # That condition is fot the cases that the needed temperature is in a different NetCDF.
-        while len(tas) < tstep_num:
-            aux_date = date + timedelta(hours=len(tas) + 1)
-            path = os.path.join(temp_dir, 'tas_{0}{1}.nc'.format(aux_date.year, str(aux_date.month).zfill(2)))
-            self.logger.write_log('Getting temperature from {0}'.format(path), message_level=2)
-            nc = Dataset(path, mode='r')
-            i_time = 0
-            new_tas = nc.variables['tas'][i_time:i_time + ((tstep_num - len(tas))*tstep_freq): tstep_freq, j_min:j_max,
-                                          i_min:i_max]
-
-            tas = np.concatenate([tas, new_tas])
-
-            nc.close()
-
-        # From Kelvin to Celsius degrees
-        tas = (tas - 273.15).reshape((tas.shape[0], tas.shape[1] * tas.shape[2]))
-        # Creates the GeoDataFrame
-        df = gpd.GeoDataFrame(tas.T, geometry=[Point(xy) for xy in zip(lon, lat)])
-        df.columns = ['t_{0}'.format(x) for x in df.columns.values[:-1]] + ['geometry']
-        df.loc[:, 'REC'] = df.index
-
-        self.logger.write_time_log('TrafficSector', 'read_temperature', timeit.default_timer() - spent_time)
-        return df
-
     def get_profiles_from_temperature(self, temperature, default=False):
         spent_time = timeit.default_timer()
 
@@ -355,12 +247,16 @@ class TrafficAreaSector(Sector):
         self.evaporative['c_lon'] = aux_df.centroid.x
         self.evaporative['centroid'] = aux_df.centroid
 
-        temperature = self.read_temperature(
+        temperature = IoNetcdf(self.comm).get_hourly_data_from_netcdf(
             self.evaporative['c_lon'].min(), self.evaporative['c_lon'].max(), self.evaporative['c_lat'].min(),
-            self.evaporative['c_lat'].max(), self.temperature_dir,
-            self.date_array[0].replace(hour=0, minute=0, second=0, microsecond=0), 24, 1)
+            self.evaporative['c_lat'].max(), self.temperature_dir, 'tas', self.date_array)
+        temperature.rename(columns={x: 't_{0}'.format(x) for x in xrange(len(self.date_array))}, inplace=True)
+        # From Kelvin to Celsius degrees
+        temperature.loc[:, ['t_{0}'.format(x) for x in xrange(len(self.date_array))]] = \
+            temperature.loc[:, ['t_{0}'.format(x) for x in xrange(len(self.date_array))]] - 273.15
 
-        temperature_mean = gpd.GeoDataFrame(temperature[['t_{0}'.format(x) for x in xrange(24)]].mean(axis=1),
+        temperature_mean = gpd.GeoDataFrame(temperature[['t_{0}'.format(x) for x in
+                                                         xrange(len(self.date_array))]].mean(axis=1),
                                             columns=['temp'], geometry=temperature.geometry)
         temperature_mean['REC'] = temperature['REC']
 
