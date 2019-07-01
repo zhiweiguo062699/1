@@ -403,7 +403,8 @@ class TrafficSector(Sector):
 
         df.loc[:, 'REC'] = df.index
 
-        self.logger.write_time_log('TrafficSector', 'calculate_precipitation_factor', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'calculate_precipitation_factor',
+                                   timeit.default_timer() - spent_time)
         return df
 
     def update_fleet_value(self, df):
