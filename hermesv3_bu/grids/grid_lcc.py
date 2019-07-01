@@ -71,7 +71,8 @@ class LccGrid(Grid):
         self.y = None
 
         attributes = {'lat_1': lat_1, 'lat_2': lat_2, 'lon_0': lon_0, 'lat_0': lat_0, 'nx': nx, 'ny': ny,
-                      'inc_x': inc_x, 'inc_y': inc_y, 'x_0': x_0, 'y_0': y_0, 'earth_radius': earth_radius,
+                      'inc_x': inc_x, 'inc_y': inc_y, 'x_0': x_0 + (inc_x / 2), 'y_0': y_0 + (inc_y / 2),
+                      'earth_radius': earth_radius,
                       'crs': "+proj=lcc +lat_1={0} +lat_2={1} +lat_0={2} +lon_0={3} +x_0={4} +y_0={5} ".format(
                           lat_1, lat_2, lat_0, lon_0, 0, 0) + "+datum=WGS84 +units=m"}
 
