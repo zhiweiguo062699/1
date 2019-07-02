@@ -195,7 +195,7 @@ class PointSourceSector(Sector):
         :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
-
+        self.logger.write_log('\tCalculating yearly emissions', message_level=2)
         for pollutant in self.source_pollutants:
             catalog.rename(columns={u'EF_{0}'.format(pollutant): pollutant}, inplace=True)
             catalog[pollutant] = catalog[pollutant] * catalog['AF']
@@ -216,6 +216,7 @@ class PointSourceSector(Sector):
         :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
+        self.logger.write_log('\tCalculating hourly emissions', message_level=2)
 
         def get_mf(df):
             month_factor = self.monthly_profiles.loc[df.name[1], df.name[0]]
@@ -480,23 +481,37 @@ class PointSourceSector(Sector):
 
         # ===== 3D Meteo variables =====
         # Adding stc_temp
+        self.logger.write_log('\t\tGetting temperature from {0}'.format(self.plume_rise_pahts['temperature_sfc_dir']),
+                              message_level=3)
         catalog['temp_sfc'] = catalog.groupby('date_utc')['X', 'Y'].apply(
             lambda x: get_sfc_value(x, self.plume_rise_pahts['temperature_sfc_dir'], 't2'))
+        self.logger.write_log('\t\tGetting friction velocity from {0}'.format(
+            self.plume_rise_pahts['friction_velocity_dir']),  message_level=3)
         catalog['friction_v'] = catalog.groupby('date_utc')['X', 'Y'].apply(
             lambda x: get_sfc_value(x, self.plume_rise_pahts['friction_velocity_dir'], 'ustar'))
+        self.logger.write_log('\t\tGetting PBL height from {0}'.format(
+            self.plume_rise_pahts['pblh_dir']), message_level=3)
         catalog['pbl'] = catalog.groupby('date_utc')['X', 'Y'].apply(
             lambda x: get_sfc_value(x, self.plume_rise_pahts['pblh_dir'], 'mixed_layer_height'))
+        self.logger.write_log('\t\tGetting obukhov length from {0}'.format(
+            self.plume_rise_pahts['obukhov_length_dir']), message_level=3)
         catalog['obukhov_len'] = catalog.groupby('date_utc')['X', 'Y'].apply(
             lambda x: get_sfc_value(x, self.plume_rise_pahts['obukhov_length_dir'], 'rmol'))
         catalog['obukhov_len'] = 1. / catalog['obukhov_len']
 
+        self.logger.write_log('\t\tGetting layer thickness from {0}'.format(
+            self.plume_rise_pahts['layer_thickness_dir']), message_level=3)
         catalog['layers'] = catalog.groupby('date_utc')['X', 'Y'].apply(
             lambda x: get_layers(x, self.plume_rise_pahts['layer_thickness_dir'], 'layer_thickness'))
+        self.logger.write_log('\t\tGetting temperatue at the top from {0}'.format(
+            self.plume_rise_pahts['temperature_4d_dir']), message_level=3)
         catalog['temp_top'] = catalog.groupby('date_utc')['X', 'Y', 'Height', 'layers', 'temp_sfc'].apply(
             lambda x: get_temp_top(x, self.plume_rise_pahts['temperature_4d_dir'], 't'))
+        self.logger.write_log('\t\tGetting wind speed at 10 m', message_level=3)
         catalog['wSpeed_10'] = catalog.groupby('date_utc')['X', 'Y'].apply(
             lambda x: get_wind_speed_10m(x, self.plume_rise_pahts['u10_wind_speed_dir'],
                                          self.plume_rise_pahts['v10_wind_speed_dir'], 'u10', 'v10'))
+        self.logger.write_log('\t\tGetting wind speed at the top', message_level=3)
         catalog['wSpeed_top'] = catalog.groupby('date_utc')['X', 'Y', 'Height', 'layers', 'wSpeed_10'].apply(
             lambda x: get_wind_speed_top(x, self.plume_rise_pahts['u_wind_speed_4d_dir'],
                                          self.plume_rise_pahts['v_wind_speed_4d_dir'], 'u', 'v'))
@@ -616,6 +631,7 @@ class PointSourceSector(Sector):
         spent_time = timeit.default_timer()
 
         if self.plume_rise:
+
             catalog = self.get_plume_rise_top_bot(catalog)
             catalog = self.set_layer(catalog)
 
@@ -746,6 +762,7 @@ class PointSourceSector(Sector):
 
     def calculate_emissions(self):
         spent_time = timeit.default_timer()
+        self.logger.write_log('\tCalculating emissions')
 
         emissions = self.add_dates(self.catalog, drop_utc=False)
         emissions = self.calculate_hourly_emissions(emissions)
