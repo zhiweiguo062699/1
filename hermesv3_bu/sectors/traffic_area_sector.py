@@ -398,8 +398,12 @@ class TrafficAreaSector(Sector):
             small_cities.loc[small_cities['weekday'] == 6, 'day_type'] = 'Sunday'
 
             for i, aux in small_cities.groupby(['month', 'weekday', 'hour', 'day_type']):
+                aux_date = pd.Timestamp(aux['date'].values[0])
+
+                balanced_weekly_profile = self.calculate_rebalanced_weekly_profile(
+                    self.small_cities_weekly_profile.loc['default', :].to_dict(), aux_date)
                 small_cities.loc[aux.index, 'f'] = self.small_cities_monthly_profile.loc['default', i[0]] * \
-                                                   self.small_cities_weekly_profile.loc['default', i[1]] * \
+                                                   balanced_weekly_profile[i[1]] * \
                                                    self.small_cities_hourly_profile.loc[i[3], i[2]]
 
             aux_df = small_cities.loc[:, p_names].multiply(small_cities['f'], axis=0)
