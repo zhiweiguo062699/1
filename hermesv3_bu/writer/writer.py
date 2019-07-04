@@ -9,6 +9,7 @@ import timeit
 from hermesv3_bu.logger.log import Log
 
 CHUNKING = True
+BALANCED = False
 
 
 def select_writer(logger, arguments, grid, date_array):
@@ -44,7 +45,11 @@ def select_writer(logger, arguments, grid, date_array):
 
         arguments.writing_processors = min((comm_world.Get_size(), max_procs))
 
-    rank_distribution = get_distribution(logger, arguments.writing_processors, grid.shape)
+    if BALANCED:
+        rank_distribution = get_balanced_distribution(logger, arguments.writing_processors, grid.shape)
+
+    else:
+        rank_distribution = get_distribution(logger, arguments.writing_processors, grid.shape)
 
     if comm_world.Get_rank() < arguments.writing_processors:
         color = 99
@@ -118,8 +123,80 @@ def get_distribution(logger, processors, shape):
     if total_rows % processors > 0:
         aux_rows += 1
 
+    if aux_rows * (processors - 1) >= total_rows:
+        aux_rows -= 1
+
     rows_sum = 0
     for proc in xrange(processors):
+        total_rows -= aux_rows
+        if total_rows < 0 or proc == processors - 1:
+            rows = total_rows + aux_rows
+        else:
+            rows = aux_rows
+
+        min_fid = proc * aux_rows * shape[3]
+        max_fid = (proc + 1) * aux_rows * shape[3]
+
+        fid_dist[proc] = {
+            'y_min': rows_sum,
+            'y_max': rows_sum + rows,
+            'x_min': 0,
+            'x_max': shape[3],
+            'fid_min': min_fid,
+            'fid_max': max_fid,
+            'shape': (shape[0], shape[1], rows, shape[3]),
+        }
+
+        rows_sum += rows
+
+    logger.write_time_log('Writer', 'get_distribution', timeit.default_timer() - spent_time)
+    return fid_dist
+
+
+def get_balanced_distribution(logger, processors, shape):
+    """
+    Calculate the process distribution for writing.
+
+    :param logger: Logger
+    :type logger: Log
+
+    :param processors: Number of writing processors.
+    :type processors: int
+
+    :param shape: Complete shape of the destiny domain.
+    :type shape: tuple
+
+    :return: Information of the writing process. That argument is a dictionary with the writing
+        process rank as key and another dictionary as value. That other dictionary contains:
+        - shape: Shape to write
+        - x_min: X minimum position to write on the full array.
+        - x_max: X maximum position to write on the full array.
+        - y_min: Y minimum position to write on the full array.
+        - y_max: Y maximum position to write on the full array.
+        - fid_min: Minimum cell ID of a flatten X Y domain.
+        - fid_max: Maximum cell ID of a flatten X Y domain.
+
+        e.g. 24 time steps. 48 vertical levels, 10 x 10
+        {0: {'fid_min': 0, 'y_min': 0, 'y_max': 5, 'fid_max': 50, 'shape': (24, 48, 5, 10), 'x_max': 10,
+            'x_min': 0},
+        1: {'fid_min': 50, 'y_min': 5, 'y_max': 10, 'fid_max': 100, 'shape': (24, 48, 5, 10), 'x_max': 10,
+            'x_min': 0}}
+    :rtype rank_distribution: dict
+    """
+    spent_time = timeit.default_timer()
+    fid_dist = {}
+    total_rows = shape[2]
+
+    procs_rows = total_rows // processors
+    procs_rows_extended = total_rows-(procs_rows*processors)
+
+    rows_sum = 0
+    for proc in xrange(processors):
+        if proc < procs_rows_extended:
+            aux_rows = procs_rows + 1
+        else:
+            aux_rows = procs_rows
+
         total_rows -= aux_rows
         if total_rows < 0:
             rows = total_rows + aux_rows
@@ -140,6 +217,7 @@ def get_distribution(logger, processors, shape):
         }
 
         rows_sum += rows
+
     logger.write_time_log('Writer', 'get_distribution', timeit.default_timer() - spent_time)
     return fid_dist
 
