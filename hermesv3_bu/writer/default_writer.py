@@ -6,7 +6,7 @@ from hermesv3_bu.writer.writer import Writer
 from mpi4py import MPI
 import timeit
 from hermesv3_bu.logger.log import Log
-
+import time
 
 class DefaultWriter(Writer):
     def __init__(self, comm_world, comm_write, logger, netcdf_path, grid, date_array, pollutant_info,
@@ -86,7 +86,12 @@ class DefaultWriter(Writer):
         """
         from cf_units import Unit
         spent_time = timeit.default_timer()
-        netcdf = Dataset(self.netcdf_path, mode='w', parallel=True, comm=self.comm_write, info=MPI.Info())
+
+        if self.comm_write.Get_size() > 1:
+            netcdf = Dataset(self.netcdf_path, format="NETCDF4", mode='w',
+                             parallel=True, comm=self.comm_write, info=MPI.Info())
+        else:
+            netcdf = Dataset(self.netcdf_path, format="NETCDF4", mode='w')
 
         # ========== DIMENSIONS ==========
         self.logger.write_log('\tCreating NetCDF dimensions', message_level=2)
@@ -120,12 +125,12 @@ class DefaultWriter(Writer):
         self.logger.write_log('\tCreating NetCDF variables', message_level=2)
         self.logger.write_log('\t\tCreating time variable', message_level=3)
 
-        time = netcdf.createVariable('time', np.float64, ('time',))
-        time.units = 'hours since {0}'.format(self.date_array[0].strftime("%Y-%m-%d %H:%M:%S"))
-        time.standard_name = "time"
-        time.calendar = "gregorian"
-        time.long_name = "time"
-        time[:] = date2num(self.date_array, time.units, calendar=time.calendar)
+        time_var = netcdf.createVariable('time', np.float64, ('time',))
+        time_var.units = 'hours since {0}'.format(self.date_array[0].strftime("%Y-%m-%d %H:%M:%S"))
+        time_var.standard_name = "time"
+        time_var.calendar = "gregorian"
+        time_var.long_name = "time"
+        time_var[:] = date2num(self.date_array, time_var.units, calendar=time_var.calendar)
 
         self.logger.write_log('\t\tCreating lev variable', message_level=3)
         lev = netcdf.createVariable('lev', np.float64, ('lev',))
@@ -187,6 +192,8 @@ class DefaultWriter(Writer):
             rlon[:] = self.grid.rlon
 
         # ========== POLLUTANTS ==========
+        # if 'Unnamed: 0' in emissions.columns.values:
+        #     emissions.drop(columns=['Unnamed: 0'], inplace=True)
         for var_name in emissions.columns.values:
             self.logger.write_log('\t\tCreating {0} variable'.format(var_name), message_level=3)
 
@@ -194,6 +201,8 @@ class DefaultWriter(Writer):
             # var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim,
             #                             chunksizes=self.rank_distribution[0]['shape'])
             var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim)
+            if self.comm_write.Get_size() > 1:
+                var.set_collective(True)
 
             var[:, :,
                 self.rank_distribution[self.comm_write.Get_rank()]['y_min']:
@@ -245,6 +254,7 @@ class DefaultWriter(Writer):
             mapping.standard_parallel = self.grid.attributes['lat_ts']
 
         netcdf.setncattr('Conventions', 'CF-1.6')
+        self.comm_write.Barrier()
         netcdf.close()
         self.logger.write_log('NetCDF write at {0}'.format(self.netcdf_path))
         self.logger.write_time_log('DefaultWriter', 'write_netcdf', timeit.default_timer() - spent_time)
