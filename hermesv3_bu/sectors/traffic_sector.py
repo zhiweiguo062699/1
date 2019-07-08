@@ -12,6 +12,7 @@ import warnings
 from hermesv3_bu.logger.log import Log
 from hermesv3_bu.sectors.sector import Sector
 from hermesv3_bu.io_server.io_netcdf import IoNetcdf
+from hermesv3_bu.io_server.io_shapefile import IoShapefile
 
 MIN_RAIN = 0.254  # After USEPA (2011)
 RECOVERY_RATIO = 0.0872  # After Amato et al. (2012)
@@ -58,6 +59,10 @@ class TrafficSector(Sector):
         self.output_dir = output_dir
 
         self.link_to_grid_csv = os.path.join(auxiliary_dir, 'traffic', 'link_grid.csv')
+        if self.comm.Get_rank() == 0:
+            if not os.path.exists(os.path.dirname(self.link_to_grid_csv)):
+                os.makedirs(os.path.dirname(self.link_to_grid_csv))
+        self.comm.Barrier()
         self.crs = None   # crs is the projection of the road links and it is set on the read_road_links function.
         self.write_rline = write_rline
         self.road_links = self.read_road_links(road_link_path)
@@ -125,6 +130,7 @@ class TrafficSector(Sector):
         :rtype: dict
         """
         spent_time = timeit.default_timer()
+        speciation_map = pd.read_csv(path)
         dataframe = pd.read_csv(path)
         # input_pollutants = list(self.source_pollutants)
         input_pollutants = ['nmvoc' if x == 'voc' else x for x in list(self.source_pollutants)]
@@ -135,10 +141,14 @@ class TrafficSector(Sector):
             dataframe = dataframe.loc[dataframe['src'].isin(input_pollutants), :]
 
         dataframe = dict(zip(dataframe['dst'], dataframe['src']))
-
         if 'pm' in self.source_pollutants:
-            dataframe['PM10'] = 'pm10'
-            dataframe['PM25'] = 'pm25'
+            for out_p, in_p in zip(speciation_map[['dst']].values, speciation_map[['src']].values):
+                if in_p in ['pm10', 'pm25']:
+                    dataframe[out_p[0]] = in_p[0]
+        # if 'pm' in self.source_pollutants and 'PM10' in speciation_map[['dst']].values:
+        #     dataframe['PM10'] = 'pm10'
+        # if 'pm' in self.source_pollutants and 'PM25' in speciation_map[['dst']].values:
+        #     dataframe['PM25'] = 'pm25'
         self.logger.write_time_log('TrafficSector', 'read_speciation_map', timeit.default_timer() - spent_time)
 
         return dataframe
@@ -1034,6 +1044,7 @@ class TrafficSector(Sector):
 
         # Reads speciation profile
         speciation = self.read_profiles(speciation)
+
         del speciation['Copert_V_name']
 
         # Transform dataset into timestep rows instead of timestep columns
@@ -1063,6 +1074,7 @@ class TrafficSector(Sector):
             del df_aux[out_p]
         for in_p in in_list:
             involved_out_pollutants = [key for key, value in self.speciation_map.iteritems() if value == in_p]
+
             # Selecting only necessary speciation profiles
             speciation_by_in_p = speciation.loc[:, involved_out_pollutants + ['Code']]
 
@@ -1143,10 +1155,12 @@ class TrafficSector(Sector):
         link_emissions.reset_index(inplace=True)
         if not os.path.exists(self.link_to_grid_csv):
             link_emissions_aux = link_emissions.loc[link_emissions['tstep'] == 0, :]
+
             link_emissions_aux = link_emissions_aux.to_crs(self.grid_shp.crs)
 
             link_emissions_aux = gpd.sjoin(link_emissions_aux, self.grid_shp.reset_index(),
                                            how="inner", op='intersects')
+
             link_emissions_aux = link_emissions_aux.loc[:, ['Link_ID', 'geometry', 'FID']]
 
             link_emissions_aux = link_emissions_aux.merge(self.grid_shp.reset_index().loc[:, ['FID', 'geometry']],
@@ -1166,17 +1180,25 @@ class TrafficSector(Sector):
                     length_list.append(aux.length / 1000)
 
             link_grid = pd.DataFrame({'Link_ID': link_id_list, 'FID': fid_list, 'length': length_list})
-            # data = self.comm.gather(link_grid, root=0)
-            # if self.comm.Get_rank() == 0:
-            #     data = pd.concat(data)
-            #     data.to_csv(self.link_to_grid_csv)
+
+            # Writing link to grid file
+            data = self.comm.gather(link_grid, root=0)
+            if self.comm.Get_rank() == 0:
+                if not os.path.exists(os.path.dirname(self.link_to_grid_csv)):
+                    os.makedirs(os.path.dirname(self.link_to_grid_csv))
+                data = pd.concat(data)
+                data.to_csv(self.link_to_grid_csv)
+
+            self.comm.Barrier()
+
         else:
             link_grid = pd.read_csv(self.link_to_grid_csv)
+            link_grid = link_grid[link_grid['Link_ID'].isin(link_emissions['Link_ID'].values)]
 
         del link_emissions['geometry']
-
         link_grid = link_grid.merge(link_emissions, left_on='Link_ID', right_on='Link_ID')
-        # link_grid.drop(columns=['Unnamed: 0'], inplace=True)
+        if 'Unnamed: 0' in link_grid.columns.values:
+            link_grid.drop(columns=['Unnamed: 0'], inplace=True)
 
         cols_to_update = list(link_grid.columns.values)
         cols_to_update.remove('length')
