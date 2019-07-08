@@ -186,18 +186,25 @@ class IoRaster(IoServer):
         if self.comm.Get_rank() == rank:
             ds = rasterio.open(raster_path)
 
+            # TODO remove when new version will be installed
             grid_info = ds.transform
-
-            lons = np.arange(ds.width) * grid_info[0] + grid_info[2]
-            lats = np.arange(ds.height) * grid_info[4] + grid_info[5]
+            if not rasterio.__version__ == '1.0.21':
+                lons = np.arange(ds.width) * grid_info[1] + grid_info[0]
+                lats = np.arange(ds.height) * grid_info[5] + grid_info[3]
+            else:
+                lons = np.arange(ds.width) * grid_info[0] + grid_info[2]
+                lats = np.arange(ds.height) * grid_info[4] + grid_info[5]
 
             # 1D to 2D
             c_lats = np.array([lats] * len(lons)).T.flatten()
             c_lons = np.array([lons] * len(lats)).flatten()
             del lons, lats
-
-            b_lons = self.create_bounds(c_lons, grid_info[0], number_vertices=4) + grid_info[0]/2
-            b_lats = self.create_bounds(c_lats, grid_info[4], number_vertices=4, inverse=True) + grid_info[4]/2
+            if not rasterio.__version__ == '1.0.21':
+                b_lons = self.create_bounds(c_lons, grid_info[1], number_vertices=4) + grid_info[1] / 2
+                b_lats = self.create_bounds(c_lats, grid_info[1], number_vertices=4, inverse=True) + grid_info[5] / 2
+            else:
+                b_lons = self.create_bounds(c_lons, grid_info[0], number_vertices=4) + grid_info[0]/2
+                b_lats = self.create_bounds(c_lats, grid_info[4], number_vertices=4, inverse=True) + grid_info[4]/2
 
             df_lats = pd.DataFrame(b_lats[0], columns=['b_lat_1', 'b_lat_2', 'b_lat_3', 'b_lat_4'])
             df_lons = pd.DataFrame(b_lons[0], columns=['b_lon_1', 'b_lon_2', 'b_lon_3', 'b_lon_4'])
@@ -256,17 +263,24 @@ class IoRaster(IoServer):
         ds = rasterio.open(raster_path)
 
         grid_info = ds.transform
-
-        lons = np.arange(ds.width) * grid_info[0] + grid_info[2]
-        lats = np.arange(ds.height) * grid_info[4] + grid_info[5]
+        # TODO remove when new version will be installed
+        if not rasterio.__version__ == '1.0.21':
+            lons = np.arange(ds.width) * grid_info[1] + grid_info[0]
+            lats = np.arange(ds.height) * grid_info[5] + grid_info[3]
+        else:
+            lons = np.arange(ds.width) * grid_info[0] + grid_info[2]
+            lats = np.arange(ds.height) * grid_info[4] + grid_info[5]
 
         # 1D to 2D
         c_lats = np.array([lats] * len(lons)).T.flatten()
         c_lons = np.array([lons] * len(lats)).flatten()
         del lons, lats
-
-        b_lons = self.create_bounds(c_lons, grid_info[0], number_vertices=4) + grid_info[0]/2
-        b_lats = self.create_bounds(c_lats, grid_info[4], number_vertices=4, inverse=True) + grid_info[4]/2
+        if not rasterio.__version__ == '1.0.21':
+            b_lons = self.create_bounds(c_lons, grid_info[1], number_vertices=4) + grid_info[1] / 2
+            b_lats = self.create_bounds(c_lats, grid_info[1], number_vertices=4, inverse=True) + grid_info[5] / 2
+        else:
+            b_lons = self.create_bounds(c_lons, grid_info[0], number_vertices=4) + grid_info[0]/2
+            b_lats = self.create_bounds(c_lats, grid_info[4], number_vertices=4, inverse=True) + grid_info[4]/2
 
         df_lats = pd.DataFrame(b_lats[0], columns=['b_lat_1', 'b_lat_2', 'b_lat_3', 'b_lat_4'])
         df_lons = pd.DataFrame(b_lons[0], columns=['b_lon_1', 'b_lon_2', 'b_lon_3', 'b_lon_4'])
