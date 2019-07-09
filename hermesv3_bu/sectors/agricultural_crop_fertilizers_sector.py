@@ -130,9 +130,9 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
     def to_dst_resolution(self, src_shapefile, value):
         spent_time = timeit.default_timer()
 
-        intersection = self.spatial_overlays(src_shapefile.to_crs(self.grid_shp.crs), self.grid_shp)
+        intersection = self.spatial_overlays(src_shapefile.to_crs(self.grid_shp.crs), self.grid_shp.reset_index())
         intersection['area'] = intersection.geometry.area
-        dst_shapefile = self.grid_shp.copy()
+        dst_shapefile = self.grid_shp.reset_index().copy()
         dst_shapefile['involved_area'] = intersection.groupby('FID')['area'].sum()
         intersection_with_dst_areas = pd.merge(intersection, dst_shapefile.loc[:, ['FID', 'involved_area']],
                                                how='left', on='FID')

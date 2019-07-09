@@ -128,7 +128,7 @@ class ResidentialSector(Sector):
         src_distribution.to_crs(self.grid_shp.crs, inplace=True)
         src_distribution.to_file(os.path.join(self.auxiliary_dir, 'residential', 'fuel_distribution_src.shp'))
         src_distribution['src_inter_fraction'] = src_distribution.geometry.area
-        src_distribution = self.spatial_overlays(src_distribution, self.grid_shp, how='intersection')
+        src_distribution = self.spatial_overlays(src_distribution, self.grid_shp.reset_index(), how='intersection')
         src_distribution.to_file(os.path.join(self.auxiliary_dir, 'residential', 'fuel_distribution_raw.shp'))
         src_distribution['src_inter_fraction'] = src_distribution.geometry.area / src_distribution[
             'src_inter_fraction']
@@ -238,7 +238,6 @@ class ResidentialSector(Sector):
                                                   fuel] = population_density['pop'].multiply(
                                 energy_consumption / total_pop)
             fuel_distribution = self.to_dst_resolution(fuel_distribution)
-
             IoShapefile(self.comm).write_shapefile_serial(fuel_distribution, fuel_distribution_path)
         else:
             fuel_distribution = IoShapefile(self.comm).read_shapefile_serial(fuel_distribution_path)

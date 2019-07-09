@@ -315,15 +315,15 @@ class LivestockSector(Sector):
         """
         spent_time = timeit.default_timer()
         self.logger.write_log('\t\tCreating animal shapefile into destiny resolution', message_level=3)
-        self.grid_shp.reset_index(inplace=True, drop=True)
-        # Changing coordinates sistem to the grid one
+        self.grid_shp.reset_index(inplace=True)
+        # Changing coordinates system to the grid one
         animal_distribution.to_crs(self.grid_shp.crs, inplace=True)
         # Getting src area
         animal_distribution['src_inter_fraction'] = animal_distribution.geometry.area
 
         # Making the intersection between the src distribution and the destiny grid
         animal_distribution = self.spatial_overlays(animal_distribution, self.grid_shp, how='intersection')
-        # Getting proportion of intersecion in the src cell (src_area/portion_area)
+        # Getting proportion of intersection in the src cell (src_area/portion_area)
         animal_distribution['src_inter_fraction'] = \
             animal_distribution.geometry.area / animal_distribution['src_inter_fraction']
         # Applying proportion to src distribution

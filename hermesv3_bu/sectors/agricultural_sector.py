@@ -365,7 +365,7 @@ class AgriculturalSector(Sector):
 
         crop_distribution = crop_distribution.to_crs(self.grid_shp.crs)
         crop_distribution['src_inter_fraction'] = crop_distribution.geometry.area
-        crop_distribution = self.spatial_overlays(crop_distribution, self.grid_shp, how='intersection')
+        crop_distribution = self.spatial_overlays(crop_distribution, self.grid_shp.reset_index(), how='intersection')
         crop_distribution['src_inter_fraction'] = \
             crop_distribution.geometry.area / crop_distribution['src_inter_fraction']
 
