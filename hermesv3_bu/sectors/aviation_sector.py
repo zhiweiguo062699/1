@@ -411,7 +411,7 @@ class AviationSector(Sector):
                     os.makedirs(os.path.dirname(airport_distribution_path))
                 airport_shapefile.to_crs(self.grid_shp.crs, inplace=True)
                 airport_shapefile['area'] = airport_shapefile.area
-                airport_distribution = self.spatial_overlays(airport_shapefile, self.grid_shp, how='intersection')
+                airport_distribution = self.spatial_overlays(airport_shapefile, self.grid_shp.reset_index(), how='intersection')
                 airport_distribution['fraction'] = airport_distribution.area / airport_distribution['area']
                 airport_distribution.drop(columns=['idx2', 'area', 'geometry', 'cons'], inplace=True)
                 airport_distribution.rename(columns={'idx1': 'airport_id'}, inplace=True)
@@ -471,9 +471,9 @@ class AviationSector(Sector):
                 runway_shapefile.to_crs(self.grid_shp.crs, inplace=True)
                 runway_shapefile['length'] = runway_shapefile.length
                 # duplicating each runway by involved cell
-                runway_shapefile = gpd.sjoin(runway_shapefile, self.grid_shp, how="inner", op='intersects')
+                runway_shapefile = gpd.sjoin(runway_shapefile, self.grid_shp.reset_index(), how="inner", op='intersects')
                 # Adding cell geometry
-                runway_shapefile = runway_shapefile.merge(self.grid_shp.loc[:, ['FID', 'geometry']], on='FID',
+                runway_shapefile = runway_shapefile.merge(self.grid_shp.reset_index().loc[:, ['FID', 'geometry']], on='FID',
                                                           how='left')
                 # Intersection between line (roadway) and polygon (cell)
                 # runway_shapefile['geometry'] = runway_shapefile.apply(do_intersection, axis=1)
@@ -578,7 +578,7 @@ class AviationSector(Sector):
                 trajectories_distr.reset_index(inplace=True)
 
                 # HORIZONTAL DISTRIBUTION
-                aux_grid = self.grid_shp.to_crs(trajectories_distr.crs)
+                aux_grid = self.grid_shp.to_crs(trajectories_distr.crs).reset_index()
                 # trajectories_distr.to_crs(self.grid_shp.crs, inplace=True)
                 # duplicating each runway by involved cell
                 trajectories_distr = gpd.sjoin(trajectories_distr, aux_grid, how="inner", op='intersects')
