@@ -47,9 +47,9 @@ class Hermes(object):
         from datetime import timedelta
 
         emis = self.sector_manager.run()
-
         waiting_time = timeit.default_timer()
         self.comm.Barrier()
+        self.logger.write_log('All emissions calculated!')
         self.logger.write_time_log('Hermes', 'Waiting_to_write', timeit.default_timer() - waiting_time)
 
         self.writer.write(emis)
