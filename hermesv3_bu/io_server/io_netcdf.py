@@ -3,7 +3,6 @@
 import sys
 import os
 from mpi4py import MPI
-import cf_units
 from datetime import timedelta
 from hermesv3_bu.io_server.io_server import IoServer
 import numpy as np
@@ -113,7 +112,7 @@ class IoNetcdf(IoServer):
         lon_o = nc.variables['longitude'][:]
         time = nc.variables['time']
         # From time array to list of dates.
-        time_array = cf_units.num2date(time[:], time.units,  cf_units.CALENDAR_STANDARD)
+        time_array = num2date(time[:], time.units,  CALENDAR_STANDARD)
         i_time = np.where(time_array == date_array[0])[0][0]
 
         # Correction to set the longitudes from -180 to 180 instead of from 0 to 360.
