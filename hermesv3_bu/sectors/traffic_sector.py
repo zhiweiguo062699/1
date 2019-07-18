@@ -14,6 +14,13 @@ from hermesv3_bu.sectors.sector import Sector
 from hermesv3_bu.io_server.io_netcdf import IoNetcdf
 from hermesv3_bu.io_server.io_shapefile import IoShapefile
 
+from memory_profiler import profile
+import gc
+from ctypes import cdll, CDLL
+cdll.LoadLibrary("libc.so.6")
+libc = CDLL("libc.so.6")
+libc.malloc_trim(0)
+
 MIN_RAIN = 0.254  # After USEPA (2011)
 RECOVERY_RATIO = 0.0872  # After Amato et al. (2012)
 
@@ -261,13 +268,15 @@ class TrafficSector(Sector):
 
             # Deleting unused columns
             del df['aadt_m_sat'], df['aadt_m_sun'], df['aadt_m_wd'], df['Source']
-
+            libc.malloc_trim(0)
             chunks = chunk_road_links(df, self.comm.Get_size())
         else:
             chunks = None
         self.comm.Barrier()
 
         df = self.comm.scatter(chunks, root=0)
+        del chunks
+        libc.malloc_trim(0)
         df = df.to_crs({'init': 'epsg:4326'})
 
         self.crs = df.crs
@@ -297,7 +306,7 @@ class TrafficSector(Sector):
             self.write_rline_roadlinks(df)
 
         self.logger.write_time_log('TrafficSector', 'read_road_links', timeit.default_timer() - spent_time)
-
+        libc.malloc_trim(0)
         return df
 
     def read_ef(self, emission_type, pollutant_name):
@@ -570,6 +579,7 @@ class TrafficSector(Sector):
             df_list.append(df_aux)
 
         df = pd.concat(df_list, ignore_index=True)
+        libc.malloc_trim(0)
 
         del df['fleet_comp']
 
@@ -720,6 +730,7 @@ class TrafficSector(Sector):
         del cold_links['Road_type'], cold_links['aadt_m_mn'], cold_links['aadt_h_mn'], cold_links['aadt_h_wd']
         del cold_links['aadt_h_sat'], cold_links['aadt_h_sun'], cold_links['aadt_week'], cold_links['fleet_comp']
         del cold_links['road_grad'], cold_links['PcLight'], cold_links['start_date']
+        libc.malloc_trim(0)
 
         cold_links.loc[:, 'centroid'] = cold_links['geometry'].centroid
         link_lons = cold_links['geometry'].centroid.x
@@ -737,10 +748,11 @@ class TrafficSector(Sector):
         cold_links['REC'] = cold_links.apply(self.nearest, geom_union=unary_union, df1=cold_links, df2=temperature,
                                              geom1_col='centroid', src_column='REC', axis=1)
         del cold_links['geometry'], cold_links['centroid'], temperature['geometry']
+        libc.malloc_trim(0)
 
         cold_links = cold_links.merge(temperature, left_on='REC', right_on='REC', how='left')
-
         del cold_links['REC']
+        libc.malloc_trim(0)
 
         c_expanded = hot_expanded.merge(cold_links, left_on='Link_ID', right_on='Link_ID', how='left')
 
@@ -761,6 +773,7 @@ class TrafficSector(Sector):
 
             del cold_exp_p_aux['index_right_x'], cold_exp_p_aux['Road_type'], cold_exp_p_aux['Fleet_value']
             del cold_exp_p_aux['Code']
+            libc.malloc_trim(0)
 
             for tstep in xrange(self.timestep_num):
                 v_column = 'v_{0}'.format(tstep)
@@ -815,11 +828,12 @@ class TrafficSector(Sector):
                 cold_df.loc[:, 'pm10_{0}'.format(tstep)] = cold_df['pm_{0}'.format(tstep)]
                 cold_df.loc[:, 'pm25_{0}'.format(tstep)] = cold_df['pm_{0}'.format(tstep)]
                 del cold_df['pm_{0}'.format(tstep)]
-
+                libc.malloc_trim(0)
             if 'voc' in self.source_pollutants and 'ch4' in self.source_pollutants:
                 cold_df.loc[:, 'nmvoc_{0}'.format(tstep)] = \
                     cold_df['voc_{0}'.format(tstep)] - cold_df['ch4_{0}'.format(tstep)]
                 del cold_df['voc_{0}'.format(tstep)]
+                libc.malloc_trim(0)
             else:
                 self.logger.write_log("WARNING! nmvoc emissions cannot be estimated because voc or ch4 are not " +
                                       "selected in the pollutant list.")
@@ -827,7 +841,7 @@ class TrafficSector(Sector):
                               "pollutant list.")
 
         cold_df = self.speciate_traffic(cold_df, self.hot_cold_speciation)
-
+        libc.malloc_trim(0)
         self.logger.write_time_log('TrafficSector', 'calculate_cold', timeit.default_timer() - spent_time)
         return cold_df
 
@@ -1117,35 +1131,67 @@ class TrafficSector(Sector):
 
     def calculate_emissions(self):
         spent_time = timeit.default_timer()
-
-        self.logger.write_log('\t\tCalculating yearly emissions', message_level=2)
+        version = 1
+        self.logger.write_log('\tCalculating Road traffic emissions', message_level=1)
         df_accum = pd.DataFrame()
-        if self.do_hot:
-            df_accum = pd.concat([df_accum, self.compact_hot_expanded(self.calculate_hot())]).groupby(
-                ['tstep', 'Link_ID']).sum()
-        if self.do_cold:
-            df_accum = pd.concat([df_accum, self.calculate_cold(self.calculate_hot())]).groupby(
-                ['tstep', 'Link_ID']).sum()
-        if self.do_tyre_wear:
-            df_accum = pd.concat([df_accum, self.calculate_tyre_wear()]).groupby(['tstep', 'Link_ID']).sum()
-        if self.do_brake_wear:
-            df_accum = pd.concat([df_accum, self.calculate_brake_wear()]).groupby(['tstep', 'Link_ID']).sum()
-        if self.do_road_wear:
-            df_accum = pd.concat([df_accum, self.calculate_road_wear()]).groupby(['tstep', 'Link_ID']).sum()
-        if self.do_resuspension:
-            df_accum = pd.concat([df_accum, self.calculate_resuspension()]).groupby(['tstep', 'Link_ID']).sum()
 
+        if version == 2:
+            if self.do_hot:
+                self.logger.write_log('\t\tCalculating Hot emissions.', message_level=2)
+                df_accum = pd.concat([df_accum, self.compact_hot_expanded(self.calculate_hot())]).groupby(
+                    ['tstep', 'Link_ID']).sum()
+            if self.do_cold:
+                self.logger.write_log('\t\tCalculating Cold emissions.', message_level=2)
+                df_accum = pd.concat([df_accum, self.calculate_cold(self.calculate_hot())]).groupby(
+                    ['tstep', 'Link_ID']).sum()
+        else:
+            if self.do_hot or self.do_cold:
+                self.logger.write_log('\t\tCalculating Hot emissions.', message_level=2)
+                hot_emis = self.calculate_hot()
+
+            if self.do_hot:
+                self.logger.write_log('\t\tCompacting Hot emissions.', message_level=2)
+                df_accum = pd.concat([df_accum, self.compact_hot_expanded(hot_emis.copy())]).groupby(
+                    ['tstep', 'Link_ID']).sum()
+                libc.malloc_trim(0)
+            if self.do_cold:
+                self.logger.write_log('\t\tCalculating Cold emissions.', message_level=2)
+                df_accum = pd.concat([df_accum, self.calculate_cold(hot_emis)]).groupby(
+                    ['tstep', 'Link_ID']).sum()
+                libc.malloc_trim(0)
+            if self.do_hot or self.do_cold:
+                del hot_emis
+                libc.malloc_trim(0)
+
+        if self.do_tyre_wear:
+            self.logger.write_log('\t\tCalculating Tyre wear emissions.', message_level=2)
+            df_accum = pd.concat([df_accum, self.calculate_tyre_wear()]).groupby(['tstep', 'Link_ID']).sum()
+            libc.malloc_trim(0)
+        if self.do_brake_wear:
+            self.logger.write_log('\t\tCalculating Brake wear emissions.', message_level=2)
+            df_accum = pd.concat([df_accum, self.calculate_brake_wear()]).groupby(['tstep', 'Link_ID']).sum()
+            libc.malloc_trim(0)
+        if self.do_road_wear:
+            self.logger.write_log('\t\tCalculating Road wear emissions.', message_level=2)
+            df_accum = pd.concat([df_accum, self.calculate_road_wear()]).groupby(['tstep', 'Link_ID']).sum()
+            libc.malloc_trim(0)
+        if self.do_resuspension:
+            self.logger.write_log('\t\tCalculating Resuspension emissions.', message_level=2)
+            df_accum = pd.concat([df_accum, self.calculate_resuspension()]).groupby(['tstep', 'Link_ID']).sum()
+            libc.malloc_trim(0)
         df_accum = df_accum.reset_index().merge(self.road_links.loc[:, ['Link_ID', 'geometry']], left_on='Link_ID',
                                                 right_on='Link_ID', how='left')
         df_accum = gpd.GeoDataFrame(df_accum, crs=self.crs)
+        libc.malloc_trim(0)
         df_accum.set_index(['Link_ID', 'tstep'], inplace=True)
 
         if self.write_rline:
             self.write_rline_output(df_accum.copy())
-
+        self.logger.write_log('\t\tRoad link emissions to grid.', message_level=2)
         df_accum = self.links_to_grid(df_accum)
+        libc.malloc_trim(0)
 
-        self.logger.write_log('\t\tTraffic emissions calculated', message_level=2)
+        self.logger.write_log('\tRoad traffic emissions calculated', message_level=2)
         self.logger.write_time_log('TrafficSector', 'calculate_emissions', timeit.default_timer() - spent_time)
         return df_accum
 
@@ -1319,6 +1365,6 @@ class TrafficSector(Sector):
             df_out.sort_index(inplace=True)
             df_out.to_csv(os.path.join(self.output_dir, 'roads.txt'), index=False, sep=' ')
         self.comm.Barrier()
-
+        self.logger.write_log('\t\tTraffic emissions calculated', message_level=2)
         self.logger.write_time_log('TrafficSector', 'write_rline_roadlinks', timeit.default_timer() - spent_time)
         return True
