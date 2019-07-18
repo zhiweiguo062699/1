@@ -107,6 +107,7 @@ class PointSourceSector(Sector):
             if sector_list is not None:
                 catalog_df = catalog_df.loc[catalog_df['SNAP'].str[:2].isin(sector_list)]
             catalog_df.drop('SNAP', axis=1, inplace=True)
+            catalog_df.sort_values('Lat', inplace=True)
 
             catalog_df = self.to_geodataframe(catalog_df)
 
@@ -298,7 +299,6 @@ class PointSourceSector(Sector):
         nc = Dataset(netcdf_path, mode='r')
         lats = nc.variables['lat'][:]
         lons = nc.variables['lon'][:]
-
         x = np.array([np.arange(lats.shape[1])] * lats.shape[0])
         y = np.array([np.arange(lats.shape[0]).T] * lats.shape[1]).T
 
@@ -307,8 +307,11 @@ class PointSourceSector(Sector):
                                         geometry=[Point(xy) for xy in zip(lons.flatten(), lats.flatten())],
                                         crs={'init': 'epsg:4326'})
         nc_dataframe['index'] = nc_dataframe.index
+
+        union = nc_dataframe.unary_union
         dataframe['meteo_index'] = dataframe.apply(
-            nearest, geom_union=nc_dataframe.unary_union, df1=dataframe, df2=nc_dataframe, src_column='index', axis=1)
+            nearest, geom_union=union, df1=dataframe, df2=nc_dataframe, src_column='index', axis=1)
+
         dataframe['X'] = nc_dataframe.loc[dataframe['meteo_index'], 'X'].values
         dataframe['Y'] = nc_dataframe.loc[dataframe['meteo_index'], 'Y'].values
 
@@ -476,6 +479,7 @@ class PointSourceSector(Sector):
         meteo_xy = self.get_meteo_xy(catalog.groupby('Code').first(), os.path.join(
             self.plume_rise_pahts['temperature_sfc_dir'],
             't2_{0}.nc'.format(self.date_array[0].replace(hour=0).strftime("%Y%m%d%H"))))
+
 
         catalog = catalog.merge(meteo_xy, left_index=True, right_index=True)
 
@@ -785,6 +789,7 @@ class PointSourceSector(Sector):
         # From kmol/h or kg/h to mol/h or g/h
         emissions = emissions.mul(1000.0)
 
+        self.logger.write_log('\t\tPoint sources emissions calculated', message_level=2)
         self.logger.write_time_log('PointSourceSector', 'calculate_emissions', timeit.default_timer() - spent_time)
 
         return emissions
