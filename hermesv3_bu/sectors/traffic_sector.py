@@ -6,16 +6,12 @@ import timeit
 import pandas as pd
 import geopandas as gpd
 import numpy as np
-from shapely.ops import nearest_points
 from datetime import timedelta
 import warnings
 from hermesv3_bu.logger.log import Log
 from hermesv3_bu.sectors.sector import Sector
 from hermesv3_bu.io_server.io_netcdf import IoNetcdf
-from hermesv3_bu.io_server.io_shapefile import IoShapefile
 
-from memory_profiler import profile
-import gc
 from ctypes import cdll, CDLL
 cdll.LoadLibrary("libc.so.6")
 libc = CDLL("libc.so.6")
