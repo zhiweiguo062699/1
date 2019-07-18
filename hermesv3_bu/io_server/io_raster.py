@@ -10,6 +10,7 @@ from rasterio.mask import mask
 import geopandas as gpd
 import pandas as pd
 import numpy as np
+from shapely.geometry import Polygon
 
 
 from hermesv3_bu.io_server.io_server import IoServer
@@ -181,23 +182,45 @@ class IoRaster(IoServer):
         :param nodata:
         :return:
         """
-        from shapely.geometry import Polygon
 
         if self.comm.Get_rank() == rank:
-            ds = rasterio.open(raster_path)
+            gdf = self.to_shapefile_serie(raster_path, out_path=out_path, write=write, crs=crs, nodata=nodata)
+        else:
+            gdf = None
 
-            # TODO remove when new version will be installed
+        if self.comm.Get_size() > 1:
+            gdf = self.comm.bcast(gdf, root=0)
+
+        return gdf
+
+    def to_shapefile_serie_old(self, raster_path, out_path=None, write=False, crs=None, nodata=0):
+        """
+
+        :param raster_path:
+        :param out_path:
+        :param write:
+        :param crs:
+        :param rank:
+        :param nodata:
+        :return:
+        """
+
+        if out_path is None or not os.path.exists(out_path):
+            ds = rasterio.open(raster_path)
+            print 1
             grid_info = ds.transform
+            # TODO remove when new version will be installed
             if not rasterio.__version__ == '1.0.21':
                 lons = np.arange(ds.width) * grid_info[1] + grid_info[0]
                 lats = np.arange(ds.height) * grid_info[5] + grid_info[3]
             else:
                 lons = np.arange(ds.width) * grid_info[0] + grid_info[2]
                 lats = np.arange(ds.height) * grid_info[4] + grid_info[5]
-
+            print 2
             # 1D to 2D
             c_lats = np.array([lats] * len(lons)).T.flatten()
             c_lons = np.array([lons] * len(lats)).flatten()
+            print 3
             del lons, lats
             if not rasterio.__version__ == '1.0.21':
                 b_lons = self.create_bounds(c_lons, grid_info[1], number_vertices=4) + grid_info[1] / 2
@@ -205,11 +228,14 @@ class IoRaster(IoServer):
             else:
                 b_lons = self.create_bounds(c_lons, grid_info[0], number_vertices=4) + grid_info[0]/2
                 b_lats = self.create_bounds(c_lats, grid_info[4], number_vertices=4, inverse=True) + grid_info[4]/2
-
+            print 4
             df_lats = pd.DataFrame(b_lats[0], columns=['b_lat_1', 'b_lat_2', 'b_lat_3', 'b_lat_4'])
             df_lons = pd.DataFrame(b_lons[0], columns=['b_lon_1', 'b_lon_2', 'b_lon_3', 'b_lon_4'])
+            print 5
             df = pd.concat([df_lats, df_lons], axis=1)
-
+            print 6
+            print df
+            exit()
             del df_lats, df_lons, b_lats, b_lons
 
             df['p1'] = zip(df.b_lon_1, df.b_lat_1)
@@ -220,13 +246,13 @@ class IoRaster(IoServer):
             del df['b_lat_3'], df['b_lon_3']
             df['p4'] = zip(df.b_lon_4, df.b_lat_4)
             del df['b_lat_4'], df['b_lon_4']
+            print 7
 
             list_points = df.values
+            print 8
 
             del df['p1'], df['p2'], df['p3'], df['p4']
-
             data = ds.read(1).flatten()
-
             geometry = [Polygon(list(points)) for points in list_points]
             gdf = gpd.GeoDataFrame(data, columns=['data'], crs=ds.crs, geometry=geometry)
             gdf.loc[:, 'CELL_ID'] = xrange(len(gdf))
@@ -239,11 +265,9 @@ class IoRaster(IoServer):
                 if not os.path.exists(os.path.dirname(out_path)):
                     os.makedirs(os.path.dirname(out_path))
                 gdf.to_file(out_path)
-        else:
-            gdf = None
 
-        if self.comm.Get_size() > 1:
-            gdf = self.comm.bcast(gdf, root=0)
+        else:
+            gdf = gpd.read_file(out_path)
 
         return gdf
 
@@ -254,66 +278,37 @@ class IoRaster(IoServer):
         :param out_path:
         :param write:
         :param crs:
-        :param rank:
         :param nodata:
         :return:
         """
-        from shapely.geometry import Polygon
 
-        ds = rasterio.open(raster_path)
+        if out_path is None or not os.path.exists(out_path):
+            import rasterio
+            from rasterio.features import shapes
+            mask = None
+            src = rasterio.open(raster_path)
+            image = src.read(1)  # first band
+            image = image.astype(np.float32)
+            geoms = (
+                {'properties': {'data': v}, 'geometry': s}
+                for i, (s, v) in enumerate(shapes(image, mask=mask, transform=src.transform)))
 
-        grid_info = ds.transform
-        # TODO remove when new version will be installed
-        if not rasterio.__version__ == '1.0.21':
-            lons = np.arange(ds.width) * grid_info[1] + grid_info[0]
-            lats = np.arange(ds.height) * grid_info[5] + grid_info[3]
+            gdf = gpd.GeoDataFrame.from_features(geoms)
+
+            gdf.loc[:, 'CELL_ID'] = xrange(len(gdf))
+            gdf = gdf[gdf['data'] != nodata]
+
+            gdf.crs = src.crs
+
+            if crs is not None:
+                gdf = gdf.to_crs(crs)
+
+            if write:
+                if not os.path.exists(os.path.dirname(out_path)):
+                    os.makedirs(os.path.dirname(out_path))
+                gdf.to_file(out_path)
+
         else:
-            lons = np.arange(ds.width) * grid_info[0] + grid_info[2]
-            lats = np.arange(ds.height) * grid_info[4] + grid_info[5]
-
-        # 1D to 2D
-        c_lats = np.array([lats] * len(lons)).T.flatten()
-        c_lons = np.array([lons] * len(lats)).flatten()
-        del lons, lats
-        if not rasterio.__version__ == '1.0.21':
-            b_lons = self.create_bounds(c_lons, grid_info[1], number_vertices=4) + grid_info[1] / 2
-            b_lats = self.create_bounds(c_lats, grid_info[1], number_vertices=4, inverse=True) + grid_info[5] / 2
-        else:
-            b_lons = self.create_bounds(c_lons, grid_info[0], number_vertices=4) + grid_info[0]/2
-            b_lats = self.create_bounds(c_lats, grid_info[4], number_vertices=4, inverse=True) + grid_info[4]/2
-
-        df_lats = pd.DataFrame(b_lats[0], columns=['b_lat_1', 'b_lat_2', 'b_lat_3', 'b_lat_4'])
-        df_lons = pd.DataFrame(b_lons[0], columns=['b_lon_1', 'b_lon_2', 'b_lon_3', 'b_lon_4'])
-        df = pd.concat([df_lats, df_lons], axis=1)
-
-        del df_lats, df_lons, b_lats, b_lons
-
-        df['p1'] = zip(df.b_lon_1, df.b_lat_1)
-        del df['b_lat_1'], df['b_lon_1']
-        df['p2'] = zip(df.b_lon_2, df.b_lat_2)
-        del df['b_lat_2'], df['b_lon_2']
-        df['p3'] = zip(df.b_lon_3, df.b_lat_3)
-        del df['b_lat_3'], df['b_lon_3']
-        df['p4'] = zip(df.b_lon_4, df.b_lat_4)
-        del df['b_lat_4'], df['b_lon_4']
-
-        list_points = df.values
-
-        del df['p1'], df['p2'], df['p3'], df['p4']
-
-        data = ds.read(1).flatten()
-
-        geometry = [Polygon(list(points)) for points in list_points]
-        gdf = gpd.GeoDataFrame(data, columns=['data'], crs=ds.crs, geometry=geometry)
-        gdf.loc[:, 'CELL_ID'] = xrange(len(gdf))
-        gdf = gdf[gdf['data'] != nodata]
-
-        if crs is not None:
-            gdf = gdf.to_crs(crs)
-
-        if write:
-            if not os.path.exists(os.path.dirname(out_path)):
-                os.makedirs(os.path.dirname(out_path))
-            gdf.to_file(out_path)
+            gdf = gpd.read_file(out_path)
 
         return gdf
