@@ -247,7 +247,8 @@ class Grid(object):
 
         else:
             gdf = gpd.read_file(self.shapefile_path)
-            gdf.set_index('FID', inplace=True)
+
+        # gdf.set_index('FID', inplace=True, drop=False)
         self.logger.write_time_log('Grid', 'create_shapefile', timeit.default_timer() - spent_time, 2)
 
         return gdf
