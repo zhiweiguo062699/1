@@ -152,29 +152,17 @@ class Config(ArgParser):
         p.add_argument('--inc_lon', required=False, type=float, help='Longitude grid resolution.')
 
         # ===== SECTOR SELECTION =====
-        p.add_argument('--do_traffic', required=False, type=str, default='True')
-        p.add_argument('--do_traffic_area', required=False, type=str, default='True')
-        p.add_argument('--do_aviation', required=False, type=str, default='True')
-        p.add_argument('--do_point_sources', required=False, type=str, default='True')
-        p.add_argument('--do_recreational_boats', required=False, type=str, default='True')
-        p.add_argument('--do_shipping_port', required=False, type=str, default='True')
-        p.add_argument('--do_residential', required=False, type=str, default='True')
-        p.add_argument('--do_livestock', required=False, type=str, default='True')
-        p.add_argument('--do_crop_operations', required=False, type=str, default='True')
-        p.add_argument('--do_crop_fertilizers', required=False, type=str, default='True')
-        p.add_argument('--do_agricultural_machinery', required=False, type=str, default='True')
-
-        p.add_argument('--traffic_processors', required=False, type=int, default='True')
-        p.add_argument('--traffic_area_processors', required=False, type=int, default='True')
-        p.add_argument('--aviation_processors', required=False, type=int, default='True')
-        p.add_argument('--point_sources_processors', required=False, type=int, default='True')
-        p.add_argument('--recreational_boats_processors', required=False, type=int, default='True')
-        p.add_argument('--shipping_port_processors', required=False, type=int, default='True')
-        p.add_argument('--residential_processors', required=False, type=int, default='True')
-        p.add_argument('--livestock_processors', required=False, type=int, default='True')
-        p.add_argument('--crop_operations_processors', required=False, type=int, default='True')
-        p.add_argument('--crop_fertilizers_processors', required=False, type=int, default='True')
-        p.add_argument('--agricultural_machinery_processors', required=False, type=int, default='True')
+        p.add_argument('--traffic_processors', required=True, type=int)
+        p.add_argument('--traffic_area_processors', required=True, type=int)
+        p.add_argument('--aviation_processors', required=True, type=int)
+        p.add_argument('--point_sources_processors', required=True, type=int)
+        p.add_argument('--recreational_boats_processors', required=True, type=int)
+        p.add_argument('--shipping_port_processors', required=True, type=int)
+        p.add_argument('--residential_processors', required=True, type=int)
+        p.add_argument('--livestock_processors', required=True, type=int)
+        p.add_argument('--crop_operations_processors', required=True, type=int)
+        p.add_argument('--crop_fertilizers_processors', required=True, type=int)
+        p.add_argument('--agricultural_machinery_processors', required=True, type=int)
 
         p.add_argument('--speciation_map', required=False, help='...')
 
@@ -411,17 +399,17 @@ class Config(ArgParser):
                 comm.Barrier()
         self.create_dir(arguments.auxiliary_files_path)
 
-        arguments.do_traffic = self._parse_bool(arguments.do_traffic)
-        arguments.do_traffic_area = self._parse_bool(arguments.do_traffic_area)
-        arguments.do_aviation = self._parse_bool(arguments.do_aviation)
-        arguments.do_point_sources = self._parse_bool(arguments.do_point_sources)
-        arguments.do_recreational_boats = self._parse_bool(arguments.do_recreational_boats)
-        arguments.do_shipping_port = self._parse_bool(arguments.do_shipping_port)
-        arguments.do_residential = self._parse_bool(arguments.do_residential)
-        arguments.do_livestock = self._parse_bool(arguments.do_livestock)
-        arguments.do_crop_operations = self._parse_bool(arguments.do_crop_operations)
-        arguments.do_crop_fertilizers = self._parse_bool(arguments.do_crop_fertilizers)
-        arguments.do_agricultural_machinery = self._parse_bool(arguments.do_agricultural_machinery)
+        arguments.do_traffic = arguments.traffic_processors > 0
+        arguments.do_traffic_area = arguments.traffic_area_processors > 0
+        arguments.do_aviation = arguments.aviation_processors > 0
+        arguments.do_point_sources = arguments.point_sources_processors > 0
+        arguments.do_recreational_boats = arguments.recreational_boats_processors > 0
+        arguments.do_shipping_port = arguments.shipping_port_processors > 0
+        arguments.do_residential = arguments.residential_processors > 0
+        arguments.do_livestock = arguments.livestock_processors > 0
+        arguments.do_crop_operations = arguments.crop_operations_processors > 0
+        arguments.do_crop_fertilizers = arguments.crop_fertilizers_processors > 0
+        arguments.do_agricultural_machinery = arguments.agricultural_machinery_processors > 0
 
         # Aviation lists
         arguments.airport_list = self._parse_list(arguments.airport_list)
