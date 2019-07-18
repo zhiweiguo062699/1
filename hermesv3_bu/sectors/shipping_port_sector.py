@@ -6,6 +6,7 @@ import geopandas as gpd
 import numpy as np
 import timeit
 from hermesv3_bu.logger.log import Log
+from hermesv3_bu.io_server.io_shapefile import IoShapefile
 
 
 class ShippingPortSector(Sector):
@@ -81,9 +82,6 @@ class ShippingPortSector(Sector):
         spent_time = timeit.default_timer()
         logger.write_log('===== SHIPPING PORT SECTOR =====')
 
-        if comm.Get_size() > 1:
-            raise ValueError('Shipping port sector is not parallelised set shipping_port_processors to 1')
-
         super(ShippingPortSector, self).__init__(
             comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
             monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
@@ -92,16 +90,11 @@ class ShippingPortSector(Sector):
         self.ef_engine = self.read_profiles(ef_dir)
 
         self.vessel_list = vessel_list
-        if port_list is not None:
-            unknown_ports = [x for x in port_list if x not in list(pd.read_csv(tonnage_path).code.values)]
-            if len(unknown_ports) > 0:
-                raise ValueError("The port(s) {0} are not listed on the {1} file.".format(unknown_ports, tonnage_path))
-            self.port_list = port_list
-        else:
-            self.port_list = list(self.read_profiles(tonnage_path).code.values)
 
         self.hoteling_shapefile_path = hoteling_shapefile_path
         self.maneuvering_shapefile_path = maneuvering_shapefile_path
+
+        self.port_list = self.get_port_list()
 
         self.engine_percent = self.read_profiles(engine_percent_path)
         self.tonnage = self.read_profiles(tonnage_path)
@@ -109,6 +102,28 @@ class ShippingPortSector(Sector):
         self.load_factor = self.read_profiles(load_factor_path)
         self.power_values = self.read_profiles(power_path)
         self.logger.write_time_log('ShippingPortSector', '__init__', timeit.default_timer() - spent_time)
+
+    def get_port_list(self):
+        if self.comm.Get_rank() == 0:
+            port_shp = IoShapefile(self.comm).read_shapefile_serial(self.maneuvering_shapefile_path)
+            port_shp.drop(columns=['Name', 'Weight'], inplace=True)
+
+            port_shp = gpd.sjoin(port_shp, self.clip.shapefile.to_crs(port_shp.crs), how='inner', op='intersects')
+            port_list = np.unique(port_shp['code'].values)
+            print port_list
+            if len(port_list) < self.comm.Get_size():
+                raise ValueError("The chosen number of processors {0} exceeds the number of involved ports {1}.".format(
+                    self.comm.Get_size(), len(port_list)) + " Set {0} at shipping_port_processors value.".format(
+                    len(port_list)))
+            port_list = np.array_split(port_list, self.comm.Get_size())
+        else:
+            port_list = None
+
+        port_list = self.comm.scatter(port_list, root=0)
+
+        if len(port_list) == 0:
+            raise ValueError("The number ")
+        return list(port_list)
 
     def read_monthly_profiles(self, path):
         """
