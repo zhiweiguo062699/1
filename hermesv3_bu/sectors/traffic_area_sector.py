@@ -378,9 +378,12 @@ class TrafficAreaSector(Sector):
 
         p_names = small_cities.columns.values
 
-        self.grid_shp = self.add_timezone(self.grid_shp)
+        aux_grid = self.grid_shp.loc[self.grid_shp['FID'].isin(small_cities.index.values), :]
 
-        small_cities = small_cities.merge(self.grid_shp.loc[:, ['timezone']], left_index=True, right_index=True,
+        aux_grid = self.add_timezone(aux_grid)
+        aux_grid.set_index('FID', inplace=True)
+
+        small_cities = small_cities.merge(aux_grid.loc[:, ['timezone']], left_index=True, right_index=True,
                                           how='left')
         small_cities.loc[:, 'utc'] = self.date_array[0]
         small_cities['date'] = small_cities.groupby('timezone')['utc'].apply(
@@ -467,5 +470,6 @@ class TrafficAreaSector(Sector):
 
         emissions = self.to_grid()
 
+        self.logger.write_log('\t\tTraffic area emissions calculated', message_level=2)
         self.logger.write_time_log('TrafficAreaSector', 'calculate_emissions', timeit.default_timer() - spent_time)
         return emissions
