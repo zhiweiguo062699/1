@@ -394,7 +394,7 @@ class AviationSector(Sector):
             self.airport_list_full = new_list
 
             new_list = [new_list[i * len(new_list) // self.comm.size: (i + 1) * len(new_list) // self.comm.size]
-                                for i in range(self.comm.size)]
+                        for i in range(self.comm.size)]
             for sublist in new_list:
                 if len(sublist) == 0:
                     raise ValueError("ERROR: The selected number of processors is to high. " +
