@@ -22,7 +22,7 @@ class IoRaster(IoServer):
             comm = MPI.COMM_WORLD
         super(IoRaster, self).__init__(comm)
 
-    def clip_raster_with_shapefile(self, raster_path, shape_path, clipped_raster_path):
+    def clip_raster_with_shapefile(self, raster_path, shape_path, clipped_raster_path, values=None, nodata=0):
         """
         Clip a raster using given shapefile path.
 
@@ -37,8 +37,8 @@ class IoRaster(IoServer):
         :param clipped_raster_path: Place to store the clipped raster.
         :type clipped_raster_path: str
 
-        :param rank: Rank who have to do the work. Default 0
-        :type rank: int
+        :param values: List of data values to clip.
+        :type values: list
 
         :return: Path where is stored the clipped raster.
         :rtype: str
@@ -57,7 +57,10 @@ class IoRaster(IoServer):
         geo = geo.to_crs(crs=data.crs.data)
         coords = getFeatures(geo)
 
-        out_img, out_transform = mask(data, shapes=coords, crop=True)
+        out_img, out_transform = mask(data, shapes=coords, crop=True, all_touched=True, nodata=nodata)
+        if values is not None:
+            out_img[~np.isin(out_img, values)] = nodata
+
         out_meta = data.meta.copy()
 
         out_meta.update({
@@ -73,7 +76,7 @@ class IoRaster(IoServer):
 
         return clipped_raster_path
 
-    def clip_raster_with_shapefile_poly(self, raster_path, geo, clipped_raster_path, nodata=0):
+    def clip_raster_with_shapefile_poly(self, raster_path, geo, clipped_raster_path, values=None, nodata=0):
         """
         Clip a raster using given shapefile.
 
@@ -88,8 +91,8 @@ class IoRaster(IoServer):
         :param clipped_raster_path: Place to store the clipped raster.
         :type clipped_raster_path: str
 
-        :param rank: Rank who have to do the work. Default 0
-        :type rank: int
+        :param values: List of data values to clip.
+        :type values: list
 
         :param nodata: Value for the no data elements. Default 0
         :type nodata: float
@@ -112,6 +115,8 @@ class IoRaster(IoServer):
         coords = get_features(geo)
 
         out_img, out_transform = mask(data, shapes=coords, crop=True, all_touched=True, nodata=nodata)
+        if values is not None:
+            out_img[~np.isin(out_img, values)] = nodata
         out_meta = data.meta.copy()
 
         out_meta.update(
