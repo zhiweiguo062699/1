@@ -55,12 +55,12 @@ class RotatedGrid(Grid):
         """
         spent_time = timeit.default_timer()
 
-        center_latitudes = np.arange(self.attributes['south_boundary'], self.attributes['south_boundary'] +
-                                     (self.attributes['n_lat'] * self.attributes['inc_rlat']),
-                                     self.attributes['inc_rlat'], dtype=np.float)
-        center_longitudes = np.arange(self.attributes['west_boundary'], self.attributes['west_boundary'] +
-                                      (self.attributes['n_lon'] * self.attributes['inc_rlon']),
-                                      self.attributes['inc_rlon'], dtype=np.float)
+        center_latitudes = np.linspace(self.attributes['south_boundary'], self.attributes['south_boundary'] +
+                                       (self.attributes['inc_rlat'] * (self.attributes['n_lat'] - 1)),
+                                       self.attributes['n_lat'], dtype=np.float)
+        center_longitudes = np.linspace(self.attributes['west_boundary'], self.attributes['west_boundary'] +
+                                        (self.attributes['inc_rlon'] * (self.attributes['n_lon'] - 1)),
+                                        self.attributes['n_lon'], dtype=np.float)
 
         corner_latitudes = self.create_bounds(center_latitudes, self.attributes['inc_rlat'], number_vertices=4,
                                               inverse=True)

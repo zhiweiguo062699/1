@@ -98,10 +98,12 @@ class MercatorGrid(Grid):
         """
         spent_time = timeit.default_timer()
         # Create a regular grid in metres (Two 1D arrays)
-        self.x = np.arange(self.attributes['x_0'], self.attributes['x_0'] + self.attributes['inc_x'] *
-                           self.attributes['nx'], self.attributes['inc_x'], dtype=np.float)
-        self.y = np.arange(self.attributes['y_0'], self.attributes['y_0'] + self.attributes['inc_y'] *
-                           self.attributes['ny'], self.attributes['inc_y'], dtype=np.float)
+        self.x = np.linspace(self.attributes['x_0'], self.attributes['x_0'] +
+                             (self.attributes['inc_x'] * (self.attributes['nx'] - 1)), self.attributes['nx'],
+                             dtype=np.float)
+        self.y = np.arange(self.attributes['y_0'], self.attributes['y_0'] +
+                           (self.attributes['inc_y'] * (self.attributes['ny'] - 1)), self.attributes['ny'],
+                           dtype=np.float)
 
         # 1D to 2D
         x = np.array([self.x] * len(self.y))
