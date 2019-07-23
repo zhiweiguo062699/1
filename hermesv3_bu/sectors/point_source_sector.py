@@ -480,7 +480,6 @@ class PointSourceSector(Sector):
             self.plume_rise_pahts['temperature_sfc_dir'],
             't2_{0}.nc'.format(self.date_array[0].replace(hour=0).strftime("%Y%m%d%H"))))
 
-
         catalog = catalog.merge(meteo_xy, left_index=True, right_index=True)
 
         # ===== 3D Meteo variables =====
