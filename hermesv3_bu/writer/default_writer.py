@@ -8,6 +8,7 @@ import timeit
 from hermesv3_bu.logger.log import Log
 import time
 
+
 class DefaultWriter(Writer):
     def __init__(self, comm_world, comm_write, logger, netcdf_path, grid, date_array, pollutant_info,
                  rank_distribution, emission_summary=False):
