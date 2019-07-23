@@ -11,6 +11,7 @@ from mpi4py import MPI
 
 from hermesv3_bu.sectors.sector import Sector
 from hermesv3_bu.io_server.io_shapefile import IoShapefile
+from hermesv3_bu.io_server.io_raster import IoRaster
 from hermesv3_bu.logger.log import Log
 
 
@@ -189,7 +190,7 @@ class AgriculturalSector(Sector):
 
         return land_uses_list
 
-    def get_land_use_src_by_nut(self, land_uses):
+    def get_land_use_src_by_nut_old(self, land_uses):
         spent_time = timeit.default_timer()
 
         df_land_use_with_nut = gpd.read_file(self.land_uses_path)
@@ -203,6 +204,30 @@ class AgriculturalSector(Sector):
 
         self.logger.write_time_log('AgriculturalSector', 'get_land_use_src_by_nut', timeit.default_timer() - spent_time)
         return df_land_use_with_nut
+
+    def get_land_use_src_by_nut(self, land_uses):
+        spent_time = timeit.default_timer()
+        land_use_src_by_nut_path = os.path.join(self.auxiliary_dir, 'agriculture', 'land_uses', 'land_uses_src.shp')
+        if not os.path.exists(land_use_src_by_nut_path):
+            land_uses_clipped = IoRaster(self.comm_agr).clip_raster_with_shapefile_poly(
+                self.land_uses_path, self.clip.shapefile,
+                os.path.join(self.auxiliary_dir, 'agriculture', 'land_uses', 'land_uses_clip.tif'), values=land_uses)
+
+            land_uses_shp = IoRaster(self.comm_agr).to_shapefile_serie(land_uses_clipped)
+            ccaa_shp = IoShapefile(self.comm_agr).read_shapefile_serial(self.nut_shapefile).to_crs(land_uses_shp.crs)
+            ccaa_shp.drop(columns=['NAME', 'ORDER06'], inplace=True)
+            ccaa_shp.rename(columns={'CODE': 'NUT'}, inplace=True)
+            land_use_src_by_nut = self.spatial_overlays(land_uses_shp, ccaa_shp, how='intersection')
+            land_use_src_by_nut.drop(columns=['idx1', 'idx2', 'CELL_ID'], inplace=True)
+            land_use_src_by_nut.rename(columns={'data': 'land_use'}, inplace=True)
+            land_use_src_by_nut['land_use'] = land_use_src_by_nut['land_use'].astype(np.int16)
+            land_use_src_by_nut.reset_index(inplace=True, drop=True)
+            IoShapefile(self.comm_agr).write_shapefile_serial(land_use_src_by_nut, land_use_src_by_nut_path)
+        else:
+            land_use_src_by_nut = IoShapefile(self.comm_agr).read_shapefile_serial(land_use_src_by_nut_path)
+
+        self.logger.write_time_log('AgriculturalSector', 'get_land_use_src_by_nut', timeit.default_timer() - spent_time)
+        return land_use_src_by_nut
 
     def get_tot_land_use_by_nut(self, land_uses):
         spent_time = timeit.default_timer()

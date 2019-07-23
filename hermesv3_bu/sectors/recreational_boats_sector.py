@@ -44,7 +44,8 @@ class RecreationalBoatsSector(Sector):
                 src_density_map['data'] = src_density_map['data'] / src_density_map['data'].sum()
                 src_density_map.to_crs(self.grid_shp.crs, inplace=True)
                 src_density_map['src_inter_fraction'] = src_density_map.area
-                src_density_map = self.spatial_overlays(src_density_map, self.grid_shp.reset_index(), how='intersection')
+                src_density_map = self.spatial_overlays(src_density_map, self.grid_shp.reset_index(),
+                                                        how='intersection')
                 src_density_map['src_inter_fraction'] = src_density_map.area / src_density_map['src_inter_fraction']
 
                 src_density_map['data'] = src_density_map.loc[:, 'data'].multiply(src_density_map["src_inter_fraction"],

@@ -7,6 +7,7 @@ from hermesv3_bu.logger.log import Log
 import numpy as np
 import pandas as pd
 import geopandas as gpd
+from warnings import warn
 
 from hermesv3_bu.sectors.sector import Sector
 
@@ -135,12 +136,13 @@ class AviationSector(Sector):
                     self.source_pollutants.append(poll)
             self.source_pollutants.remove('hc')
 
-        self.ef_dir = ef_dir
+        # self.ef_dir = ef_dir
+        self.ef_files = self.read_ef_files(ef_dir)
 
         airport_trajectories_shapefile = self.read_trajectories_shapefile(
             airport_trajectories_shapefile_path, airport_runways_corners_shapefile_path, airport_runways_shapefile_path)
         self.airport_list_full = None  # only needed for master process
-        self.airport_list = self.get_airport_list(airport_list, airport_trajectories_shapefile)
+        self.airport_list = self.get_airport_list(airport_list, airport_trajectories_shapefile, operations_path)
         self.plane_list = plane_list
 
         full_airport_shapefile = gpd.read_file(airport_shapefile_path)
@@ -163,6 +165,18 @@ class AviationSector(Sector):
             airport_trajectories_shapefile, 'arrival')
         comm.Barrier()
         self.logger.write_time_log('AviationSector', '__init__', timeit.default_timer() - spent_time)
+
+    def read_ef_files(self, ef_path):
+        if self.comm.Get_rank() == 0:
+            ef_files = {}
+            for phase in PHASE_TYPE.keys():
+                ef_files[phase] = pd.read_csv(os.path.join(ef_path, PHASE_EF_FILE[phase]))
+        else:
+            ef_files = None
+
+        ef_files = self.comm.bcast(ef_files, root=0)
+
+        return ef_files
 
     def read_trajectories_shapefile(self, trajectories_path, runways_corners_path, runways_path):
         """
@@ -279,11 +293,11 @@ class AviationSector(Sector):
             for index, aux_operations in operations.groupby(['airport_id', 'plane_id', 'operation']):
                 if len(aux_operations) > 1:
                     print index, len(aux_operations)
-
         if self.plane_list is None:
             self.plane_list = list(np.unique(operations['plane_id'].values))
         else:
             operations = operations.loc[operations['plane_id'].isin(self.plane_list), :]
+
         if len(operations) == 0:
             raise NameError("The plane/s defined in the plane_list do not exist.")
         operations = operations.loc[operations['airport_id'].isin(self.airport_list), :]
@@ -336,7 +350,7 @@ class AviationSector(Sector):
 
         return dataframe
 
-    def get_airport_list(self, conf_airport_list, airport_shapefile):
+    def get_airport_list(self, conf_airport_list, airport_shapefile, operations_file):
         """
         Get the airport list from the involved airports on the domain.
 
@@ -367,25 +381,32 @@ class AviationSector(Sector):
             if len(shp_airport_list) == 0:
                 raise NameError("No airports intersect with the defined domain or the defined aiport/s in the " +
                                 "airport_list do no exist ")
-            max_len = len(shp_airport_list)
-            # Only for master (rank == 0)
-            self.airport_list_full = shp_airport_list
 
-            shp_airport_list = [shp_airport_list[i * len(shp_airport_list) // self.comm.size:
-                                                 (i + 1) * len(shp_airport_list) // self.comm.size]
+            airports_with_operations = np.unique(pd.read_csv(operations_file, usecols=['airport_id']).values)
+
+            new_list = list(set(shp_airport_list) & set(airports_with_operations))
+            if len(new_list) != len(shp_airport_list):
+                warn('{0} airports have no operations. Ignoring them.'.format(
+                    list(set(new_list) - set(shp_airport_list))))
+
+            max_len = len(new_list)
+            # Only for master (rank == 0)
+            self.airport_list_full = new_list
+
+            new_list = [new_list[i * len(new_list) // self.comm.size: (i + 1) * len(new_list) // self.comm.size]
                                 for i in range(self.comm.size)]
-            for sublist in shp_airport_list:
+            for sublist in new_list:
                 if len(sublist) == 0:
                     raise ValueError("ERROR: The selected number of processors is to high. " +
                                      "The maximum number of processors accepted are {0}".format(max_len) +
                                      "(Maximum number of airports included in the working domain")
         else:
-            shp_airport_list = None
+            new_list = None
 
-        shp_airport_list = self.comm.scatter(shp_airport_list, root=0)
+        new_list = self.comm.scatter(new_list, root=0)
         self.logger.write_time_log('AviationSector', 'get_airport_list', timeit.default_timer() - spent_time)
 
-        return shp_airport_list
+        return new_list
 
     def calculate_airport_distribution(self, airport_shapefile):
         """
@@ -411,7 +432,8 @@ class AviationSector(Sector):
                     os.makedirs(os.path.dirname(airport_distribution_path))
                 airport_shapefile.to_crs(self.grid_shp.crs, inplace=True)
                 airport_shapefile['area'] = airport_shapefile.area
-                airport_distribution = self.spatial_overlays(airport_shapefile, self.grid_shp.reset_index(), how='intersection')
+                airport_distribution = self.spatial_overlays(airport_shapefile, self.grid_shp.reset_index(),
+                                                             how='intersection')
                 airport_distribution['fraction'] = airport_distribution.area / airport_distribution['area']
                 airport_distribution.drop(columns=['idx2', 'area', 'geometry', 'cons'], inplace=True)
                 airport_distribution.rename(columns={'idx1': 'airport_id'}, inplace=True)
@@ -471,10 +493,11 @@ class AviationSector(Sector):
                 runway_shapefile.to_crs(self.grid_shp.crs, inplace=True)
                 runway_shapefile['length'] = runway_shapefile.length
                 # duplicating each runway by involved cell
-                runway_shapefile = gpd.sjoin(runway_shapefile, self.grid_shp.reset_index(), how="inner", op='intersects')
+                runway_shapefile = gpd.sjoin(runway_shapefile, self.grid_shp.reset_index(), how="inner",
+                                             op='intersects')
                 # Adding cell geometry
-                runway_shapefile = runway_shapefile.merge(self.grid_shp.reset_index().loc[:, ['FID', 'geometry']], on='FID',
-                                                          how='left')
+                runway_shapefile = runway_shapefile.merge(self.grid_shp.reset_index().loc[:, ['FID', 'geometry']],
+                                                          on='FID',  how='left')
                 # Intersection between line (roadway) and polygon (cell)
                 # runway_shapefile['geometry'] = runway_shapefile.apply(do_intersection, axis=1)
                 runway_shapefile['mini_length'] = runway_shapefile.apply(get_intersection_length, axis=1)
@@ -641,7 +664,8 @@ class AviationSector(Sector):
             Emission factor associated to phase and pollutant
             """
             engine = self.planes_info.loc[df.name, 'engine_id']
-            ef_dataframe = pd.read_csv(os.path.join(self.ef_dir, PHASE_EF_FILE[phase]))
+            # ef_dataframe = pd.read_csv(os.path.join(self.ef_dir, PHASE_EF_FILE[phase]))
+            ef_dataframe = self.ef_files[phase].reset_index()
             ef_dataframe.set_index('engine_id', inplace=True)
             df['EF'] = ef_dataframe.loc[engine, poll]
             return df.loc[:, ['EF']]
@@ -680,6 +704,7 @@ class AviationSector(Sector):
 
         # Merging operations with airport geometry
         dataframe = pd.DataFrame(index=self.operations.xs(PHASE_TYPE[phase], level='operation').index)
+
         dataframe = dataframe.reset_index().set_index('airport_id')
         dataframe = self.airport_shapefile.join(dataframe, how='inner')
         dataframe.index.name = 'airport_id'
@@ -737,7 +762,8 @@ class AviationSector(Sector):
             """
             Emission factor associated to phase and pollutant
             """
-            ef_dataframe = pd.read_csv(os.path.join(self.ef_dir, PHASE_EF_FILE[phase]))
+            # ef_dataframe = pd.read_csv(os.path.join(self.ef_dir, PHASE_EF_FILE[phase]))
+            ef_dataframe = self.ef_files[phase].reset_index()
             ef_dataframe.set_index('plane_id', inplace=True)
             ef = ef_dataframe.loc['default', poll]
             return ef
@@ -837,7 +863,8 @@ class AviationSector(Sector):
             Emission factor associated to phase and pollutant
             """
             engine = self.planes_info.loc[df.name, 'apu_id']
-            ef_dataframe = pd.read_csv(os.path.join(self.ef_dir, PHASE_EF_FILE[phase]))
+            # ef_dataframe = pd.read_csv(os.path.join(self.ef_dir, PHASE_EF_FILE[phase]))
+            ef_dataframe = self.ef_files[phase].reset_index()
             ef_dataframe.set_index('apu_id', inplace=True)
             try:
                 df['EF'] = ef_dataframe.loc[engine, poll]
