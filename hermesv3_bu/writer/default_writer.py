@@ -6,7 +6,8 @@ from hermesv3_bu.writer.writer import Writer
 from mpi4py import MPI
 import timeit
 from hermesv3_bu.logger.log import Log
-import time
+
+CHUNK = True
 
 
 class DefaultWriter(Writer):
@@ -197,13 +198,16 @@ class DefaultWriter(Writer):
         #     emissions.drop(columns=['Unnamed: 0'], inplace=True)
         for var_name in emissions.columns.values:
             self.logger.write_log('\t\tCreating {0} variable'.format(var_name), message_level=3)
-            var_data = self.dataframe_to_array(emissions.loc[:, [var_name]])
-            # var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim,
-            #                             chunksizes=self.rank_distribution[0]['shape'])
-            var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim)
+            if CHUNK:
+                var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim,
+                                            chunksizes=self.rank_distribution[0]['shape'])
+            else:
+                var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim)
+
             if self.comm_write.Get_size() > 1:
                 var.set_collective(True)
 
+            var_data = self.dataframe_to_array(emissions.loc[:, [var_name]])
             var[:, :,
                 self.rank_distribution[self.comm_write.Get_rank()]['y_min']:
                 self.rank_distribution[self.comm_write.Get_rank()]['y_max'],
