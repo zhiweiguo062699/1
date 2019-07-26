@@ -1,0 +1,21 @@
+# codacy configuration file
+
+---
+
+engines:
+    coverage:
+        enabled: true
+    metrics:
+        enabled: true
+    duplication:
+        enabled: true
+    prospector:
+        enabled: true
+    pylint:
+        enabled: true
+        python_version: 2
+
+exclude_paths: [
+    'doc/**',
+    'data/**',
+]

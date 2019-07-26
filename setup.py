@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-# TODO add license
-
 from setuptools import find_packages
 from setuptools import setup
 from hermesv3_bu import __version__
@@ -14,7 +12,7 @@ with open("README.md", "r") as f:
     long_description = f.read()
 
 setup(
-    name='hermesv3_gr',
+    name='hermesv3_bu',
     # license='',
     # platforms=['GNU/Linux Debian'],
     version=version,
@@ -23,10 +21,9 @@ setup(
     long_description_content_type="text/markdown",
     author='Carles Tena Medina',
     author_email='carles.tena@bsc.es',
-    url='https://earth.bsc.es/gitlab/es/hermesv3_gr',
+    url='https://earth.bsc.es/gitlab/es/hermesv3_bu',
 
     keywords=['emissions', 'cmaq', 'monarch', 'wrf-chem', 'atmospheric composition', 'air quality', 'earth science'],
-    # setup_requires=['pyproj'],
     install_requires=[
         'numpy',
         'netCDF4>=1.3.1',
@@ -43,6 +40,8 @@ setup(
         'timezonefinder',
         'mpi4py',
         'pytest',
+        'shapely',
+        'rasterio',
     ],
     packages=find_packages(),
     classifiers=[
@@ -60,7 +59,7 @@ setup(
 
     entry_points={
         'console_scripts': [
-            'hermesv3_bu = hermesv3_gr.hermes:run',
+            'hermesv3_bu = hermesv3_bu.hermes:run',
         ],
     },
 )

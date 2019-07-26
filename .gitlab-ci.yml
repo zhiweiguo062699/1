@@ -1,0 +1,43 @@
+before_script:
+  - export GIT_SSL_NO_VERIFY=1
+  - export PATH="$HOME/miniconda2/bin:$PATH"
+
+stages:
+  - prepare
+  - test
+  - report
+  - clean
+
+cache:
+  paths:
+    - test/report
+
+prepare:
+  stage: prepare
+  script:
+    - conda update conda
+
+test_python2:
+  stage: test
+  script:
+    - conda env update -f environment.yml -n hermesv3_gr python=2.7
+    - source activate hermesv3_gr
+    - python run_test.py
+    # - pip install codacy-coverage --upgrade
+    # - python-codacy-coverage -r tests/report/python2/coverage.xml
+
+#test_python3:
+#  stage: test
+#  script:
+#    - git submodule sync --recursive
+#    - git submodule update --init --recursive
+#    - conda env update -f environment.yml -n earthdiagnostics3 python=3.6
+#    - source activate earthdiagnostics3
+#    - python run_test.py
+
+clean:
+  stage: clean
+  script:
+    - conda clean --all --yes
+
+
