@@ -49,10 +49,10 @@ def select_writer(logger, arguments, grid, date_array):
 
     if BALANCED:
         rank_distribution = get_balanced_distribution(logger, arguments.writing_processors, grid.shape)
-
     else:
         rank_distribution = get_distribution(logger, arguments.writing_processors, grid.shape)
 
+    logger.write_log('Rank distribution: {0}'.format(rank_distribution), message_level=3)
     if comm_world.Get_rank() < arguments.writing_processors:
         color = 99
     else:
