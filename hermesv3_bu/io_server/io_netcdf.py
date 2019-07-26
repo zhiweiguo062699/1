@@ -229,7 +229,7 @@ def write_coords_netcdf(netcdf_path, center_latitudes, center_longitudes, data_l
             netcdf.createDimension('lat', center_latitudes.shape[0])
             lat_dim = ('lon', 'lat', )
         else:
-            print 'ERROR: Latitudes must be on a 1D or 2D array instead of {0}'.format(len(center_latitudes.shape))
+            print('ERROR: Latitudes must be on a 1D or 2D array instead of {0}'.format(len(center_latitudes.shape)))
             sys.exit(1)
 
         # Longitude
@@ -240,21 +240,21 @@ def write_coords_netcdf(netcdf_path, center_latitudes, center_longitudes, data_l
             netcdf.createDimension('lon', center_longitudes.shape[1])
             lon_dim = ('lon', 'lat', )
         else:
-            print 'ERROR: Longitudes must be on a 1D or 2D array instead of {0}'.format(len(center_longitudes.shape))
+            print('ERROR: Longitudes must be on a 1D or 2D array instead of {0}'.format(len(center_longitudes.shape)))
             sys.exit(1)
     elif rotated:
         var_dim = ('rlat', 'rlon',)
 
         # Rotated Latitude
         if rotated_lats is None:
-            print 'ERROR: For rotated grids is needed the rotated latitudes.'
+            print('ERROR: For rotated grids is needed the rotated latitudes.')
             sys.exit(1)
         netcdf.createDimension('rlat', len(rotated_lats))
         lat_dim = ('rlat', 'rlon',)
 
         # Rotated Longitude
         if rotated_lons is None:
-            print 'ERROR: For rotated grids is needed the rotated longitudes.'
+            print('ERROR: For rotated grids is needed the rotated longitudes.')
             sys.exit(1)
         netcdf.createDimension('rlon', len(rotated_lons))
         lon_dim = ('rlat', 'rlon',)
@@ -297,7 +297,6 @@ def write_coords_netcdf(netcdf_path, center_latitudes, center_longitudes, data_l
     else:
         time = netcdf.createVariable('time', 'd', ('time',), zlib=True)
         u = Unit('hours')
-        # print u.offset_by_time(encode_time(date.year, date.month, date.day, date.hour, date.minute, date.second))
         # Unit('hour since 1970-01-01 00:00:00.0000000 UTC')
         time.units = str(u.offset_by_time(encode_time(date.year, date.month, date.day, date.hour, date.minute,
                                                       date.second)))
@@ -317,7 +316,6 @@ def write_coords_netcdf(netcdf_path, center_latitudes, center_longitudes, data_l
     if boundary_latitudes is not None:
         lats.bounds = "lat_bnds"
         lat_bnds = netcdf.createVariable('lat_bnds', 'f', lat_dim + ('nv',), zlib=True)
-        # print lat_bnds[:].shape, boundary_latitudes.shape
         lat_bnds[:] = boundary_latitudes
 
     # Longitude
@@ -327,7 +325,6 @@ def write_coords_netcdf(netcdf_path, center_latitudes, center_longitudes, data_l
     lons.axis = "X"
     lons.long_name = "longitude coordinate"
     lons.standard_name = "longitude"
-    # print 'lons:', lons[:].shape, center_longitudes.shape
     lons[:] = center_longitudes
     if boundary_longitudes is not None:
         lons.bounds = "lon_bnds"
@@ -375,7 +372,6 @@ def write_coords_netcdf(netcdf_path, center_latitudes, center_longitudes, data_l
         var = netcdf.createVariable('aux_var', 'f', ('time',) + var_dim, zlib=True)
         var[:] = 0
     for variable in data_list:
-        # print ('time',) + var_dim
         var = netcdf.createVariable(variable['name'], 'f', ('time',) + var_dim, zlib=True)
         var.units = Unit(variable['units']).symbol
         if 'long_name' in variable:
@@ -398,7 +394,7 @@ def write_coords_netcdf(netcdf_path, center_latitudes, center_longitudes, data_l
         try:
             var[:] = variable['data']
         except ValueError:
-            print 'VAR ERROR, netcdf shape: {0}, variable shape: {1}'.format(var[:].shape, variable['data'].shape)
+            print('VAR ERROR, netcdf shape: {0}, variable shape: {1}'.format(var[:].shape, variable['data'].shape))
 
     # Grid mapping
     if regular_latlon:
@@ -433,7 +429,6 @@ def write_coords_netcdf(netcdf_path, center_latitudes, center_longitudes, data_l
         c_area.long_name = "area of the grid cell"
         c_area.standard_name = "cell_area"
         c_area.units = Unit("m2").symbol
-        # print c_area[:].shape, cell_area.shape
         c_area[:] = cell_area
 
     if global_attributes is not None:

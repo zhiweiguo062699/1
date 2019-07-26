@@ -28,12 +28,12 @@ class SectorManager(object):
         self.logger = logger
         self.sector_list = self.make_sector_list(arguments, comm_world.Get_size())
         self.logger.write_log('Sector process distribution:')
-        for sect, procs in self.sector_list.iteritems():
+        for sect, procs in self.sector_list.items():
             self.logger.write_log('\t{0}: {1}'.format(sect, procs))
 
         color = 10
         agg_color = 99
-        for sector, sector_procs in self.sector_list.iteritems():
+        for sector, sector_procs in self.sector_list.items():
             if sector == 'aviation' and comm_world.Get_rank() in sector_procs:
                 from hermesv3_bu.sectors.aviation_sector import AviationSector
                 self.sector = AviationSector(
@@ -221,13 +221,13 @@ class SectorManager(object):
         for sector in SECTOR_LIST:
             if vars(arguments)['do_{0}'.format(sector)]:
                 n_procs = vars(arguments)['{0}_processors'.format(sector)]
-                sector_dict[sector] = [accum + x for x in xrange(n_procs)]
+                sector_dict[sector] = [accum + x for x in range(n_procs)]
                 accum += n_procs
         if accum != max_procs:
             raise ValueError("The selected number of processors '{0}' does not fit ".format(max_procs) +
                              "with the sum of processors dedicated for all the sectors " +
                              "'{0}': {1}".format(accum, {sector: len(sector_procs)
-                                                         for sector, sector_procs in sector_dict.iteritems()}))
+                                                         for sector, sector_procs in sector_dict.items()}))
 
         self.logger.write_time_log('SectorManager', 'make_sector_list', timeit.default_timer() - spent_time)
         return sector_dict

@@ -181,7 +181,7 @@ class AgriculturalSector(Sector):
         spent_time = timeit.default_timer()
 
         land_uses_list = []
-        for land_use_and_weight_list in self.crop_from_landuse.itervalues():
+        for land_use_and_weight_list in self.crop_from_landuse.values():
             for land_use_and_weight in land_use_and_weight_list:
                 land_use = int(land_use_and_weight[0])
                 if land_use not in land_uses_list:
@@ -277,7 +277,7 @@ class AgriculturalSector(Sector):
         for nut in np.unique(land_use_by_nut['NUT']):
             aux_dict = {'NUT': [nut]}
 
-            for crop, landuse_weight_list in self.crop_from_landuse.iteritems():
+            for crop, landuse_weight_list in self.crop_from_landuse.items():
                 aux = 0
                 for landuse, weight in landuse_weight_list:
                     try:
@@ -355,7 +355,7 @@ class AgriculturalSector(Sector):
         spent_time = timeit.default_timer()
 
         crop_distribution_src = land_use_distribution_src_nut.loc[:, ['NUT', 'geometry']]
-        for crop, landuse_weight_list in self.crop_from_landuse.iteritems():
+        for crop, landuse_weight_list in self.crop_from_landuse.items():
             crop_distribution_src[crop] = 0
             for landuse, weight in landuse_weight_list:
                 crop_distribution_src.loc[land_use_distribution_src_nut['land_use'] == int(landuse), crop] += \
@@ -431,21 +431,38 @@ class AgriculturalSector(Sector):
                 land_use_distribution_src_nut = self.get_land_use_src_by_nut(involved_land_uses)
 
                 land_use_by_nut = self.get_land_use_by_nut_csv(land_use_distribution_src_nut, involved_land_uses)
+                print('land use by nut')
+                print(land_use_by_nut)
                 tot_land_use_by_nut = self.get_tot_land_use_by_nut(involved_land_uses)
+                print('tot_land_use_by_nut')
+                print(tot_land_use_by_nut)
 
                 crop_by_nut = self.land_use_to_crop_by_nut(land_use_by_nut)
+                print('crop_by_nut')
+                print(crop_by_nut)
                 tot_crop_by_nut = self.land_use_to_crop_by_nut(
                     tot_land_use_by_nut, nuts=list(np.unique(land_use_by_nut['NUT'])))
+                print('tot_crop_by_nut')
+                print(tot_crop_by_nut)
 
                 crop_shape_by_nut = self.get_crop_shape_by_nut(crop_by_nut, tot_crop_by_nut)
+                print('crop_shape_by_nut')
+                print(crop_shape_by_nut)
                 crop_area_by_nut = self.get_crop_area_by_nut(crop_shape_by_nut)
+                print('crop_area_by_nut')
+                print(crop_area_by_nut)
 
                 crop_distribution_src = self.calculate_crop_distribution_src(
                     crop_area_by_nut, land_use_distribution_src_nut)
+                print('crop_distribution_src')
+                print(crop_distribution_src)
 
                 crop_distribution_dst = self.get_crop_distribution_in_dst_cells(crop_distribution_src)
-
+                print('crop_distribution_dst')
+                print(crop_distribution_dst)
                 crop_distribution_dst = self.add_timezone(crop_distribution_dst)
+                print('crop_distribution_dst')
+                print(crop_distribution_dst)
                 IoShapefile(self.comm).write_shapefile_serial(crop_distribution_dst, file_path)
             else:
                 self.logger.write_log('Waiting for the master process that creates the crop distribution shapefile.',
@@ -482,7 +499,7 @@ class AgriculturalSector(Sector):
         """
         rank_list = []
 
-        for sector, sector_procs in sector_dict.iteritems():
+        for sector, sector_procs in sector_dict.items():
             if sector in ['crop_operations', 'crop_fertilizers', 'agricultural_machinery']:
                 rank_list += sector_procs
         rank_list = sorted(rank_list)

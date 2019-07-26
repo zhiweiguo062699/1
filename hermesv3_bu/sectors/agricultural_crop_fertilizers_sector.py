@@ -425,7 +425,7 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
         spent_time = timeit.default_timer()
         self.logger.write_log('Calculating daily emissions')
         df_by_day = self.get_daily_inputs(emissions)
-        for day, daily_inputs in df_by_day.iteritems():
+        for day, daily_inputs in df_by_day.items():
             df_by_day[day] = self.calculate_nh3_emissions(day, daily_inputs)
         self.logger.write_time_log('AgriculturalCropFertilizersSector', 'calculate_daily_emissions',
                                    timeit.default_timer() - spent_time)

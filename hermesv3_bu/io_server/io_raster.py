@@ -222,7 +222,7 @@ class IoRaster(IoServer):
 
             gdf = gpd.GeoDataFrame.from_features(geoms)
 
-            gdf.loc[:, 'CELL_ID'] = xrange(len(gdf))
+            gdf.loc[:, 'CELL_ID'] = range(len(gdf))
             gdf = gdf[gdf['data'] != nodata]
 
             gdf.crs = src.crs

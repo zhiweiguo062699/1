@@ -322,7 +322,8 @@ class LivestockSector(Sector):
         animal_distribution['src_inter_fraction'] = animal_distribution.geometry.area
 
         # Making the intersection between the src distribution and the destiny grid
-        animal_distribution = self.spatial_overlays(animal_distribution, self.grid_shp, how='intersection')
+        animal_distribution = self.spatial_overlays(animal_distribution.reset_index(), self.grid_shp,
+                                                    how='intersection')
         # Getting proportion of intersection in the src cell (src_area/portion_area)
         animal_distribution['src_inter_fraction'] = \
             animal_distribution.geometry.area / animal_distribution['src_inter_fraction']
@@ -794,7 +795,7 @@ class LivestockSector(Sector):
                 out_df.loc[:, out_p] = out_df.loc[:, out_p].multiply(1000. * (1. / self.molecular_weights['pm10']))
 
             # Preparing PM10 for PMC
-            if 'pmc' in [x.lower() for x in self.speciation_map.iterkeys()]:
+            if 'pmc' in [x.lower() for x in self.speciation_map.keys()]:
                 out_df['aux_pm10'] = 0
                 for i, animal in pd.read_csv(os.path.join(self.ef_dir, 'pm.csv')).iterrows():
                     # Iterating by animal subtype
@@ -846,7 +847,7 @@ class LivestockSector(Sector):
                 out_df.loc[:, out_p] = out_df.loc[:, out_p].multiply(1000. * (1. / self.molecular_weights['pm25']))
 
             # Preparing PM2.5 for PMC
-            if 'pmc' in [x.lower() for x in self.speciation_map.iterkeys()]:
+            if 'pmc' in [x.lower() for x in self.speciation_map.keys()]:
                 out_df['aux_pm25'] = 0
                 for i, animal in pd.read_csv(os.path.join(self.ef_dir, 'pm.csv')).iterrows():
                     if animal.Code.startswith(tuple(self.animal_list)):
@@ -890,7 +891,7 @@ class LivestockSector(Sector):
                     (30. / 14.) * 1000. * (1. / self.molecular_weights['nox_no']))
 
         # ===== PMC =====
-        if 'pmc' in [x.lower() for x in self.speciation_map.iterkeys()]:
+        if 'pmc' in [x.lower() for x in self.speciation_map.keys()]:
             pmc_name = 'PMC'
             self.logger.write_log('\t\t\tCalculating {0} emissions'.format(pmc_name), message_level=3)
             if all(x in [x.lower() for x in self.source_pollutants] for x in ['pm10', 'pm25']):

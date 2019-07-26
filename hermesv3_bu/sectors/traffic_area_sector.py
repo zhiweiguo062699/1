@@ -207,11 +207,11 @@ class TrafficAreaSector(Sector):
                 [0.025, 0.025, 0.025, 0.025, 0.025, 0.027083, 0.03125, 0.0375, 0.045833, 0.05625, 0.060417, 0.066667,
                  0.06875, 0.072917, 0.070833, 0.064583, 0.05625, 0.045833, 0.0375, 0.03125, 0.027083, 0.025, 0.025,
                  0.025])
-            for x in xrange(24):
+            for x in range(24):
                 temperature['t_{0}'.format(x)] = default_profile[x]
 
         else:
-            temp_list = ['t_{0}'.format(x) for x in xrange(24)]
+            temp_list = ['t_{0}'.format(x) for x in range(24)]
             temperature.loc[:, temp_list] = temperature[temp_list] + 273.15
 
             temperature.loc[:, temp_list] = temperature[temp_list].subtract(temperature[temp_list].min(axis=1), axis=0)
@@ -250,13 +250,13 @@ class TrafficAreaSector(Sector):
         temperature = IoNetcdf(self.comm).get_hourly_data_from_netcdf(
             self.evaporative['c_lon'].min(), self.evaporative['c_lon'].max(), self.evaporative['c_lat'].min(),
             self.evaporative['c_lat'].max(), self.temperature_dir, 'tas', self.date_array)
-        temperature.rename(columns={x: 't_{0}'.format(x) for x in xrange(len(self.date_array))}, inplace=True)
+        temperature.rename(columns={x: 't_{0}'.format(x) for x in range(len(self.date_array))}, inplace=True)
         # From Kelvin to Celsius degrees
-        temperature.loc[:, ['t_{0}'.format(x) for x in xrange(len(self.date_array))]] = \
-            temperature.loc[:, ['t_{0}'.format(x) for x in xrange(len(self.date_array))]] - 273.15
+        temperature.loc[:, ['t_{0}'.format(x) for x in range(len(self.date_array))]] = \
+            temperature.loc[:, ['t_{0}'.format(x) for x in range(len(self.date_array))]] - 273.15
 
         temperature_mean = gpd.GeoDataFrame(temperature[['t_{0}'.format(x) for x in
-                                                         xrange(len(self.date_array))]].mean(axis=1),
+                                                         range(len(self.date_array))]].mean(axis=1),
                                             columns=['temp'], geometry=temperature.geometry)
         temperature_mean['REC'] = temperature['REC']
 
@@ -324,7 +324,7 @@ class TrafficAreaSector(Sector):
         spent_time = timeit.default_timer()
 
         speciated_df = self.evaporative.drop(columns=['nmvoc'])
-        out_p_list = [out_p for out_p, in_p_aux in self.speciation_map.iteritems() if in_p_aux == 'nmvoc']
+        out_p_list = [out_p for out_p, in_p_aux in self.speciation_map.items() if in_p_aux == 'nmvoc']
 
         for p in out_p_list:
             # From g/day to mol/day
@@ -337,12 +337,9 @@ class TrafficAreaSector(Sector):
         spent_time = timeit.default_timer()
 
         df = df.loc[:, ['data', 'FID']].groupby('FID').sum()
-        # print pop_nut_cell
         ef_df = pd.read_csv(self.small_cities_ef_file, sep=',')
-        # print ef_df
         ef_df.drop(['Code', 'Copert_V_name'], axis=1, inplace=True)
         for pollutant in ef_df.columns.values:
-            # print ef_df[pollutant].iloc[0]
             df[pollutant] = df['data'] * ef_df[pollutant].iloc[0]
         df.drop('data', axis=1, inplace=True)
 
@@ -364,7 +361,7 @@ class TrafficAreaSector(Sector):
             inc = 1
 
             while len(grid.loc[grid['timezone'] == '', :]) > 0:
-                print len(grid.loc[grid['timezone'] == '', :])
+                # print(len(grid.loc[grid['timezone'] == '', :]))
                 grid.loc[grid['timezone'] == '', 'timezone'] = aux_grid.loc[grid['timezone'] == '', :].apply(
                     lambda x: tz.closest_timezone_at(lng=x['lons'], lat=x['lats'], delta_degree=inc), axis=1)
                 inc += 1
@@ -389,10 +386,9 @@ class TrafficAreaSector(Sector):
         small_cities['date'] = small_cities.groupby('timezone')['utc'].apply(
             lambda x: pd.to_datetime(x).dt.tz_localize(pytz.utc).dt.tz_convert(x.name).dt.tz_localize(None))
         small_cities.drop(['utc', 'timezone'], inplace=True, axis=1)
-        # print small_cities
 
         df_list = []
-        for tstep in xrange(len(self.date_array)):
+        for tstep in range(len(self.date_array)):
             small_cities['month'] = small_cities['date'].dt.month
             small_cities['weekday'] = small_cities['date'].dt.dayofweek
             small_cities['hour'] = small_cities['date'].dt.hour

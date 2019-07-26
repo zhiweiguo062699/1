@@ -115,7 +115,7 @@ class RecreationalBoatsSector(Sector):
         new_dataframe = self.density_map.copy()
         new_dataframe.drop(columns='data', inplace=True)
 
-        for pollutant, annual_value in annual_emissions.iteritems():
+        for pollutant, annual_value in annual_emissions.items():
             new_dataframe[pollutant] = self.density_map['data'] * annual_value
 
         self.logger.write_time_log('RecreationalBoatsSector', 'calculate_yearly_emissions',

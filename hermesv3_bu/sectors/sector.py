@@ -320,11 +320,11 @@ class Sector(object):
         spent_time = timeit.default_timer()
         weekdays_factors = 0
         num_days = 0
-        for day in xrange(7):
+        for day in range(7):
             weekdays_factors += profile[day] * weekdays[day]
             num_days += weekdays[day]
         increment = float(num_days - weekdays_factors) / num_days
-        for day in xrange(7):
+        for day in range(7):
             profile[day] = (increment + profile[day]) / num_days
         self.logger.write_time_log('Sector', 'calculate_weekday_factor_full_month', timeit.default_timer() - spent_time)
 
@@ -343,7 +343,7 @@ class Sector(object):
         from calendar import monthrange, weekday, MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY
         spent_time = timeit.default_timer()
         weekdays = [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY]
-        days = [weekday(date.year, date.month, d + 1) for d in xrange(monthrange(date.year, date.month)[1])]
+        days = [weekday(date.year, date.month, d + 1) for d in range(monthrange(date.year, date.month)[1])]
 
         weekdays_dict = {}
         for i, day in enumerate(weekdays):
@@ -556,6 +556,6 @@ class Sector(object):
 
     def get_output_pollutants(self, input_pollutant):
         spent_time = timeit.default_timer()
-        return_value = [outs for outs, ints in self.speciation_map.iteritems() if ints == input_pollutant]
+        return_value = [outs for outs, ints in self.speciation_map.items() if ints == input_pollutant]
         self.logger.write_time_log('Sector', 'get_output_pollutants', timeit.default_timer() - spent_time)
         return return_value

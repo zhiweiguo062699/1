@@ -534,10 +534,9 @@ class Config(ArgParser):
         elif str_bool in false_options:
             return False
         else:
-            print 'WARNING: Boolean value not contemplated use {0} for True values and {1} for the False ones'.format(
-                true_options, false_options
-            )
-            print '/t Using False as default'
+            print('WARNING: Boolean value not contemplated use {0} for True values and {1} for the False ones'.format(
+                true_options, false_options))
+            print('/t Using False as default')
             return False
 
     def _parse_start_date(self, str_date):
@@ -566,7 +565,7 @@ class Config(ArgParser):
                 date = datetime.strptime(str_date, date_format)
                 break
             except ValueError as e:
-                if e.message == 'day is out of range for month':
+                if str(e) == 'day is out of range for month':
                     raise ValueError(e)
 
         if date is None:

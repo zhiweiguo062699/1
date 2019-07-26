@@ -224,11 +224,11 @@ class TrafficSector(Sector):
                 min_num = nprocs - max_num
                 index_list = []
                 prev = 0
-                for i in xrange(max_num):
+                for i in range(max_num):
                     prev += max_len
                     index_list.append(prev)
                 if min_num > 0:
-                    for i in xrange(min_num - 1):
+                    for i in range(min_num - 1):
                         prev += min_len
                         index_list.append(prev)
 
@@ -257,7 +257,7 @@ class TrafficSector(Sector):
             df = df.loc[df['aadt_m_mn'] != 'NULL', :]
 
             # Adding identificator of road link
-            df['Link_ID'] = xrange(len(df))
+            df['Link_ID'] = range(len(df))
 
             del df['Adminis'], df['CCAA'], df['CONS'], df['NETWORK_ID']
             del df['Province'], df['Road_name']
@@ -295,7 +295,7 @@ class TrafficSector(Sector):
 
         # Check if percents are ok
         if len(df[df['PcLight'] < 0]) is not 0:
-            print 'ERROR: PcLight < 0'
+            print('ERROR: PcLight < 0')
             exit(1)
 
         if self.write_rline:
@@ -347,7 +347,7 @@ class TrafficSector(Sector):
                 # Checks that the splited DataFrames contain the full DataFrame
                 if (len(df_code_slope_road) + len(df_code_slope) + len(df_code_road) + len(df_code)) != len(df):
                     # TODO check that error
-                    print 'ERROR in blablavbla'
+                    print('ERROR in blablavbla')
 
                 return df_code_slope_road, df_code_slope, df_code_road, df_code
             elif emission_type == 'cold' or emission_type == 'tyre' or emission_type == 'road' or \
@@ -404,7 +404,7 @@ class TrafficSector(Sector):
         prlr = prlr <= MIN_RAIN
         dst = np.empty(prlr.shape)
         last = np.zeros((prlr.shape[-1]))
-        for time in xrange(prlr.shape[0]):
+        for time in range(prlr.shape[0]):
             dst[time, :] = (last + prlr[time, :]) * prlr[time, :]
             last = dst[time, :]
 
@@ -477,7 +477,7 @@ class TrafficSector(Sector):
             elif weekday == 6:
                 return 'aadt_h_sun'
             else:
-                print 'ERROR: Weekday not found'
+                print('ERROR: Weekday not found')
                 exit()
 
         # Monthly factor
@@ -508,7 +508,7 @@ class TrafficSector(Sector):
         spent_time = timeit.default_timer()
 
         df.reset_index(inplace=True)
-        for tstep in xrange(timestep_num):
+        for tstep in range(timestep_num):
             # Finding weekday
             # 0 -> Monday; 6 -> Sunday
             df.loc[:, 'month'] = (df['start_date'] + self.calculate_timedelta(
@@ -651,7 +651,7 @@ class TrafficSector(Sector):
                 expanded_aux = expanded_aux.merge(m_corr, left_on='Fleet_Code', right_on='Code', how='left')
                 del expanded_aux['Code']
 
-            for tstep in xrange(self.timestep_num):
+            for tstep in range(self.timestep_num):
                 ef_name = 'ef_{0}_{1}'.format(pollutant, tstep)
                 p_column = '{0}_{1}'.format(pollutant, tstep)
                 if pollutant != 'nh3':
@@ -709,7 +709,7 @@ class TrafficSector(Sector):
 
         del expanded_aux['road_grad']
 
-        for tstep in xrange(self.timestep_num):
+        for tstep in range(self.timestep_num):
             del expanded_aux['f_{0}'.format(tstep)]
 
         self.logger.write_time_log('TrafficSector', 'calculate_hot', timeit.default_timer() - spent_time)
@@ -735,10 +735,10 @@ class TrafficSector(Sector):
         temperature = IoNetcdf(self.comm).get_hourly_data_from_netcdf(
             link_lons.min(), link_lons.max(), link_lats.min(), link_lats.max(), self.temp_common_path, 'tas',
             self.date_array)
-        temperature.rename(columns={x: 't_{0}'.format(x) for x in xrange(len(self.date_array))}, inplace=True)
+        temperature.rename(columns={x: 't_{0}'.format(x) for x in range(len(self.date_array))}, inplace=True)
         # From Kelvin to Celsius degrees
-        temperature.loc[:, ['t_{0}'.format(x) for x in xrange(len(self.date_array))]] = \
-            temperature.loc[:, ['t_{0}'.format(x) for x in xrange(len(self.date_array))]] - 273.15
+        temperature.loc[:, ['t_{0}'.format(x) for x in range(len(self.date_array))]] = \
+            temperature.loc[:, ['t_{0}'.format(x) for x in range(len(self.date_array))]] - 273.15
 
         unary_union = temperature.unary_union
         cold_links['REC'] = cold_links.apply(self.nearest, geom_union=unary_union, df1=cold_links, df2=temperature,
@@ -771,7 +771,7 @@ class TrafficSector(Sector):
             del cold_exp_p_aux['Code']
             libc.malloc_trim(0)
 
-            for tstep in xrange(self.timestep_num):
+            for tstep in range(self.timestep_num):
                 v_column = 'v_{0}'.format(tstep)
                 p_column = '{0}_{1}'.format(pollutant, tstep)
                 t_column = 't_{0}'.format(tstep)
@@ -819,7 +819,7 @@ class TrafficSector(Sector):
                         error_fleet_code.append(o)
             raise IndexError('There are duplicated values for {0} codes in the cold EF files.'.format(error_fleet_code))
 
-        for tstep in xrange(self.timestep_num):
+        for tstep in range(self.timestep_num):
             if 'pm' in self.source_pollutants:
                 cold_df.loc[:, 'pm10_{0}'.format(tstep)] = cold_df['pm_{0}'.format(tstep)]
                 cold_df.loc[:, 'pm25_{0}'.format(tstep)] = cold_df['pm_{0}'.format(tstep)]
@@ -844,11 +844,11 @@ class TrafficSector(Sector):
     def compact_hot_expanded(self, expanded):
         spent_time = timeit.default_timer()
 
-        columns_to_delete = ['Road_type', 'Fleet_value'] + ['v_{0}'.format(x) for x in xrange(self.timestep_num)]
+        columns_to_delete = ['Road_type', 'Fleet_value'] + ['v_{0}'.format(x) for x in range(self.timestep_num)]
         for column_name in columns_to_delete:
             del expanded[column_name]
 
-        for tstep in xrange(self.timestep_num):
+        for tstep in range(self.timestep_num):
             if 'pm' in self.source_pollutants:
                 expanded.loc[:, 'pm10_{0}'.format(tstep)] = expanded['pm_{0}'.format(tstep)]
                 expanded.loc[:, 'pm25_{0}'.format(tstep)] = expanded['pm_{0}'.format(tstep)]
@@ -877,7 +877,7 @@ class TrafficSector(Sector):
             ef_tyre = self.read_ef('tyre', pollutant)
             df = self.expanded.merge(ef_tyre, left_on='Fleet_Code', right_on='Code', how='inner')
             del df['road_grad'], df['Road_type'], df['Code']
-            for tstep in xrange(self.timestep_num):
+            for tstep in range(self.timestep_num):
                 p_column = '{0}_{1}'.format(pollutant, tstep)
                 f_column = 'f_{0}'.format(tstep)
                 v_column = 'v_{0}'.format(tstep)
@@ -893,7 +893,7 @@ class TrafficSector(Sector):
                     del df[p_column]
 
         # Cleaning df
-        columns_to_delete = ['f_{0}'.format(x) for x in xrange(self.timestep_num)] + ['v_{0}'.format(x) for x in xrange(
+        columns_to_delete = ['f_{0}'.format(x) for x in range(self.timestep_num)] + ['v_{0}'.format(x) for x in range(
             self.timestep_num)]
         columns_to_delete += ['Fleet_value', 'EFbase']
         for column in columns_to_delete:
@@ -911,7 +911,7 @@ class TrafficSector(Sector):
             ef_tyre = self.read_ef('brake', pollutant)
             df = self.expanded.merge(ef_tyre, left_on='Fleet_Code', right_on='Code', how='inner')
             del df['road_grad'], df['Road_type'], df['Code']
-            for tstep in xrange(self.timestep_num):
+            for tstep in range(self.timestep_num):
                 p_column = '{0}_{1}'.format(pollutant, tstep)
                 f_column = 'f_{0}'.format(tstep)
                 v_column = 'v_{0}'.format(tstep)
@@ -927,7 +927,7 @@ class TrafficSector(Sector):
                     del df[p_column]
 
         # Cleaning df
-        columns_to_delete = ['f_{0}'.format(x) for x in xrange(self.timestep_num)] + ['v_{0}'.format(x) for x in xrange(
+        columns_to_delete = ['f_{0}'.format(x) for x in range(self.timestep_num)] + ['v_{0}'.format(x) for x in range(
             self.timestep_num)]
         columns_to_delete += ['Fleet_value', 'EFbase']
         for column in columns_to_delete:
@@ -946,7 +946,7 @@ class TrafficSector(Sector):
             ef_tyre = self.read_ef('road', pollutant)
             df = self.expanded.merge(ef_tyre, left_on='Fleet_Code', right_on='Code', how='inner')
             del df['road_grad'], df['Road_type'], df['Code']
-            for tstep in xrange(self.timestep_num):
+            for tstep in range(self.timestep_num):
                 p_column = '{0}_{1}'.format(pollutant, tstep)
                 f_column = 'f_{0}'.format(tstep)
                 df.loc[:, p_column] = df['Fleet_value'] * df['EFbase'] * df[f_column]
@@ -958,7 +958,7 @@ class TrafficSector(Sector):
                     del df[p_column]
 
         # Cleaning df
-        columns_to_delete = ['f_{0}'.format(x) for x in xrange(self.timestep_num)] + ['v_{0}'.format(x) for x in xrange(
+        columns_to_delete = ['f_{0}'.format(x) for x in range(self.timestep_num)] + ['v_{0}'.format(x) for x in range(
             self.timestep_num)]
         columns_to_delete += ['Fleet_value', 'EFbase']
         for column in columns_to_delete:
@@ -999,7 +999,7 @@ class TrafficSector(Sector):
                 df = df.merge(road_link_aux, left_on='Link_ID', right_on='Link_ID', how='left')
 
             del df['road_grad'], df['Road_type'], df['Code']
-            for tstep in xrange(self.timestep_num):
+            for tstep in range(self.timestep_num):
                 p_column = '{0}_{1}'.format(pollutant, tstep)
                 f_column = 'f_{0}'.format(tstep)
                 if self.resuspension_correction:
@@ -1016,8 +1016,8 @@ class TrafficSector(Sector):
                     del df[p_column]
 
         # Cleaning df
-        columns_to_delete = ['f_{0}'.format(x) for x in xrange(self.timestep_num)] + ['v_{0}'.format(x) for x in
-                                                                                      xrange(self.timestep_num)]
+        columns_to_delete = ['f_{0}'.format(x) for x in range(self.timestep_num)] + ['v_{0}'.format(x) for x in
+                                                                                      range(self.timestep_num)]
         columns_to_delete += ['Fleet_value', 'EFbase']
         for column in columns_to_delete:
             del df[column]
@@ -1031,7 +1031,7 @@ class TrafficSector(Sector):
         spent_time = timeit.default_timer()
 
         df_list = []
-        for tstep in xrange(self.timestep_num):
+        for tstep in range(self.timestep_num):
             pollutants_to_rename = [p for p in list(df.columns.values) if p.endswith('_{0}'.format(tstep))]
             pollutants_renamed = []
             for p_name in pollutants_to_rename:
@@ -1083,7 +1083,7 @@ class TrafficSector(Sector):
             df_out_list.append(df_aux.loc[:, [out_p] + ['tstep', 'Link_ID']].groupby(['tstep', 'Link_ID']).sum())
             del df_aux[out_p]
         for in_p in in_list:
-            involved_out_pollutants = [key for key, value in self.speciation_map.iteritems() if value == in_p]
+            involved_out_pollutants = [key for key, value in self.speciation_map.items() if value == in_p]
 
             # Selecting only necessary speciation profiles
             speciation_by_in_p = speciation.loc[:, involved_out_pollutants + ['Code']]
