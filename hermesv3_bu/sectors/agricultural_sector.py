@@ -228,6 +228,7 @@ class AgriculturalSector(Sector):
                 os.path.join(self.auxiliary_dir, 'agriculture', 'land_uses', 'land_uses_clip.tif'), values=land_uses)
 
             land_uses_shp = IoRaster(self.comm_agr).to_shapefile_serie(land_uses_clipped)
+
             ccaa_shp = IoShapefile(self.comm_agr).read_shapefile_serial(self.nut_shapefile).to_crs(land_uses_shp.crs)
             ccaa_shp.drop(columns=['NAME', 'ORDER06'], inplace=True)
             ccaa_shp.rename(columns={'CODE': 'NUT'}, inplace=True)

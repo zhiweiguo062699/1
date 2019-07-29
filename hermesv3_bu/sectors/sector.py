@@ -471,8 +471,6 @@ class Sector(object):
         spent_time = timeit.default_timer()
         df1 = df1.copy()
         df2 = df2.copy()
-        print(df1)
-        print(df2)
         df1['geometry'] = df1.geometry.buffer(0)
         df2['geometry'] = df2.geometry.buffer(0)
         if how == 'intersection':

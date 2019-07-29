@@ -214,8 +214,7 @@ class IoRaster(IoServer):
             from rasterio.features import shapes
             mask = None
             src = rasterio.open(raster_path)
-            print(raster_path)
-            print(src.crs)
+
             image = src.read(1)  # first band
             image = image.astype(np.float32)
             geoms = (
@@ -227,7 +226,11 @@ class IoRaster(IoServer):
             gdf.loc[:, 'CELL_ID'] = range(len(gdf))
             gdf = gdf[gdf['data'] != nodata]
 
-            gdf.crs = src.crs
+            # Error on to_crs function of geopandas that flip lat with lon in the non dict form
+            if src.crs == 'EPSG:4326':
+                gdf.crs = {'init': 'epsg:4326'}
+            else:
+                gdf.crs = src.crs
 
             if crs is not None:
                 gdf = gdf.to_crs(crs)
