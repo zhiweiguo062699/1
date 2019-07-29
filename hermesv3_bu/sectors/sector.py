@@ -7,6 +7,7 @@ from hermesv3_bu.logger.log import Log
 import numpy as np
 import pandas as pd
 import geopandas as gpd
+from geopandas import GeoDataFrame
 from mpi4py import MPI
 
 
@@ -465,9 +466,13 @@ class Sector(object):
         :param how: Operation to do
         :return: GeoDataFrame
         """
+        from functools import reduce
+
         spent_time = timeit.default_timer()
         df1 = df1.copy()
         df2 = df2.copy()
+        print(df1)
+        print(df2)
         df1['geometry'] = df1.geometry.buffer(0)
         df2['geometry'] = df2.geometry.buffer(0)
         if how == 'intersection':
@@ -484,6 +489,7 @@ class Sector(object):
             pairs = gpd.GeoDataFrame(nei, columns=['idx1', 'idx2'], crs=df1.crs)
             pairs = pairs.merge(df1, left_on='idx1', right_index=True)
             pairs = pairs.merge(df2, left_on='idx2', right_index=True, suffixes=['_1', '_2'])
+            print(pairs)
             pairs['Intersection'] = pairs.apply(lambda x: (x['geometry_1'].intersection(x['geometry_2'])).buffer(0),
                                                 axis=1)
             pairs = gpd.GeoDataFrame(pairs, columns=pairs.columns, crs=df1.crs)

@@ -181,8 +181,7 @@ class Grid(object):
         :rtype: GeoDataFrame
         """
         import geopandas as gpd
-        import pandas as pd
-        from shapely.geometry import Polygon, Point
+        from shapely.geometry import Polygon
         spent_time = timeit.default_timer()
 
         if not os.path.exists(self.shapefile_path):
@@ -234,7 +233,7 @@ class Grid(object):
         else:
             gdf = gpd.read_file(self.shapefile_path)
 
-        # gdf.set_index('FID', inplace=True, drop=False)
+        gdf.set_index('FID', inplace=True)
         self.logger.write_time_log('Grid', 'create_shapefile', timeit.default_timer() - spent_time, 2)
 
         return gdf

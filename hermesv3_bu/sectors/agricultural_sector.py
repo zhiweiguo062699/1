@@ -231,15 +231,17 @@ class AgriculturalSector(Sector):
             ccaa_shp = IoShapefile(self.comm_agr).read_shapefile_serial(self.nut_shapefile).to_crs(land_uses_shp.crs)
             ccaa_shp.drop(columns=['NAME', 'ORDER06'], inplace=True)
             ccaa_shp.rename(columns={'CODE': 'NUT'}, inplace=True)
-            land_use_src_by_nut = self.spatial_overlays(land_uses_shp, ccaa_shp, how='intersection')
+            # ccaa_shp.set_index('NUT', inplace=True)
+            land_use_src_by_nut = self.spatial_overlays(land_uses_shp.reset_index(), ccaa_shp, how='intersection')
             land_use_src_by_nut.drop(columns=['idx1', 'idx2', 'CELL_ID'], inplace=True)
             land_use_src_by_nut.rename(columns={'data': 'land_use'}, inplace=True)
             land_use_src_by_nut['land_use'] = land_use_src_by_nut['land_use'].astype(np.int16)
             land_use_src_by_nut.reset_index(inplace=True, drop=True)
+
             IoShapefile(self.comm_agr).write_shapefile_serial(land_use_src_by_nut, land_use_src_by_nut_path)
         else:
             land_use_src_by_nut = IoShapefile(self.comm_agr).read_shapefile_serial(land_use_src_by_nut_path)
-        land_use_src_by_nut.index.name = 'CELL_ID'
+        # land_use_src_by_nut.index.name = 'CELL_ID'
         self.logger.write_time_log('AgriculturalSector', 'get_land_use_src_by_nut', timeit.default_timer() - spent_time)
         return land_use_src_by_nut
 
@@ -420,7 +422,9 @@ class AgriculturalSector(Sector):
 
         crop_distribution = crop_distribution.to_crs(self.grid_shp.crs)
         crop_distribution['src_inter_fraction'] = crop_distribution.geometry.area
-        crop_distribution = self.spatial_overlays(crop_distribution, self.grid_shp, how='intersection')
+
+        crop_distribution = self.spatial_overlays(crop_distribution.reset_index(), self.grid_shp.reset_index(),
+                                                  how='intersection')
         crop_distribution['src_inter_fraction'] = \
             crop_distribution.geometry.area / crop_distribution['src_inter_fraction']
 
@@ -470,6 +474,7 @@ class AgriculturalSector(Sector):
 
                 crop_distribution_src = self.calculate_crop_distribution_src(
                     crop_area_by_nut, land_use_distribution_src_nut)
+
                 crop_distribution_dst = self.get_crop_distribution_in_dst_cells(crop_distribution_src)
                 crop_distribution_dst = self.add_timezone(crop_distribution_dst)
 

@@ -214,6 +214,8 @@ class IoRaster(IoServer):
             from rasterio.features import shapes
             mask = None
             src = rasterio.open(raster_path)
+            print(raster_path)
+            print(src.crs)
             image = src.read(1)  # first band
             image = image.astype(np.float32)
             geoms = (
@@ -237,5 +239,5 @@ class IoRaster(IoServer):
 
         else:
             gdf = gpd.read_file(out_path)
-
+        gdf.set_index('CELL_ID', inplace=True)
         return gdf

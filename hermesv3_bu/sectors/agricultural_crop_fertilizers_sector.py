@@ -130,7 +130,17 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
     def to_dst_resolution(self, src_shapefile, value):
         spent_time = timeit.default_timer()
 
-        intersection = self.spatial_overlays(src_shapefile.to_crs(self.grid_shp.crs), self.grid_shp.reset_index())
+        # print(src_shapefile.reset_index())
+        # print(src_shapefile.to_crs(self.grid_shp.crs).reset_index())
+        # print(self.grid_shp.reset_index())
+        src_shapefile.to_crs(self.grid_shp.crs).to_file('~/temp/2src_lonlat.shp')
+        src_shapefile.to_crs(self.grid_shp.crs).reset_index().to_file('~/temp/2src_lcc.shp')
+        self.grid_shp.reset_index().to_file('~/temp/2grid_lcc.shp')
+        self.grid_shp.to_crs(src_shapefile.crs).reset_index().to_file('~/temp/2grid_lonlat.shp')
+        print("{0} {1} {2}".format(src_shapefile.crs, src_shapefile.to_crs(self.grid_shp.crs).crs, self.grid_shp.crs))
+        exit()
+        intersection = self.spatial_overlays(src_shapefile.to_crs(self.grid_shp.crs).reset_index(),
+                                             self.grid_shp.reset_index())
         intersection['area'] = intersection.geometry.area
         dst_shapefile = self.grid_shp.reset_index().copy()
         dst_shapefile['involved_area'] = intersection.groupby('FID')['area'].sum()
