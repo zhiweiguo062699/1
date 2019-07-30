@@ -160,15 +160,15 @@ class RecreationalBoatsSector(Sector):
         dataframe['date_as_date'] = dataframe['date'].dt.date
 
         dataframe['MF'] = dataframe.groupby('month').apply(get_mf)
-        dataframe[self.output_pollutants] = dataframe[self.output_pollutants].multiply(dataframe['MF'], axis=0)
+        dataframe[self.output_pollutants] = dataframe[self.output_pollutants].mul(dataframe['MF'], axis=0)
         dataframe.drop(columns=['month', 'MF'], inplace=True)
 
         dataframe['WF'] = dataframe.groupby('date_as_date').apply(get_wf)
-        dataframe[self.output_pollutants] = dataframe[self.output_pollutants].multiply(dataframe['WF'], axis=0)
+        dataframe[self.output_pollutants] = dataframe[self.output_pollutants].mul(dataframe['WF'], axis=0)
         dataframe.drop(columns=['weekday', 'date', 'date_as_date', 'WF'], inplace=True)
 
         dataframe['HF'] = dataframe.groupby('hour').apply(get_hf)
-        dataframe[self.output_pollutants] = dataframe[self.output_pollutants].multiply(dataframe['HF'], axis=0)
+        dataframe[self.output_pollutants] = dataframe[self.output_pollutants].mul(dataframe['HF'], axis=0)
         dataframe.drop(columns=['hour', 'HF'], inplace=True)
 
         self.logger.write_time_log('RecreationalBoatsSector', 'calculate_hourly_emissions',

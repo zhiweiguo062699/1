@@ -91,7 +91,7 @@ class Sector(object):
         self.speciation_profile = self.read_speciation_profiles(speciation_profiles_path)
         self.molecular_weights = self.read_molecular_weights(molecular_weights_path)
 
-        self.output_pollutants = self.speciation_map.keys()
+        self.output_pollutants = list(self.speciation_map.keys())
 
         self.logger.write_time_log('Sector', '__init__', timeit.default_timer() - spent_time)
 
