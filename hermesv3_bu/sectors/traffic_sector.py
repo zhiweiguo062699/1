@@ -1017,7 +1017,7 @@ class TrafficSector(Sector):
 
         # Cleaning df
         columns_to_delete = ['f_{0}'.format(x) for x in range(self.timestep_num)] + ['v_{0}'.format(x) for x in
-                                                                                      range(self.timestep_num)]
+                                                                                     range(self.timestep_num)]
         columns_to_delete += ['Fleet_value', 'EFbase']
         for column in columns_to_delete:
             del df[column]

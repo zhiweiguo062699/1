@@ -478,7 +478,6 @@ class AviationSector(Sector):
         runway_distribution_path = os.path.join(
             self.auxiliary_dir, 'aviation', 'runway_{0}_distribution.csv'.format(phase_type))
 
-
         if not os.path.exists(runway_distribution_path):
             if self.comm.rank == 0:
                 runway_shapefile['{0}_f'.format(phase_type)] = runway_shapefile.groupby('airport_id').apply(normalize)
@@ -486,7 +485,8 @@ class AviationSector(Sector):
                 runway_shapefile.to_crs(self.grid_shp.crs, inplace=True)
                 runway_shapefile['length'] = runway_shapefile.length
                 # duplicating each runway by involved cell
-                runway_shapefile = gpd.sjoin(runway_shapefile.reset_index(), self.grid_shp, how="inner", op='intersects')
+                runway_shapefile = gpd.sjoin(runway_shapefile.reset_index(), self.grid_shp, how="inner",
+                                             op='intersects')
                 # Adding cell geometry
                 runway_shapefile = runway_shapefile.merge(self.grid_shp.reset_index().loc[:, ['FID', 'geometry']],
                                                           on='FID',  how='left')
