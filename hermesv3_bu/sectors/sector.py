@@ -487,7 +487,6 @@ class Sector(object):
             pairs = gpd.GeoDataFrame(nei, columns=['idx1', 'idx2'], crs=df1.crs)
             pairs = pairs.merge(df1, left_on='idx1', right_index=True)
             pairs = pairs.merge(df2, left_on='idx2', right_index=True, suffixes=['_1', '_2'])
-            print(pairs)
             pairs['Intersection'] = pairs.apply(lambda x: (x['geometry_1'].intersection(x['geometry_2'])).buffer(0),
                                                 axis=1)
             pairs = gpd.GeoDataFrame(pairs, columns=pairs.columns, crs=df1.crs)
