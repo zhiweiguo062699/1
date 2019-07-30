@@ -306,21 +306,13 @@ class AgriculturalSector(Sector):
 
         if nuts is not None:
             land_use_by_nut = land_use_by_nut.loc[nuts, :]
-        new_df = pd.DataFrame()
+        new_df = pd.DataFrame(index=np.unique(land_use_by_nut.index.get_level_values('NUT')),
+                              columns=self.crop_from_landuse.keys())
+        new_df.fillna(0, inplace=True)
 
-        for nut in np.unique(land_use_by_nut.index.get_level_values('NUT')):
-            aux_dict = {'NUT': [nut]}
-            for crop, land_use_weight_list in self.crop_from_landuse.items():
-                aux = 0
-                for land_use, weight in land_use_weight_list:
-                    try:
-                        aux += land_use_by_nut.loc[[land_use, nut], 'area'].values[0] * float(weight)
-                    except IndexError:
-                        # TODO understand better that error
-                        pass
-                aux_dict[crop] = [aux]
-            new_df = new_df.append(pd.DataFrame.from_dict(aux_dict), ignore_index=True)
-        new_df.set_index('NUT', inplace=True)
+        for crop, land_use_weight_list in self.crop_from_landuse.items():
+            for land_use, weight in land_use_weight_list:
+                new_df[crop] += land_use_by_nut.xs(land_use, level='land_use')['area'] * weight
 
         self.logger.write_time_log('AgriculturalSector', 'land_use_to_crop_by_nut', timeit.default_timer() - spent_time)
 
@@ -463,6 +455,7 @@ class AgriculturalSector(Sector):
                                       message_level=2)
 
                 involved_land_uses = self.get_involved_land_uses()
+
                 land_use_distribution_src_nut = self.get_land_use_src_by_nut(involved_land_uses)
                 land_use_by_nut = self.get_land_use_by_nut_csv(land_use_distribution_src_nut, involved_land_uses)
                 tot_land_use_by_nut = self.get_tot_land_use_by_nut(involved_land_uses)
