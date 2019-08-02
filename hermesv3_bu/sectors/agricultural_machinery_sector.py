@@ -314,7 +314,7 @@ class AgriculturalMachinerySector(AgriculturalSector):
         self.logger.write_log('\tCalculating emissions')
 
         distribution_by_month = {}
-        for month in self.months.iterkeys():
+        for month in self.months.keys():
             distribution_by_month[month] = self.calculate_monthly_emissions_by_nut(month)
             distribution_by_month[month] = self.distribute(distribution_by_month[month])
 

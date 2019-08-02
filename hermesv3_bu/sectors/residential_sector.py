@@ -54,7 +54,6 @@ class ResidentialSector(Sector):
 
         self.heating_degree_day_path = heating_degree_day_path
         self.temperature_path = temperature_path
-
         self.logger.write_time_log('ResidentialSector', '__init__', timeit.default_timer() - spent_time)
 
     def read_ef_file(self, path):
@@ -126,10 +125,12 @@ class ResidentialSector(Sector):
         spent_time = timeit.default_timer()
 
         src_distribution.to_crs(self.grid_shp.crs, inplace=True)
-        src_distribution.to_file(os.path.join(self.auxiliary_dir, 'residential', 'fuel_distribution_src.shp'))
+        # src_distribution.reset_index().to_file(
+        #     os.path.join(self.auxiliary_dir, 'residential', 'fuel_distribution_src.shp'))
         src_distribution['src_inter_fraction'] = src_distribution.geometry.area
         src_distribution = self.spatial_overlays(src_distribution, self.grid_shp.reset_index(), how='intersection')
-        src_distribution.to_file(os.path.join(self.auxiliary_dir, 'residential', 'fuel_distribution_raw.shp'))
+        # src_distribution.reset_index().to_file(
+        #     os.path.join(self.auxiliary_dir, 'residential', 'fuel_distribution_raw.shp'))
         src_distribution['src_inter_fraction'] = src_distribution.geometry.area / src_distribution[
             'src_inter_fraction']
 
@@ -155,22 +156,25 @@ class ResidentialSector(Sector):
             population_density = IoRaster(self.comm).clip_raster_with_shapefile_poly(
                 population_density_map, self.clip.shapefile,
                 os.path.join(self.auxiliary_dir, 'residential', 'population_density.tif'))
-            population_density = IoRaster(self.comm).to_shapefile_serie(population_density)
+            population_density = IoRaster(self.comm).to_shapefile_serie_by_cell(population_density)
 
             population_density.rename(columns={'data': 'pop'}, inplace=True)
 
             population_type = IoRaster(self.comm).clip_raster_with_shapefile_poly(
                 population_type_map, self.clip.shapefile,
                 os.path.join(self.auxiliary_dir, 'residential', 'population_type.tif'))
-            population_type = IoRaster(self.comm).to_shapefile_serie(population_type)
+            population_type = IoRaster(self.comm).to_shapefile_serie_by_cell(population_type)
             population_type.rename(columns={'data': 'type'}, inplace=True)
 
+            population_type['type'] = population_type['type'].astype(np.int16)
+            population_type.loc[population_type['type'] == 2, 'type'] = 3
+
             population_density['type'] = population_type['type']
-            population_density.loc[population_density['type'] == 2, 'type'] = 3
+            # population_density = gpd.sjoin(population_density, population_type, how='left', op='intersects')
+            # population_density.drop(columns=['index_right'], inplace=True)
 
             population_density = self.add_nut_code(population_density, prov_shapefile, nut_value='ORDER07')
             population_density.rename(columns={'nut_code': 'prov'}, inplace=True)
-
             population_density = population_density.loc[population_density['prov'] != -999, :]
             population_density = self.add_nut_code(population_density, ccaa_shapefile, nut_value='ORDER06')
             population_density.rename(columns={'nut_code': 'ccaa'}, inplace=True)
@@ -185,7 +189,8 @@ class ResidentialSector(Sector):
             self.pop_type_by_ccaa = pd.read_csv(self.pop_type_by_ccaa).set_index(['ccaa', 'type'])
             self.pop_type_by_prov = pd.read_csv(self.pop_type_by_prov).set_index(['prov', 'type'])
 
-            fuel_distribution = population_density.loc[:, ['CELL_ID', 'geometry']].copy()
+            fuel_distribution = population_density[['geometry']].copy()
+            fuel_distribution.index.name = 'CELL_ID'
 
             for fuel in self.fuel_list:
                 fuel_distribution[fuel] = 0
@@ -238,9 +243,13 @@ class ResidentialSector(Sector):
                                                   fuel] = population_density['pop'].multiply(
                                 energy_consumption / total_pop)
             fuel_distribution = self.to_dst_resolution(fuel_distribution)
-            IoShapefile(self.comm).write_shapefile_serial(fuel_distribution, fuel_distribution_path)
+
+            IoShapefile(self.comm).write_shapefile_serial(fuel_distribution.reset_index(), fuel_distribution_path)
         else:
             fuel_distribution = IoShapefile(self.comm).read_shapefile_serial(fuel_distribution_path)
+            fuel_distribution.drop(columns=['index'], inplace=True)
+
+        fuel_distribution.set_index('FID', inplace=True)
 
         self.logger.write_time_log('ResidentialSector', 'get_fuel_distribution', timeit.default_timer() - spent_time)
         return fuel_distribution

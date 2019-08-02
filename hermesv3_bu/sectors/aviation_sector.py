@@ -228,7 +228,7 @@ class AviationSector(Sector):
         spent_time = timeit.default_timer()
         if self.comm.Get_rank() == 0:
             runway_shapefile = gpd.read_file(airport_runways_shapefile_path)
-            runway_shapefile.set_index('airport_id', inplace=True)
+            runway_shapefile.set_index(['airport_id', 'runway_id'], inplace=True)
             runway_shapefile = runway_shapefile.loc[self.airport_list_full, :]
             runway_shapefile = runway_shapefile.loc[runway_shapefile['cons'] == 1,
                                                     ['approach_f', 'climbout_f', 'geometry']]
@@ -286,13 +286,9 @@ class AviationSector(Sector):
         :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
-        check = False
+
         operations = pd.read_csv(operations_csv_path)
 
-        if check:
-            for index, aux_operations in operations.groupby(['airport_id', 'plane_id', 'operation']):
-                if len(aux_operations) > 1:
-                    print index, len(aux_operations)
         if self.plane_list is None:
             self.plane_list = list(np.unique(operations['plane_id'].values))
         else:
@@ -320,13 +316,10 @@ class AviationSector(Sector):
         :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
-        check = False
+
         dataframe = pd.read_csv(planes_path)
         dataframe = dataframe.loc[dataframe['plane_id'].isin(self.plane_list)]
-        if check:
-            for index, aux_operations in dataframe.groupby('plane_id'):
-                if len(aux_operations) > 1:
-                    print index, len(aux_operations)
+
         dataframe.set_index('plane_id', inplace=True)
         self.logger.write_time_log('AviationSector', 'read_planes', timeit.default_timer() - spent_time)
 
@@ -477,6 +470,7 @@ class AviationSector(Sector):
         def normalize(df):
             total_fraction = df['{0}_f'.format(phase_type)].values.sum()
             df['{0}_f'.format(phase_type)] = df['{0}_f'.format(phase_type)] / total_fraction
+
             return df.loc[:, ['{0}_f'.format(phase_type)]]
 
         self.logger.write_log('\t\tCalculating runway distribution for {0}'.format(phase_type), message_level=2)
@@ -487,13 +481,11 @@ class AviationSector(Sector):
         if not os.path.exists(runway_distribution_path):
             if self.comm.rank == 0:
                 runway_shapefile['{0}_f'.format(phase_type)] = runway_shapefile.groupby('airport_id').apply(normalize)
-                if not os.path.exists(os.path.dirname(runway_distribution_path)):
-                    os.makedirs(os.path.dirname(runway_distribution_path))
-                runway_shapefile.reset_index(inplace=True)
+
                 runway_shapefile.to_crs(self.grid_shp.crs, inplace=True)
                 runway_shapefile['length'] = runway_shapefile.length
                 # duplicating each runway by involved cell
-                runway_shapefile = gpd.sjoin(runway_shapefile, self.grid_shp.reset_index(), how="inner",
+                runway_shapefile = gpd.sjoin(runway_shapefile.reset_index(), self.grid_shp, how="inner",
                                              op='intersects')
                 # Adding cell geometry
                 runway_shapefile = runway_shapefile.merge(self.grid_shp.reset_index().loc[:, ['FID', 'geometry']],
@@ -511,6 +503,8 @@ class AviationSector(Sector):
                 runway_shapefile = runway_shapefile[['airport_id', 'FID', 'layer', 'fraction']]
                 runway_shapefile = runway_shapefile.groupby(['airport_id', 'FID', 'layer']).sum()
                 # runway_shapefile.set_index(['airport_id', 'FID', 'layer'], inplace=True)
+                if not os.path.exists(os.path.dirname(runway_distribution_path)):
+                    os.makedirs(os.path.dirname(runway_distribution_path))
                 runway_shapefile.to_csv(runway_distribution_path)
             else:
                 runway_shapefile = None
@@ -1015,7 +1009,7 @@ class AviationSector(Sector):
         self.logger.write_log('\t\tTrajectory emissions distributed (approach, climb out)', message_level=2)
 
         emissions = pd.concat([airport_emissions, runway_departure_emissions, trajectory_arrival_emissions,
-                               trajectory_departure_emisions, runway_arrival_emissions])
+                               trajectory_departure_emisions, runway_arrival_emissions], sort=False)
 
         emissions = emissions.groupby(['FID', 'layer', 'tstep']).sum()
         runway_arrival_emissions_wear = runway_arrival_emissions_wear.groupby(['FID', 'layer', 'tstep']).sum()
@@ -1028,7 +1022,7 @@ class AviationSector(Sector):
         runway_arrival_emissions_wear = self.speciate(runway_arrival_emissions_wear, 'landing_wear')
         emissions = self.speciate(emissions, 'default')
 
-        emissions = pd.concat([emissions, runway_arrival_emissions_wear])
+        emissions = pd.concat([emissions, runway_arrival_emissions_wear], sort=False)
         emissions = emissions[(emissions.T != 0).any()]
         emissions = emissions.groupby(['FID', 'layer', 'tstep']).sum()
 

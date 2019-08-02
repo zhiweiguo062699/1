@@ -240,7 +240,7 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
         self.logger.write_log('\tCalculating emissions')
 
         distribution_by_month = {}
-        for month in self.months.iterkeys():
+        for month in self.months.keys():
             distribution_by_month[month] = self.calculate_distribution_by_month(month)
 
         self.crop_distribution = self.add_dates(distribution_by_month)

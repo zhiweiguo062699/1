@@ -198,6 +198,78 @@ class IoRaster(IoServer):
 
         return gdf
 
+    def to_shapefile_serie_by_cell(self, raster_path, out_path=None, write=False, crs=None, nodata=0):
+        """
+
+        :param raster_path:
+        :param out_path:
+        :param write:
+        :param crs:
+        :param rank:
+        :param nodata:
+        :return:
+        """
+
+        if out_path is None or not os.path.exists(out_path):
+            ds = rasterio.open(raster_path)
+
+            grid_info = ds.transform
+            # TODO remove when new version will be installed
+            if rasterio.__version__ == '0.36.0':
+                lons = np.arange(ds.width) * grid_info[1] + grid_info[0]
+                lats = np.arange(ds.height) * grid_info[5] + grid_info[3]
+            elif rasterio.__version__ == '1.0.21':
+                lons = np.arange(ds.width) * grid_info[0] + grid_info[2]
+                lats = np.arange(ds.height) * grid_info[4] + grid_info[5]
+            else:
+                lons = np.arange(ds.width) * grid_info[0] + grid_info[2]
+                lats = np.arange(ds.height) * grid_info[4] + grid_info[5]
+
+            # 1D to 2D
+            c_lats = np.array([lats] * len(lons)).T.flatten()
+            c_lons = np.array([lons] * len(lats)).flatten()
+
+            del lons, lats
+            if rasterio.__version__ == '0.36.0':
+                b_lons = self.create_bounds(c_lons, grid_info[1], number_vertices=4) + grid_info[1] / 2
+                b_lats = self.create_bounds(c_lats, grid_info[1], number_vertices=4, inverse=True) + grid_info[5] / 2
+            elif rasterio.__version__ == '1.0.21':
+                b_lons = self.create_bounds(c_lons, grid_info[0], number_vertices=4) + grid_info[0] / 2
+                b_lats = self.create_bounds(c_lats, grid_info[4], number_vertices=4, inverse=True) + grid_info[4] / 2
+            else:
+                b_lons = self.create_bounds(c_lons, grid_info[0], number_vertices=4) + grid_info[0] / 2
+                b_lats = self.create_bounds(c_lats, grid_info[4], number_vertices=4, inverse=True) + grid_info[4] / 2
+
+            b_lats = b_lats.reshape((b_lats.shape[1], b_lats.shape[2]))
+            b_lons = b_lons.reshape((b_lons.shape[1], b_lons.shape[2]))
+
+            gdf = gpd.GeoDataFrame(ds.read(1).flatten(), columns=['data'], index=range(b_lons.shape[0]), crs=ds.crs)
+            gdf['geometry'] = None
+
+            for i in range(b_lons.shape[0]):
+                gdf.loc[i, 'geometry'] = Polygon([(b_lons[i, 0], b_lats[i, 0]),
+                                                  (b_lons[i, 1], b_lats[i, 1]),
+                                                  (b_lons[i, 2], b_lats[i, 2]),
+                                                  (b_lons[i, 3], b_lats[i, 3]),
+                                                  (b_lons[i, 0], b_lats[i, 0])])
+
+            gdf['CELL_ID'] = gdf.index
+
+            gdf = gdf[gdf['data'] != nodata]
+
+            if crs is not None:
+                gdf = gdf.to_crs(crs)
+
+            if write:
+                if not os.path.exists(os.path.dirname(out_path)):
+                    os.makedirs(os.path.dirname(out_path))
+                gdf.to_file(out_path)
+
+        else:
+            gdf = gpd.read_file(out_path)
+
+        return gdf
+
     def to_shapefile_serie(self, raster_path, out_path=None, write=False, crs=None, nodata=0):
         """
 
@@ -214,6 +286,7 @@ class IoRaster(IoServer):
             from rasterio.features import shapes
             mask = None
             src = rasterio.open(raster_path)
+
             image = src.read(1)  # first band
             image = image.astype(np.float32)
             geoms = (
@@ -222,10 +295,14 @@ class IoRaster(IoServer):
 
             gdf = gpd.GeoDataFrame.from_features(geoms)
 
-            gdf.loc[:, 'CELL_ID'] = xrange(len(gdf))
+            gdf.loc[:, 'CELL_ID'] = range(len(gdf))
             gdf = gdf[gdf['data'] != nodata]
 
-            gdf.crs = src.crs
+            # Error on to_crs function of geopandas that flip lat with lon in the non dict form
+            if src.crs == 'EPSG:4326':
+                gdf.crs = {'init': 'epsg:4326'}
+            else:
+                gdf.crs = src.crs
 
             if crs is not None:
                 gdf = gdf.to_crs(crs)
@@ -237,5 +314,5 @@ class IoRaster(IoServer):
 
         else:
             gdf = gpd.read_file(out_path)
-
+        gdf.set_index('CELL_ID', inplace=True)
         return gdf

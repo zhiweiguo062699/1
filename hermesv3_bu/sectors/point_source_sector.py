@@ -277,8 +277,9 @@ class PointSourceSector(Sector):
                                    timeit.default_timer() - spent_time)
         return catalog
 
-    @staticmethod
-    def get_meteo_xy(dataframe, netcdf_path):
+    def get_meteo_xy(self, dataframe, netcdf_path):
+        spent_time = timeit.default_timer()
+
         def nearest(row, geom_union, df1, df2, geom1_col='geometry', geom2_col='geometry', src_column=None):
             """Finds the nearest point and return the corresponding value from specified column.
             https://automating-gis-processes.github.io/2017/lessons/L3/nearest-neighbour.html
@@ -304,7 +305,7 @@ class PointSourceSector(Sector):
 
         nc_dataframe = pd.DataFrame.from_dict({'X': x.flatten(), 'Y': y.flatten()})
         nc_dataframe = gpd.GeoDataFrame(nc_dataframe,
-                                        geometry=[Point(xy) for xy in zip(lons.flatten(), lats.flatten())],
+                                        geometry=[Point(xy) for xy in list(zip(lons.flatten(), lats.flatten()))],
                                         crs={'init': 'epsg:4326'})
         nc_dataframe['index'] = nc_dataframe.index
 
@@ -315,6 +316,7 @@ class PointSourceSector(Sector):
         dataframe['X'] = nc_dataframe.loc[dataframe['meteo_index'], 'X'].values
         dataframe['Y'] = nc_dataframe.loc[dataframe['meteo_index'], 'Y'].values
 
+        self.logger.write_time_log('PointSourceSector', 'get_meteo_xy', timeit.default_timer() - spent_time)
         return dataframe[['X', 'Y']]
 
     def get_plumerise_meteo(self, catalog):
@@ -475,7 +477,7 @@ class PointSourceSector(Sector):
 
         # TODO Use IoNetCDF
         spent_time = timeit.default_timer()
-        # Adding meteo X, Y array index to the catalog
+
         meteo_xy = self.get_meteo_xy(catalog.groupby('Code').first(), os.path.join(
             self.plume_rise_pahts['temperature_sfc_dir'],
             't2_{0}.nc'.format(self.date_array[0].replace(hour=0).strftime("%Y%m%d%H"))))
@@ -748,6 +750,9 @@ class PointSourceSector(Sector):
     def point_source_to_fid(self, catalog):
         catalog.reset_index(inplace=True)
         catalog = catalog.to_crs(self.grid_shp.crs)
+
+        catalog.to_file('~/temp/catalog.shp')
+        self.grid_shp.reset_index().to_file('~/temp/grid.shp')
 
         catalog = gpd.sjoin(catalog, self.grid_shp.reset_index(), how="inner", op='intersects')
 

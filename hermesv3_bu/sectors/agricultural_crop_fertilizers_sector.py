@@ -130,7 +130,8 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
     def to_dst_resolution(self, src_shapefile, value):
         spent_time = timeit.default_timer()
 
-        intersection = self.spatial_overlays(src_shapefile.to_crs(self.grid_shp.crs), self.grid_shp.reset_index())
+        intersection = self.spatial_overlays(src_shapefile.to_crs(self.grid_shp.crs).reset_index(),
+                                             self.grid_shp.reset_index())
         intersection['area'] = intersection.geometry.area
         dst_shapefile = self.grid_shp.reset_index().copy()
         dst_shapefile['involved_area'] = intersection.groupby('FID')['area'].sum()
@@ -425,7 +426,7 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
         spent_time = timeit.default_timer()
         self.logger.write_log('Calculating daily emissions')
         df_by_day = self.get_daily_inputs(emissions)
-        for day, daily_inputs in df_by_day.iteritems():
+        for day, daily_inputs in df_by_day.items():
             df_by_day[day] = self.calculate_nh3_emissions(day, daily_inputs)
         self.logger.write_time_log('AgriculturalCropFertilizersSector', 'calculate_daily_emissions',
                                    timeit.default_timer() - spent_time)

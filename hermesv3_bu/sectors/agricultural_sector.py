@@ -13,6 +13,8 @@ from hermesv3_bu.sectors.sector import Sector
 from hermesv3_bu.io_server.io_shapefile import IoShapefile
 from hermesv3_bu.io_server.io_raster import IoRaster
 from hermesv3_bu.logger.log import Log
+from geopandas import GeoDataFrame
+from pandas import DataFrame
 
 
 class AgriculturalSector(Sector):
@@ -162,26 +164,44 @@ class AgriculturalSector(Sector):
         self.logger.write_time_log('AgriculturalSector', 'calculate_num_days', timeit.default_timer() - spent_time)
         return day_dict
 
-    def get_crop_from_land_uses(self, crop_from_landuse_path):
+    def get_crop_from_land_uses(self, crop_from_land_use_path):
+        """
+        Get the involved land uses and their weight for each crop.
+
+        :param crop_from_land_use_path: Path to the file that contains the crops and their involved land uses with the
+            weights.
+        :type crop_from_land_use_path: str
+
+        :return: Dictionary with the crops as keys and a list as value. That list have as many elements as involved
+            land uses in that crop. Each element of that list is a tuple with the land use as first element and their
+            weight on the second place.
+        :rtype: dict
+        """
         import re
         spent_time = timeit.default_timer()
 
-        crop_from_landuse = pd.read_csv(crop_from_landuse_path, sep=';')
+        crop_from_landuse = pd.read_csv(crop_from_land_use_path, sep=';')
         crop_dict = {}
         for i, element in crop_from_landuse.iterrows():
             # if element.crop in self.crop_list:
-            land_uses = list(map(str, re.split(' , |, | ,|,| ', element.land_use)))
-            weights = list(map(str, re.split(' , |, | ,|,| ', element.weight)))
-            crop_dict[element.crop] = zip(land_uses, weights)
-        self.logger.write_time_log('AgriculturalSector', 'get_crop_from_land_uses', timeit.default_timer() - spent_time)
+            land_uses = list(map(int, re.split(' , |, | ,|,| ', element.land_use)))
+            weights = list(map(float, re.split(' , |, | ,|,| ', element.weight)))
+            crop_dict[element.crop] = list(zip(land_uses, weights))
 
+        self.logger.write_time_log('AgriculturalSector', 'get_crop_from_land_uses', timeit.default_timer() - spent_time)
         return crop_dict
 
     def get_involved_land_uses(self):
+        """
+        Generate the list of involved land uses.
+
+        :return: List of land uses involved in the selected crops
+        :rtype: list
+        """
         spent_time = timeit.default_timer()
 
         land_uses_list = []
-        for land_use_and_weight_list in self.crop_from_landuse.itervalues():
+        for land_use_and_weight_list in self.crop_from_landuse.values():
             for land_use_and_weight in land_use_and_weight_list:
                 land_use = int(land_use_and_weight[0])
                 if land_use not in land_uses_list:
@@ -190,22 +210,16 @@ class AgriculturalSector(Sector):
 
         return land_uses_list
 
-    def get_land_use_src_by_nut_old(self, land_uses):
-        spent_time = timeit.default_timer()
-
-        df_land_use_with_nut = gpd.read_file(self.land_uses_path)
-
-        df_land_use_with_nut.rename(columns={'CODE': 'NUT', 'gridcode': 'land_use'}, inplace=True)
-
-        df_land_use_with_nut = df_land_use_with_nut.loc[df_land_use_with_nut['land_use'].isin(land_uses), :]
-
-        df_land_use_with_nut = self.spatial_overlays(df_land_use_with_nut,
-                                                     self.clip.shapefile.to_crs(df_land_use_with_nut.crs))
-
-        self.logger.write_time_log('AgriculturalSector', 'get_land_use_src_by_nut', timeit.default_timer() - spent_time)
-        return df_land_use_with_nut
-
     def get_land_use_src_by_nut(self, land_uses):
+        """
+        Create a shapefile with the involved source cells from the input raster and only for the given land uses.
+
+        :param land_uses: List of land uses to use.
+        :type land_uses: list
+
+        :return: Shapefile with the land use and NUT code of each source cell. Index: CELL_ID
+        :rtype: GeoDataFrame
+        """
         spent_time = timeit.default_timer()
         land_use_src_by_nut_path = os.path.join(self.auxiliary_dir, 'agriculture', 'land_uses', 'land_uses_src.shp')
         if not os.path.exists(land_use_src_by_nut_path):
@@ -214,31 +228,46 @@ class AgriculturalSector(Sector):
                 os.path.join(self.auxiliary_dir, 'agriculture', 'land_uses', 'land_uses_clip.tif'), values=land_uses)
 
             land_uses_shp = IoRaster(self.comm_agr).to_shapefile_serie(land_uses_clipped)
+
             ccaa_shp = IoShapefile(self.comm_agr).read_shapefile_serial(self.nut_shapefile).to_crs(land_uses_shp.crs)
             ccaa_shp.drop(columns=['NAME', 'ORDER06'], inplace=True)
             ccaa_shp.rename(columns={'CODE': 'NUT'}, inplace=True)
-            land_use_src_by_nut = self.spatial_overlays(land_uses_shp, ccaa_shp, how='intersection')
+            # ccaa_shp.set_index('NUT', inplace=True)
+            land_use_src_by_nut = self.spatial_overlays(land_uses_shp.reset_index(), ccaa_shp, how='intersection')
             land_use_src_by_nut.drop(columns=['idx1', 'idx2', 'CELL_ID'], inplace=True)
             land_use_src_by_nut.rename(columns={'data': 'land_use'}, inplace=True)
             land_use_src_by_nut['land_use'] = land_use_src_by_nut['land_use'].astype(np.int16)
             land_use_src_by_nut.reset_index(inplace=True, drop=True)
+
             IoShapefile(self.comm_agr).write_shapefile_serial(land_use_src_by_nut, land_use_src_by_nut_path)
         else:
             land_use_src_by_nut = IoShapefile(self.comm_agr).read_shapefile_serial(land_use_src_by_nut_path)
-
+        # land_use_src_by_nut.index.name = 'CELL_ID'
         self.logger.write_time_log('AgriculturalSector', 'get_land_use_src_by_nut', timeit.default_timer() - spent_time)
         return land_use_src_by_nut
 
     def get_tot_land_use_by_nut(self, land_uses):
+        """
+        Get the total amount of land use area by NUT of the involved land uses.
+
+        :param land_uses: Involved land uses.
+        :type land_uses: list
+
+        :return: Total amount of land use area by NUT.
+        :rtype: DataFrame
+        """
         spent_time = timeit.default_timer()
+
         df = pd.read_csv(self.land_use_by_nut)
         df = df.loc[df['land_use'].isin(land_uses), :]
-        self.logger.write_time_log('AgriculturalSector', 'get_tot_land_use_by_nut', timeit.default_timer() - spent_time)
+        df.set_index(['NUT', 'land_use'], inplace=True)
 
+        self.logger.write_time_log('AgriculturalSector', 'get_tot_land_use_by_nut', timeit.default_timer() - spent_time)
         return df
 
     def get_land_use_by_nut_csv(self, land_use_distribution_src_nut, land_uses):
         """
+        Get the involved area of land use by involved NUT.
 
         :param land_use_distribution_src_nut: Shapefile with the polygons of all the land uses for each NUT.
         :type land_use_distribution_src_nut: GeoDataFrame
@@ -246,13 +275,16 @@ class AgriculturalSector(Sector):
         :param land_uses: Land uses to take into account.
         :type land_uses: list
 
-        :return:
+        :return: DataFrame with the total amount of land use area by involved NUT.
+        :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
 
         land_use_distribution_src_nut['area'] = land_use_distribution_src_nut.area
         land_use_by_nut = land_use_distribution_src_nut.groupby(['NUT', 'land_use']).sum().reset_index()
         land_use_by_nut = land_use_by_nut.loc[land_use_by_nut['land_use'].isin(land_uses), :]
+
+        land_use_by_nut.set_index(['NUT', 'land_use'], inplace=True)
 
         self.logger.write_time_log('AgriculturalSector', 'get_land_use_by_nut_csv', timeit.default_timer() - spent_time)
         return land_use_by_nut
@@ -271,27 +303,20 @@ class AgriculturalSector(Sector):
         :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
-        if nuts is not None:
-            land_use_by_nut = land_use_by_nut.loc[land_use_by_nut['NUT'].isin(nuts), :]
-        new_dict = pd.DataFrame()
-        for nut in np.unique(land_use_by_nut['NUT']):
-            aux_dict = {'NUT': [nut]}
 
-            for crop, landuse_weight_list in self.crop_from_landuse.iteritems():
-                aux = 0
-                for landuse, weight in landuse_weight_list:
-                    try:
-                        aux += land_use_by_nut.loc[(land_use_by_nut['land_use'] == int(landuse)) &
-                                                   (land_use_by_nut['NUT'] == nut), 'area'].values[0] * float(weight)
-                    except IndexError:
-                        # TODO understand better that error
-                        pass
-                aux_dict[crop] = [aux]
-            new_dict = new_dict.append(pd.DataFrame.from_dict(aux_dict), ignore_index=True)
-        new_dict.set_index('NUT', inplace=True)
+        if nuts is not None:
+            land_use_by_nut = land_use_by_nut.loc[nuts, :]
+        new_df = pd.DataFrame(index=np.unique(land_use_by_nut.index.get_level_values('NUT')),
+                              columns=self.crop_from_landuse.keys())
+        new_df.fillna(0, inplace=True)
+
+        for crop, land_use_weight_list in self.crop_from_landuse.items():
+            for land_use, weight in land_use_weight_list:
+                new_df[crop] += land_use_by_nut.xs(land_use, level='land_use')['area'] * weight
 
         self.logger.write_time_log('AgriculturalSector', 'land_use_to_crop_by_nut', timeit.default_timer() - spent_time)
-        return new_dict
+
+        return new_df
 
     def get_crop_shape_by_nut(self, crop_by_nut, tot_crop_by_nut):
         """
@@ -355,7 +380,7 @@ class AgriculturalSector(Sector):
         spent_time = timeit.default_timer()
 
         crop_distribution_src = land_use_distribution_src_nut.loc[:, ['NUT', 'geometry']]
-        for crop, landuse_weight_list in self.crop_from_landuse.iteritems():
+        for crop, landuse_weight_list in self.crop_from_landuse.items():
             crop_distribution_src[crop] = 0
             for landuse, weight in landuse_weight_list:
                 crop_distribution_src.loc[land_use_distribution_src_nut['land_use'] == int(landuse), crop] += \
@@ -390,7 +415,9 @@ class AgriculturalSector(Sector):
 
         crop_distribution = crop_distribution.to_crs(self.grid_shp.crs)
         crop_distribution['src_inter_fraction'] = crop_distribution.geometry.area
-        crop_distribution = self.spatial_overlays(crop_distribution, self.grid_shp, how='intersection')
+
+        crop_distribution = self.spatial_overlays(crop_distribution.reset_index(), self.grid_shp.reset_index(),
+                                                  how='intersection')
         crop_distribution['src_inter_fraction'] = \
             crop_distribution.geometry.area / crop_distribution['src_inter_fraction']
 
@@ -426,17 +453,16 @@ class AgriculturalSector(Sector):
             if self.comm_agr.Get_rank() == 0:
                 self.logger.write_log('Creating the crop distribution shapefile on the grid resolution.',
                                       message_level=2)
+
                 involved_land_uses = self.get_involved_land_uses()
 
                 land_use_distribution_src_nut = self.get_land_use_src_by_nut(involved_land_uses)
-
                 land_use_by_nut = self.get_land_use_by_nut_csv(land_use_distribution_src_nut, involved_land_uses)
                 tot_land_use_by_nut = self.get_tot_land_use_by_nut(involved_land_uses)
 
                 crop_by_nut = self.land_use_to_crop_by_nut(land_use_by_nut)
                 tot_crop_by_nut = self.land_use_to_crop_by_nut(
-                    tot_land_use_by_nut, nuts=list(np.unique(land_use_by_nut['NUT'])))
-
+                    tot_land_use_by_nut, nuts=list(np.unique(land_use_by_nut.index.get_level_values('NUT'))))
                 crop_shape_by_nut = self.get_crop_shape_by_nut(crop_by_nut, tot_crop_by_nut)
                 crop_area_by_nut = self.get_crop_area_by_nut(crop_shape_by_nut)
 
@@ -444,8 +470,8 @@ class AgriculturalSector(Sector):
                     crop_area_by_nut, land_use_distribution_src_nut)
 
                 crop_distribution_dst = self.get_crop_distribution_in_dst_cells(crop_distribution_src)
-
                 crop_distribution_dst = self.add_timezone(crop_distribution_dst)
+
                 IoShapefile(self.comm).write_shapefile_serial(crop_distribution_dst, file_path)
             else:
                 self.logger.write_log('Waiting for the master process that creates the crop distribution shapefile.',
@@ -482,7 +508,7 @@ class AgriculturalSector(Sector):
         """
         rank_list = []
 
-        for sector, sector_procs in sector_dict.iteritems():
+        for sector, sector_procs in sector_dict.items():
             if sector in ['crop_operations', 'crop_fertilizers', 'agricultural_machinery']:
                 rank_list += sector_procs
         rank_list = sorted(rank_list)

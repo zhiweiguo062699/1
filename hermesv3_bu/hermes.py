@@ -23,13 +23,13 @@ class Hermes(object):
         self.comm = MPI.COMM_WORLD
 
         self.arguments = config.arguments
-        self.logger = Log(self.comm, self.arguments)
+        self.logger = Log(self.arguments)
         self.logger.write_log('====== Starting HERMESv3_BU simulation =====')
         self.grid = select_grid(self.comm, self.logger, self.arguments)
         self.clip = select_clip(self.comm, self.logger, self.arguments.auxiliary_files_path, self.arguments.clipping,
                                 self.grid)
         self.date_array = [self.arguments.start_date + timedelta(hours=hour) for hour in
-                           xrange(self.arguments.output_timestep_num)]
+                           range(self.arguments.output_timestep_num)]
         self.logger.write_log('Dates to simulate: {0}'.format(
             [aux_date.strftime("%Y/%m/%d, %H:%M:%S") for aux_date in self.date_array]), message_level=2)
 

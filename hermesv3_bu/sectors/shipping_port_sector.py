@@ -110,7 +110,6 @@ class ShippingPortSector(Sector):
 
             port_shp = gpd.sjoin(port_shp, self.clip.shapefile.to_crs(port_shp.crs), how='inner', op='intersects')
             port_list = np.unique(port_shp['code'].values)
-            print port_list
             if len(port_list) < self.comm.Get_size():
                 raise ValueError("The chosen number of processors {0} exceeds the number of involved ports {1}.".format(
                     self.comm.Get_size(), len(port_list)) + " Set {0} at shipping_port_processors value.".format(
@@ -609,8 +608,7 @@ class ShippingPortSector(Sector):
 
         self.logger.write_log('\t\tCalculating yearly emissions', message_level=2)
         manoeuvring, hoteling = self.calculate_yearly_emissions_by_port_vessel()
-        # print manoeuvring.reset_index().groupby('code').sum()
-        # print hoteling.reset_index().groupby('code').sum()
+
         manoeuvring = self.add_timezone(manoeuvring, self.maneuvering_shapefile_path)
         hoteling = self.add_timezone(hoteling, self.hoteling_shapefile_path)
 

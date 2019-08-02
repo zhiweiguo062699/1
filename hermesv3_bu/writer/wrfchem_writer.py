@@ -228,7 +228,7 @@ class WrfChemWriter(Writer):
 
         df = pd.read_csv(global_attributes_path)
 
-        for att in atts_dict.iterkeys():
+        for att in atts_dict.keys():
             try:
                 if att in int_atts:
                     atts_dict[att] = np.int32(df.loc[df['attribute'] == att, 'value'].item())

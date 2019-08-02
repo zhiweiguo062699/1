@@ -23,5 +23,3 @@ dependencies:
   - pytest-cov
   - pycodestyle
   - shapely
-  - pip:
-    - holidays

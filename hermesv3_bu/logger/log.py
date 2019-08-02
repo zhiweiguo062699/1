@@ -4,13 +4,14 @@ import os
 import numpy as np
 import pandas as pd
 
+from mpi4py import MPI
+comm = MPI.COMM_WORLD
+
 
 class Log(object):
-    def __init__(self, comm, arguments, log_refresh=1, time_log_refresh=0):
+    def __init__(self, arguments, log_refresh=1, time_log_refresh=0):
         """
         Initialise the Log class.
-
-        :param comm: MPI communicator
 
         :param arguments: Complete argument NameSpace.
         :type arguments: NameSpace
@@ -18,8 +19,6 @@ class Log(object):
         :param log_refresh:
         :param time_log_refresh:
         """
-        self.comm = comm
-
         self.refresh_rate = (log_refresh, time_log_refresh)
         self.log_refresh = self.refresh_rate[0]
         self.time_log_refresh = self.refresh_rate[1]
@@ -36,7 +35,7 @@ class Log(object):
             else:
                 if os.path.exists(self.time_log_path):
                     os.remove(self.time_log_path)
-            self.time_log = open(self.time_log_path, mode='w')
+            # self.time_log = open(self.time_log_path, mode='w')
         else:
             # Time log only writed by master process
             self.time_log = None
@@ -45,7 +44,7 @@ class Log(object):
         if os.path.exists(self.log_path):
             os.remove(self.log_path)
 
-        self.log = open(self.log_path, mode='w')
+        # self.log = open(self.log_path, mode='w')
 
         self.df_times = pd.DataFrame(columns=['Class', 'Function', comm.Get_rank()])
 
@@ -65,13 +64,10 @@ class Log(object):
         :rtype: bool
         """
         if message_level <= self.log_level:
-            self.log.write("{0}\n".format(message))
+            with open(self.log_path, mode='a') as log_file:
+                log_file.write("{0}\n".format(message))
+                log_file.close()
 
-            if self.log_refresh > 0:
-                self.log_refresh -= 1
-            if self.log_refresh == 0:
-                self.log.flush()
-                self.log_refresh = self.refresh_rate[0]
         return True
 
     def _write_csv_times_log_file(self, rank=0):
@@ -84,20 +80,21 @@ class Log(object):
         :return: True if everything is ok.
         :rtype: bool
         """
+        from functools import reduce
         self.df_times = self.df_times.groupby(['Class', 'Function']).sum().reset_index()
-        data_frames = self.comm.gather(self.df_times, root=0)
-        if self.comm.Get_rank() == rank:
+        data_frames = comm.gather(self.df_times, root=0)
+        if comm.Get_rank() == rank:
             df_merged = reduce(lambda left, right: pd.merge(left, right, on=['Class', 'Function'], how='outer'),
                                data_frames)
             df_merged = df_merged.groupby(['Class', 'Function']).sum()
-            df_merged['min'] = df_merged.loc[:, range(self.comm.Get_size())].min(axis=1)
-            df_merged['max'] = df_merged.loc[:, range(self.comm.Get_size())].max(axis=1)
-            df_merged['mean'] = df_merged.loc[:, range(self.comm.Get_size())].mean(axis=1)
+            df_merged['min'] = df_merged.loc[:, range(comm.Get_size())].min(axis=1)
+            df_merged['max'] = df_merged.loc[:, range(comm.Get_size())].max(axis=1)
+            df_merged['mean'] = df_merged.loc[:, range(comm.Get_size())].mean(axis=1)
 
             df_merged = df_merged.replace(0.0, np.NaN)
             df_merged.to_csv(self.time_log_path)
 
-        self.comm.Barrier()
+        comm.Barrier()
         return True
 
     def write_time_log(self, class_name, function_name, spent_time, message_level=1):
@@ -121,7 +118,7 @@ class Log(object):
         """
         if message_level <= self.log_level:
             self.df_times = self.df_times.append(
-                {'Class': class_name, 'Function': function_name, self.comm.Get_rank(): spent_time}, ignore_index=True)
+                {'Class': class_name, 'Function': function_name, comm.Get_rank(): spent_time}, ignore_index=True)
             # if self.time_log_refresh > 0:
             #     self.time_log_refresh -= 1
             # if self.time_log_refresh == 0:
@@ -137,5 +134,5 @@ class Log(object):
         :return:
         """
         self._write_csv_times_log_file()
-        self.log.flush()
-        self.log.close()
+        # self.log.flush()
+        # self.log.close()
