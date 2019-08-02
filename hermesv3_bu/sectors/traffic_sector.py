@@ -112,7 +112,6 @@ class TrafficSector(Sector):
         hourly_profiles.index = hourly_profiles.index.astype(str)
         return hourly_profiles
 
-
     def read_speciation_map(self, path):
         """
         Read the speciation map.
@@ -259,7 +258,6 @@ class TrafficSector(Sector):
             df = gpd.sjoin(df, self.clip.shapefile.to_crs(df.crs), how="inner", op='intersects')
             df.drop(columns=['index_right', 'FID'], inplace=True)
             libc.malloc_trim(0)
-
 
             # Filtering road links to CONSiderate.
             df['CONS'] = df['CONS'].astype(np.int16)
@@ -460,7 +458,7 @@ class TrafficSector(Sector):
         df = df[df['Fleet_value'] > 0]
 
         # Deleting unused columns
-        df.drop(columns=['aadt', 'PcLight', 'PcHeavy', 'PcMoto', 'PcMoped' ,'Fleet_Class'], inplace=True)
+        df.drop(columns=['aadt', 'PcLight', 'PcHeavy', 'PcMoto', 'PcMoped', 'Fleet_Class'], inplace=True)
         libc.malloc_trim(0)
 
         self.logger.write_time_log('TrafficSector', 'update_fleet_value', timeit.default_timer() - spent_time)
@@ -554,8 +552,8 @@ class TrafficSector(Sector):
                 df[['month', 'weekday', 'hour', 'aadt_m_mn', 'aadt_week', 'aadt_h_mn', 'aadt_h_wd', 'aadt_h_sat',
                     'aadt_h_sun']])
 
-        df.drop(columns=['month', 'weekday', 'hour', 'P_speed', 'speed_mean' ,'sp_wd' ,'sp_we', 'sp_hour_mo',
-                         'sp_hour_tu', 'sp_hour_we', 'sp_hour_th', 'sp_hour_fr', 'sp_hour_sa' ,'sp_hour_su', 'aux_date',
+        df.drop(columns=['month', 'weekday', 'hour', 'P_speed', 'speed_mean', 'sp_wd', 'sp_we', 'sp_hour_mo',
+                         'sp_hour_tu', 'sp_hour_we', 'sp_hour_th', 'sp_hour_fr', 'sp_hour_sa', 'sp_hour_su', 'aux_date',
                          'aadt_m_mn', 'aadt_h_mn', 'aadt_h_wd', 'aadt_h_sat', 'aadt_h_sun', 'aadt_week', 'start_date'],
                 inplace=True)
         libc.malloc_trim(0)
@@ -880,7 +878,7 @@ class TrafficSector(Sector):
         for pollutant in pollutants:
             ef_tyre = self.read_ef('tyre', pollutant)
             df = pd.merge(self.expanded.reset_index(), ef_tyre, left_on='Fleet_Code', right_on='Code', how='inner')
-            df.drop(columns=['road_grad', 'Road_type','Code'], inplace=True)
+            df.drop(columns=['road_grad', 'Road_type', 'Code'], inplace=True)
 
             for tstep in range(len(self.date_array)):
                 p_column = '{0}_{1}'.format(pollutant, tstep)
