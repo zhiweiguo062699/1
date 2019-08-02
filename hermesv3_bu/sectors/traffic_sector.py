@@ -1058,7 +1058,6 @@ class TrafficSector(Sector):
         speciation = self.read_profiles(speciation)
 
         del speciation['Copert_V_name']
-
         # Transform dataset into timestep rows instead of timestep columns
         df = self.transform_df(df)
 
@@ -1073,7 +1072,7 @@ class TrafficSector(Sector):
         # PMC
         if not set(speciation.columns.values).isdisjoint(pmc_list):
             out_p = set(speciation.columns.values).intersection(pmc_list).pop()
-            speciation_by_in_p = speciation[[out_p] + ['Code']]
+            speciation_by_in_p = speciation[[out_p] + ['Code']].copy()
 
             speciation_by_in_p.rename(columns={out_p: 'f_{0}'.format(out_p)}, inplace=True)
             df_aux = df[['pm10', 'pm25', 'Fleet_Code', 'tstep', 'Link_ID']]
@@ -1088,7 +1087,7 @@ class TrafficSector(Sector):
             involved_out_pollutants = [key for key, value in self.speciation_map.items() if value == in_p]
 
             # Selecting only necessary speciation profiles
-            speciation_by_in_p = speciation[involved_out_pollutants + ['Code']]
+            speciation_by_in_p = speciation[involved_out_pollutants + ['Code']].copy()
 
             # Adding "f_" in the formula column names
             for p in involved_out_pollutants:
