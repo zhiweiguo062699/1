@@ -284,7 +284,7 @@ class LivestockSector(Sector):
                 animal_df = IoShapefile(self.comm).read_shapefile_serial(animal_distribution_path)
 
             animal_df.rename(columns={'data': animal}, inplace=True)
-            animal_df.set_index('CELL_ID', inplace=True)
+            # animal_df.set_index('CELL_ID', inplace=True)
 
             # Creating full animal shapefile
             if animal_distribution is None:
