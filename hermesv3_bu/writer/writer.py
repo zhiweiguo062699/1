@@ -436,5 +436,5 @@ class Writer(object):
             summary.drop(columns=['layer'], inplace=True)
             summary.groupby('tstep').sum().to_csv(self.emission_summary_paths['hourly_summary_path'])
             summary.drop(columns=['tstep'], inplace=True)
-            summary.sum().to_csv(self.emission_summary_paths['total_summary_path'])
+            pd.DataFrame(summary.sum()).to_csv(self.emission_summary_paths['total_summary_path'])
         self.logger.write_time_log('Writer', 'make_summary', timeit.default_timer() - spent_time)
