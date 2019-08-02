@@ -106,7 +106,7 @@ class TrafficAreaSector(Sector):
             population_density = IoRaster(self.comm).clip_raster_with_shapefile_poly(
                 global_path, self.clip.shapefile,
                 os.path.join(self.auxiliary_dir, 'traffic_area', 'population.tif'))
-            population_density = IoRaster(self.comm).to_shapefile_serie(population_density)
+            population_density = IoRaster(self.comm).to_shapefile_serie_by_cell(population_density)
         else:
             population_density = IoShapefile(self.comm).read_shapefile_serial(population_shapefile_path)
 
@@ -170,10 +170,10 @@ class TrafficAreaSector(Sector):
             total_pop_by_nut.loc[:, column_id] = total_pop_by_nut[column_id].astype(np.int16)
             pop_nut_cell.loc[:, column_id] = pop_nut_cell[column_id].astype(np.int16)
 
-            df = pop_nut_cell.merge(total_pop_by_nut, left_on=column_id, right_on=column_id, how='left')
+            df = pd.merge(pop_nut_cell, total_pop_by_nut, left_on=column_id, right_on=column_id, how='left')
 
             df['pop_percent'] = df['data_x'] / df['data_y']
-            del df['data_x'], df['data_y'], df['CELL_ID']
+            df.drop(columns=['data_x', 'data_y'], inplace=True)
 
             gas_df = pd.read_csv(gasoline_path, index_col='COPERT_V_name').transpose()
             vehicle_type_list = list(gas_df.columns.values)
@@ -361,7 +361,6 @@ class TrafficAreaSector(Sector):
             inc = 1
 
             while len(grid.loc[grid['timezone'] == '', :]) > 0:
-                # print(len(grid.loc[grid['timezone'] == '', :]))
                 grid.loc[grid['timezone'] == '', 'timezone'] = aux_grid.loc[grid['timezone'] == '', :].apply(
                     lambda x: tz.closest_timezone_at(lng=x['lons'], lat=x['lats'], delta_degree=inc), axis=1)
                 inc += 1
@@ -375,18 +374,17 @@ class TrafficAreaSector(Sector):
 
         p_names = small_cities.columns.values
 
-        aux_grid = self.grid_shp.loc[self.grid_shp['FID'].isin(small_cities.index.values), :]
+        aux_grid = self.grid_shp.loc[small_cities.index.values, :].reset_index().copy()
 
         aux_grid = self.add_timezone(aux_grid)
         aux_grid.set_index('FID', inplace=True)
 
         small_cities = small_cities.merge(aux_grid.loc[:, ['timezone']], left_index=True, right_index=True,
                                           how='left')
-        small_cities.loc[:, 'utc'] = self.date_array[0]
+        small_cities['utc'] = self.date_array[0]
         small_cities['date'] = small_cities.groupby('timezone')['utc'].apply(
             lambda x: pd.to_datetime(x).dt.tz_localize(pytz.utc).dt.tz_convert(x.name).dt.tz_localize(None))
-        small_cities.drop(['utc', 'timezone'], inplace=True, axis=1)
-
+        small_cities.drop(columns=['utc', 'timezone'], inplace=True)
         df_list = []
         for tstep in range(len(self.date_array)):
             small_cities['month'] = small_cities['date'].dt.month
@@ -442,7 +440,7 @@ class TrafficAreaSector(Sector):
         spent_time = timeit.default_timer()
 
         if self.do_evaporative and self.do_small_cities:
-            dataset = pd.concat([self.evaporative, self.small_cities])
+            dataset = pd.concat([self.evaporative, self.small_cities], sort=False)
         elif self.do_evaporative:
             dataset = self.evaporative
         elif self.do_small_cities:
