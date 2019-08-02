@@ -134,15 +134,17 @@ class CmaqWriter(Writer):
         """
         spent_time = timeit.default_timer()
 
-        a = np.array([[[]]])
+        t_flag = np.empty((len(self.date_array), len(self.pollutant_info), 2))
 
-        for date in self.date_array:
-            b = np.array([[int(date.strftime('%Y%j'))], [int(date.strftime('%H%M%S'))]] * len(self.pollutant_info))
-            a = np.append(a, b)
+        for i_d, date in enumerate(self.date_array):
+            y_d = int(date.strftime('%Y%j'))
+            hms = int(date.strftime('%H%M%S'))
+            for i_p in range(len(self.pollutant_info)):
+                t_flag[i_d, i_p, 0] = y_d
+                t_flag[i_d, i_p, 1] = hms
 
-        a.shape = (len(self.date_array), 2, len(self.pollutant_info))
         self.logger.write_time_log('CmaqWriter', 'create_tflag', timeit.default_timer() - spent_time)
-        return a
+        return t_flag
 
     def str_var_list(self):
         """
@@ -282,6 +284,7 @@ class CmaqWriter(Writer):
         tflag = netcdf.createVariable('TFLAG', 'i', ('TSTEP', 'VAR', 'DATE-TIME',))
         tflag.setncatts({'units': "{:<16}".format('<YYYYDDD,HHMMSS>'), 'long_name': "{:<16}".format('TFLAG'),
                          'var_desc': "{:<80}".format('Timestep-valid flags:  (1) YYYYDDD or (2) HHMMSS')})
+
         tflag[:] = self.create_tflag()
 
         # ========== POLLUTANTS ==========
