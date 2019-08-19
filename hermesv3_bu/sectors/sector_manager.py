@@ -196,7 +196,7 @@ class SectorManager(object):
                     arguments.auxiliary_files_path, grid.shapefile, clip, date_array, arguments.traffic_area_pollutants,
                     grid.vertical_desctiption, arguments.population_density_map, arguments.speciation_map,
                     arguments.molecular_weights, arguments.do_evaporative, arguments.traffic_area_gas_path,
-                    arguments.popullation_by_municipality, arguments.nut_shapefile_prov,
+                    arguments.population_by_municipality, arguments.nut_shapefile_prov,
                     arguments.traffic_area_speciation_profiles_evaporative, arguments.traffic_area_evaporative_ef_file,
                     arguments.temperature_hourly_files_path, arguments.do_small_cities,
                     arguments.traffic_area_small_cities_path, arguments.traffic_area_speciation_profiles_small_cities,

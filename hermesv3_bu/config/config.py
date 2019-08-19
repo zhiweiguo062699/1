@@ -353,7 +353,7 @@ class Config(ArgParser):
         p.add_argument('--traffic_area_pollutants', required=False, help='...')
         p.add_argument('--do_evaporative', required=False, help='...')
         p.add_argument('--traffic_area_gas_path', required=False, help='...')
-        p.add_argument('--popullation_by_municipality', required=False, help='...')
+        p.add_argument('--population_by_municipality', required=False, help='...')
         p.add_argument('--traffic_area_speciation_profiles_evaporative', required=False, help='...')
         p.add_argument('--traffic_area_evaporative_ef_file', required=False, help='...')
         p.add_argument('--do_small_cities', required=False, help='...')
