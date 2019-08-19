@@ -2,7 +2,7 @@
 
 import os
 import timeit
-from grid import Grid
+from hermesv3_bu.grids.grid import Grid
 import numpy as np
 import math
 
