@@ -113,7 +113,11 @@ class MonarchWriter(Writer):
         """
         from cf_units import Unit
         spent_time = timeit.default_timer()
-        netcdf = Dataset(self.netcdf_path, mode='w', parallel=True, comm=self.comm_write, info=MPI.Info())
+        if self.comm_write.Get_size() > 1:
+            netcdf = Dataset(self.netcdf_path, format="NETCDF4", mode='w', parallel=True, comm=self.comm_write,
+                             info=MPI.Info())
+        else:
+            netcdf = Dataset(self.netcdf_path, format="NETCDF4", mode='w')
 
         # ========== DIMENSIONS ==========
         self.logger.write_log('\tCreating NetCDF dimensions', message_level=2)
@@ -186,10 +190,14 @@ class MonarchWriter(Writer):
         for var_name in emissions.columns.values:
             self.logger.write_log('\t\tCreating {0} variable'.format(var_name), message_level=3)
 
-            var_data = self.dataframe_to_array(emissions.loc[:, [var_name]])
             # var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim,
             #                             chunksizes=self.rank_distribution[0]['shape'])
             var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim)
+
+            if self.comm_write.Get_size() > 1:
+                var.set_collective(True)
+
+            var_data = self.dataframe_to_array(emissions.loc[:, [var_name]])
 
             var[:, :,
                 self.rank_distribution[self.comm_write.Get_rank()]['y_min']:
