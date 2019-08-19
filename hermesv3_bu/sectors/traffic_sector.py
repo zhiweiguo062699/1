@@ -713,9 +713,7 @@ class TrafficSector(Sector):
         libc.malloc_trim(0)
 
         self.logger.write_time_log('TrafficSector', 'calculate_hot', timeit.default_timer() - spent_time)
-        # print(expanded_aux)
-        # print(expanded_aux.columns.values)
-        # expanded_aux.to_csv('~/temp/hot_expanded2.csv')
+
         return expanded_aux
 
     def calculate_cold(self, hot_expanded):

@@ -751,9 +751,6 @@ class PointSourceSector(Sector):
         catalog.reset_index(inplace=True)
         catalog = catalog.to_crs(self.grid_shp.crs)
 
-        catalog.to_file('~/temp/catalog.shp')
-        self.grid_shp.reset_index().to_file('~/temp/grid.shp')
-
         catalog = gpd.sjoin(catalog, self.grid_shp.reset_index(), how="inner", op='intersects')
 
         # Drops duplicates when the point source is on the boundary of the cell
