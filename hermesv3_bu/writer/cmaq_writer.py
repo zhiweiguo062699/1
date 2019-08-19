@@ -302,10 +302,10 @@ class CmaqWriter(Writer):
             var_data = self.dataframe_to_array(emissions.loc[:, [var_name]])
 
             var[:, :,
-            self.rank_distribution[self.comm_write.Get_rank()]['y_min']:
-            self.rank_distribution[self.comm_write.Get_rank()]['y_max'],
-            self.rank_distribution[self.comm_write.Get_rank()]['x_min']:
-            self.rank_distribution[self.comm_write.Get_rank()]['x_max']] = var_data
+                self.rank_distribution[self.comm_write.Get_rank()]['y_min']:
+                self.rank_distribution[self.comm_write.Get_rank()]['y_max'],
+                self.rank_distribution[self.comm_write.Get_rank()]['x_min']:
+                self.rank_distribution[self.comm_write.Get_rank()]['x_max']] = var_data
 
             var.long_name = self.pollutant_info.loc[var_name, 'long_name']
             var.units = self.pollutant_info.loc[var_name, 'units']
