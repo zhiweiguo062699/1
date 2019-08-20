@@ -255,8 +255,10 @@ class TrafficSector(Sector):
             df.drop(columns=['Adminis', 'CCAA', 'NETWORK_ID', 'Province', 'Road_name', 'aadt_m_sat', 'aadt_m_sun',
                              'aadt_m_wd', 'Source'], inplace=True)
             libc.malloc_trim(0)
+            # df.to_file('~/temp/road_links.shp')
             df = gpd.sjoin(df, self.clip.shapefile.to_crs(df.crs), how="inner", op='intersects')
-            df.drop(columns=['index_right', 'FID'], inplace=True)
+            # df.to_file('~/temp/road_links_selected.shp')
+            df.drop(columns=['index_right'], inplace=True)
             libc.malloc_trim(0)
 
             # Filtering road links to CONSiderate.
@@ -436,17 +438,16 @@ class TrafficSector(Sector):
             if x.name == 'light_veh':
                 x['value'] = x['PcLight'].mul(x['Fleet_value'] * x['aadt'], axis='index')
             elif x.name == 'heavy_veh':
-                x['value'] = x['PcHeavy'].mul(x['Fleet_value'], axis='index')
+                x['value'] = x['PcHeavy'].mul(x['Fleet_value'] * x['aadt'], axis='index')
             elif x.name == 'motos':
-                x['value'] = x['PcMoto'].mul(x['Fleet_value'], axis='index')
+                x['value'] = x['PcMoto'].mul(x['Fleet_value'] * x['aadt'], axis='index')
             elif x.name == 'mopeds':
-                x['value'] = x['PcMoped'].mul(x['Fleet_value'], axis='index')
+                x['value'] = x['PcMoped'].mul(x['Fleet_value'] * x['aadt'], axis='index')
             else:
                 x['value'] = np.nan
             return x[['value']]
 
         df['Fleet_value'] = df.groupby('Fleet_Class').apply(update_by_class)
-
         for link_id, aux_df in df.groupby('Link_ID'):
             aadt = round(aux_df['aadt'].min(), 1)
             fleet_value = round(aux_df['Fleet_value'].sum(), 1)
