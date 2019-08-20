@@ -58,7 +58,7 @@ class PointSourceSector(Sector):
             speciation_profiles_path, molecular_weights_path)
 
         self.plume_rise = plume_rise
-        self.catalog = self.read_catalog(catalog_path, sector_list)
+        self.catalog = self.read_catalog_shapefile(catalog_path, sector_list)
 
         self.catalog_measured = self.read_catalog_for_measured_emissions(catalog_path, sector_list)
         self.measured_path = measured_emission_path
@@ -66,7 +66,7 @@ class PointSourceSector(Sector):
 
         self.logger.write_time_log('PointSourceSector', '__init__', timeit.default_timer() - spent_time)
 
-    def read_catalog(self, catalog_path, sector_list):
+    def read_catalog_csv(self, catalog_path, sector_list):
         """
         Read the catalog
 
@@ -121,7 +121,64 @@ class PointSourceSector(Sector):
         self.logger.write_time_log('PointSourceSector', 'read_catalog', timeit.default_timer() - spent_time)
         return catalog_df
 
-    def read_catalog_for_measured_emissions(self, catalog_path, sector_list):
+    def read_catalog_shapefile(self, catalog_path, sector_list):
+        """
+        Read the catalog
+
+        :param catalog_path: path to the catalog
+        :type catalog_path: str
+
+        :param sector_list: List of sectors to take into account
+        :type sector_list: list
+
+        :return: catalog
+        :rtype: DataFrame
+        """
+        spent_time = timeit.default_timer()
+
+        if self.comm.Get_rank() == 0:
+            if self.plume_rise:
+                columns = {"Code": np.str, "Cons": np.bool, "SNAP": np.str, "Height": np.float64,
+                           "Diameter": np.float64, "Speed": np.float64, "Temp": np.float64, "AF": np.float64,
+                           "P_month": np.str, "P_week": np.str, "P_hour": np.str, "P_spec": np.str}
+            else:
+                columns = {"Code": np.str, "Cons": np.bool, "SNAP": np.str, "Height": np.float64, "AF": np.float64,
+                           "P_month": np.str, "P_week": np.str, "P_hour": np.str, "P_spec": np.str}
+            for pollutant in self.source_pollutants:
+                # EF in Kg / Activity factor
+                columns['EF_{0}'.format(pollutant)] = np.float64
+
+            catalog_df = gpd.read_file(catalog_path)
+
+            columns_to_drop = list(set(catalog_df.columns.values) - set(list(columns.keys()) + ['geometry']))
+
+            if len(columns_to_drop) > 0:
+                catalog_df.drop(columns=columns_to_drop, inplace=True)
+            for col, typ in columns.items():
+                catalog_df[col] = catalog_df[col].astype(typ)
+
+            # Filtering
+            catalog_df = catalog_df.loc[catalog_df['Cons'] == 1, :]
+            catalog_df.drop('Cons', axis=1, inplace=True)
+
+            # Filtering
+            catalog_df = catalog_df.loc[catalog_df['AF'] != -1, :]
+
+            if sector_list is not None:
+                catalog_df = catalog_df.loc[catalog_df['SNAP'].str[:2].isin(sector_list)]
+            catalog_df.drop('SNAP', axis=1, inplace=True)
+
+            catalog_df = gpd.sjoin(catalog_df, self.clip.shapefile.to_crs(catalog_df.crs), how='inner')
+            catalog_df.drop(columns=['index_right'], inplace=True)
+
+        else:
+            catalog_df = None
+        self.comm.Barrier()
+        catalog_df = IoShapefile(self.comm).split_shapefile(catalog_df)
+        self.logger.write_time_log('PointSourceSector', 'read_catalog', timeit.default_timer() - spent_time)
+        return catalog_df
+
+    def read_catalog_for_measured_emissions_csv(self, catalog_path, sector_list):
         """
         Read the catalog
 
@@ -147,6 +204,56 @@ class PointSourceSector(Sector):
         #     columns['EF_{0}'.format(pollutant)] = settings.precision
 
         catalog_df = pd.read_csv(catalog_path, usecols=columns.keys(), dtype=columns)
+
+        # Filtering
+        catalog_df = catalog_df.loc[catalog_df['Cons'] == 1, :]
+        catalog_df.drop('Cons', axis=1, inplace=True)
+
+        # Filtering
+        catalog_df = catalog_df.loc[catalog_df['AF'] == -1, :]
+        catalog_df.drop('AF', axis=1, inplace=True)
+
+        if sector_list is not None:
+            catalog_df = catalog_df.loc[catalog_df['SNAP'].str[:2].isin(sector_list)]
+        catalog_df.drop('SNAP', axis=1, inplace=True)
+
+        self.logger.write_time_log('PointSourceSector', 'read_catalog_for_measured_emissions',
+                                   timeit.default_timer() - spent_time)
+        return catalog_df
+
+    def read_catalog_for_measured_emissions(self, catalog_path, sector_list):
+        """
+        Read the catalog
+
+        :param catalog_path: path to the catalog
+        :type catalog_path: str
+
+        :param sector_list: List of sectors to take into account
+        :type sector_list: list
+
+        :return: catalog
+        :rtype: DataFrame
+        """
+        spent_time = timeit.default_timer()
+
+        if self.plume_rise:
+            columns = {"Code": np.str, "Cons": np.bool, "SNAP": np.str, "Lon": np.float64, "Lat": np.float64,
+                       "Height": np.float64, "Diameter": np.float64, "Speed": np.float64, "Temp": np.float64,
+                       "AF": np.float64, "P_spec": np.str}
+        else:
+            columns = {"Code": np.str, "Cons": np.bool, "SNAP": np.str, "Lon": np.float64, "Lat": np.float64,
+                       "Height": np.float64, "AF": np.float64, "P_spec": np.str}
+        # for pollutant in self.pollutant_list:
+        #     columns['EF_{0}'.format(pollutant)] = settings.precision
+
+        catalog_df = gpd.read_file(catalog_path)
+
+        columns_to_drop = list(set(catalog_df.columns.values) - set(list(columns.keys()) + ['geometry']))
+
+        if len(columns_to_drop) > 0:
+            catalog_df.drop(columns=columns_to_drop, inplace=True)
+        for col, typ in columns.items():
+            catalog_df[col] = catalog_df[col].astype(typ)
 
         # Filtering
         catalog_df = catalog_df.loc[catalog_df['Cons'] == 1, :]

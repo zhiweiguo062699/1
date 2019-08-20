@@ -15,7 +15,7 @@ pmc_list = ['pmc', 'PMC']
 
 class TrafficAreaSector(Sector):
     def __init__(self, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
-                 population_tiff_path, speciation_map_path, molecular_weights_path,
+                 population_tif_path, speciation_map_path, molecular_weights_path,
                  do_evaporative, gasoline_path, total_pop_by_prov, nuts_shapefile, speciation_profiles_evaporative,
                  evaporative_ef_file, temperature_dir,
                  do_small_cities, small_cities_shp, speciation_profiles_small_cities, small_cities_ef_file,
@@ -32,7 +32,7 @@ class TrafficAreaSector(Sector):
         self.speciation_profiles_evaporative = self.read_speciation_profiles(speciation_profiles_evaporative)
         self.evaporative_ef_file = evaporative_ef_file
         if do_evaporative:
-            self.evaporative = self.init_evaporative(population_tiff_path, nuts_shapefile, gasoline_path,
+            self.evaporative = self.init_evaporative(population_tif_path, nuts_shapefile, gasoline_path,
                                                      total_pop_by_prov)
         else:
             self.evaporative = None
@@ -44,7 +44,7 @@ class TrafficAreaSector(Sector):
         self.small_cities_weekly_profile = self.read_weekly_profiles(small_cities_weekly_profile)
         self.small_cities_hourly_profile = self.read_hourly_profiles(small_cities_hourly_profile)
         if do_small_cities:
-            self.small_cities = self.init_small_cities(population_tiff_path, small_cities_shp)
+            self.small_cities = self.init_small_cities(population_tif_path, small_cities_shp)
         else:
             self.small_cities = None
 

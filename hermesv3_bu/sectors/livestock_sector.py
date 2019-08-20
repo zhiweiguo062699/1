@@ -253,7 +253,7 @@ class LivestockSector(Sector):
         <auxiliary_dir>/livestock/animal_distribution/<animal>/<animal>.shp
 
         Will be created also the clipped raster (TIFF) following the example path
-        <auxiliary_dir>/livestock/animal_distribution/<animal>/<animal>_clip.tiff
+        <auxiliary_dir>/livestock/animal_distribution/<animal>/<animal>_clip.tif
 
         :param gridded_livestock_path: Path to the Raster (TIFF) that contains the animal distribution.
             '<animal>' will be replaced by each animal of the animal list.
@@ -276,7 +276,7 @@ class LivestockSector(Sector):
                 clipped_raster_path = IoRaster(self.comm).clip_raster_with_shapefile_poly(
                     gridded_livestock_path.replace('<animal>', animal), self.clip.shapefile,
                     os.path.join(self.auxiliary_dir, 'livestock', 'animal_distribution', animal,
-                                 '{0}_clip.tiff'.format(animal)))
+                                 '{0}_clip.tif'.format(animal)))
 
                 animal_df = IoRaster(self.comm).to_shapefile_serie(clipped_raster_path, animal_distribution_path,
                                                                    write=True)
@@ -401,6 +401,7 @@ class LivestockSector(Sector):
 
             correction_split_factors[categories] = correction_split_factors.loc[:, categories].multiply(
                 correction_split_factors['{0}_fact'.format(animal)], axis='index')
+
             correction_split_factors.drop(columns=['NUT', '{0}_fact'.format(animal)], inplace=True)
             splitting_factors_list.append(correction_split_factors)
         splitting_factors = pd.concat(splitting_factors_list, axis=1)
