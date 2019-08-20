@@ -2,7 +2,7 @@
 
 import os
 import timeit
-from grid import Grid
+from hermesv3_bu.grids.grid import Grid
 import numpy as np
 import math
 
@@ -43,7 +43,7 @@ class RotatedGrid(Grid):
         # Initialises with parent class
         super(RotatedGrid, self).__init__(logger, attributes, auxiliary_path, vertical_description_path)
 
-        self.shape = (tstep_num, len(self.vertical_desctiption), len(attributes['rlat']), len(attributes['rlon']))
+        self.shape = (tstep_num, len(self.vertical_desctiption), attributes['n_lat'], attributes['n_lon'])
         self.logger.write_time_log('RotatedGrid', '__init__', timeit.default_timer() - spent_time, 3)
 
     def create_regular_rotated(self):

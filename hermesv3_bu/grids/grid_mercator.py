@@ -4,7 +4,7 @@ import os
 import timeit
 import numpy as np
 from pyproj import Proj
-from grid import Grid
+from hermesv3_bu.grids.grid import Grid
 from hermesv3_bu.logger.log import Log
 
 
