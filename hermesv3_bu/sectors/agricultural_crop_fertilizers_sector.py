@@ -40,9 +40,9 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
             self.gridded_constants = self.get_gridded_constants(
                 os.path.join(auxiliary_dir, 'fertilizers', 'gridded_constants.shp'),
                 gridded_ph,
-                os.path.join(auxiliary_dir, 'fertilizers', 'gridded_ph.tiff'),
+                os.path.join(auxiliary_dir, 'fertilizers', 'gridded_ph.tif'),
                 gridded_cec,
-                os.path.join(auxiliary_dir, 'fertilizers', 'gridded_cec.tiff'))
+                os.path.join(auxiliary_dir, 'fertilizers', 'gridded_cec.tif'))
             self.ef_by_crop = self.get_ef_by_crop()
         else:
             self.logger.write_log('Waiting for master to get the gridded constants', message_level=2)
