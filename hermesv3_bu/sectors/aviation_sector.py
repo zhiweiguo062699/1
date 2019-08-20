@@ -485,11 +485,10 @@ class AviationSector(Sector):
                 runway_shapefile.to_crs(self.grid_shp.crs, inplace=True)
                 runway_shapefile['length'] = runway_shapefile.length
                 # duplicating each runway by involved cell
-                runway_shapefile = gpd.sjoin(runway_shapefile.reset_index(), self.grid_shp, how="inner",
+                runway_shapefile = gpd.sjoin(runway_shapefile.reset_index(), self.grid_shp.reset_index(), how="inner",
                                              op='intersects')
                 # Adding cell geometry
-                runway_shapefile = runway_shapefile.merge(self.grid_shp.reset_index().loc[:, ['FID', 'geometry']],
-                                                          on='FID',  how='left')
+                runway_shapefile = runway_shapefile.merge(self.grid_shp.reset_index(), on='FID',  how='left')
                 # Intersection between line (roadway) and polygon (cell)
                 # runway_shapefile['geometry'] = runway_shapefile.apply(do_intersection, axis=1)
                 runway_shapefile['mini_length'] = runway_shapefile.apply(get_intersection_length, axis=1)
