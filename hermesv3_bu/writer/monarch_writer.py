@@ -198,7 +198,7 @@ class MonarchWriter(Writer):
                 var.set_collective(True)
             else:
                 var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim, zlib=True)
-            
+
             var_data = self.dataframe_to_array(emissions.loc[:, [var_name]])
 
             var[:, :,
