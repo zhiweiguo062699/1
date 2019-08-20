@@ -192,11 +192,13 @@ class MonarchWriter(Writer):
 
             # var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim,
             #                             chunksizes=self.rank_distribution[0]['shape'])
-            var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim)
 
             if self.comm_write.Get_size() > 1:
+                var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim)
                 var.set_collective(True)
-
+            else:
+                var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim, zlib=True)
+                
             var_data = self.dataframe_to_array(emissions.loc[:, [var_name]])
 
             var[:, :,
