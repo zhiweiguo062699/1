@@ -230,8 +230,8 @@ class AgriculturalSector(Sector):
             land_uses_shp = IoRaster(self.comm_agr).to_shapefile_serie(land_uses_clipped)
 
             ccaa_shp = IoShapefile(self.comm_agr).read_shapefile_serial(self.nut_shapefile).to_crs(land_uses_shp.crs)
-            ccaa_shp.drop(columns=['NAME', 'ORDER06'], inplace=True)
-            ccaa_shp.rename(columns={'CODE': 'NUT'}, inplace=True)
+            ccaa_shp.drop(columns=['nuts2_na'], inplace=True)
+            ccaa_shp.rename(columns={'nuts2_id': 'NUT'}, inplace=True)
             # ccaa_shp.set_index('NUT', inplace=True)
             land_use_src_by_nut = self.spatial_overlays(land_uses_shp.reset_index(), ccaa_shp, how='intersection')
             land_use_src_by_nut.drop(columns=['idx1', 'idx2', 'CELL_ID'], inplace=True)

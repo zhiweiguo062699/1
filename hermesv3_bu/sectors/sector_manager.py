@@ -70,7 +70,7 @@ class SectorManager(object):
                     arguments.denominator_yearly_factor_dir, arguments.livestock_ef_files_dir,
                     arguments.livestock_monthly_profiles, arguments.livestock_weekly_profiles,
                     arguments.livestock_hourly_profiles, arguments.speciation_map,
-                    arguments.livestock_speciation_profiles, arguments.molecular_weights, arguments.nut_shapefile_prov)
+                    arguments.livestock_speciation_profiles, arguments.molecular_weights, arguments.nuts3_shapefile)
 
             elif sector == 'crop_operations' and comm_world.Get_rank() in sector_procs:
                 from hermesv3_bu.sectors.agricultural_crop_operations_sector import AgriculturalCropOperationsSector
@@ -80,7 +80,7 @@ class SectorManager(object):
                 self.sector = AgriculturalCropOperationsSector(
                     comm_agr, comm, logger, arguments.auxiliary_files_path, grid.shapefile, clip, date_array,
                     arguments.crop_operations_source_pollutants,
-                    grid.vertical_desctiption, arguments.crop_operations_list, arguments.nut_shapefile_ccaa,
+                    grid.vertical_desctiption, arguments.crop_operations_list, arguments.nuts2_shapefile,
                     arguments.land_uses_path, arguments.crop_operations_ef_files_dir,
                     arguments.crop_operations_monthly_profiles, arguments.crop_operations_weekly_profiles,
                     arguments.crop_operations_hourly_profiles, arguments.speciation_map,
@@ -95,7 +95,7 @@ class SectorManager(object):
                 self.sector = AgriculturalCropFertilizersSector(
                     comm_agr, comm, logger, arguments.auxiliary_files_path, grid.shapefile, clip, date_array,
                     arguments.crop_fertilizers_source_pollutants, grid.vertical_desctiption,
-                    arguments.crop_fertilizers_list, arguments.nut_shapefile_ccaa, arguments.land_uses_path,
+                    arguments.crop_fertilizers_list, arguments.nuts2_shapefile, arguments.land_uses_path,
                     arguments.crop_fertilizers_hourly_profiles, arguments.speciation_map,
                     arguments.crop_fertilizers_speciation_profiles, arguments.molecular_weights,
                     arguments.land_use_by_nut_path,  arguments.crop_by_nut_path, arguments.crop_from_landuse_path,
@@ -113,13 +113,13 @@ class SectorManager(object):
                 self.sector = AgriculturalMachinerySector(
                     comm_agr, comm, logger, arguments.auxiliary_files_path, grid.shapefile, clip, date_array,
                     arguments.crop_machinery_source_pollutants, grid.vertical_desctiption,
-                    arguments.crop_machinery_list, arguments.nut_shapefile_ccaa, arguments.machinery_list,
+                    arguments.crop_machinery_list, arguments.nuts2_shapefile, arguments.machinery_list,
                     arguments.land_uses_path, arguments.crop_machinery_ef_path,
                     arguments.crop_machinery_monthly_profiles, arguments.crop_machinery_weekly_profiles,
                     arguments.crop_machinery_hourly_profiles,
                     arguments.speciation_map, arguments.crop_machinery_speciation_profiles, arguments.molecular_weights,
                     arguments.land_use_by_nut_path, arguments.crop_by_nut_path, arguments.crop_from_landuse_path,
-                    arguments.nut_shapefile_prov, arguments.crop_machinery_deterioration_factor_path,
+                    arguments.nuts3_shapefile, arguments.crop_machinery_deterioration_factor_path,
                     arguments.crop_machinery_load_factor_path, arguments.crop_machinery_vehicle_ratio_path,
                     arguments.crop_machinery_vehicle_units_path, arguments.crop_machinery_vehicle_workhours_path,
                     arguments.crop_machinery_vehicle_power_path, arguments.crop_machinery_by_nut)
@@ -130,9 +130,9 @@ class SectorManager(object):
                     comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.logger,
                     arguments.auxiliary_files_path, grid.shapefile, clip, date_array,
                     arguments.residential_source_pollutants, grid.vertical_desctiption, arguments.fuel_list,
-                    arguments.nut_shapefile_prov, arguments.nut_shapefile_ccaa, arguments.population_density_map,
-                    arguments.population_type_map, arguments.population_type_by_ccaa, arguments.population_type_by_prov,
-                    arguments.energy_consumption_by_prov, arguments.energy_consumption_by_ccaa,
+                    arguments.nuts3_shapefile, arguments.nuts2_shapefile, arguments.population_density_map,
+                    arguments.population_type_map, arguments.population_type_nuts2, arguments.population_type_nuts3,
+                    arguments.energy_consumption_nuts3, arguments.energy_consumption_nuts2,
                     arguments.residential_spatial_proxies, arguments.residential_ef_files_path,
                     arguments.residential_heating_degree_day_path, arguments.temperature_daily_files_path,
                     arguments.residential_hourly_profiles, arguments.speciation_map,
@@ -196,7 +196,7 @@ class SectorManager(object):
                     arguments.auxiliary_files_path, grid.shapefile, clip, date_array, arguments.traffic_area_pollutants,
                     grid.vertical_desctiption, arguments.population_density_map, arguments.speciation_map,
                     arguments.molecular_weights, arguments.do_evaporative, arguments.traffic_area_gas_path,
-                    arguments.population_by_municipality, arguments.nut_shapefile_prov,
+                    arguments.population_nuts3, arguments.nuts3_shapefile,
                     arguments.traffic_area_speciation_profiles_evaporative, arguments.traffic_area_evaporative_ef_file,
                     arguments.temperature_hourly_files_path, arguments.do_small_cities,
                     arguments.traffic_area_small_cities_path, arguments.traffic_area_speciation_profiles_small_cities,

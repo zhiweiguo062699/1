@@ -31,7 +31,7 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
         :type date_array: list(datetime.datetime, ...)
 
         :param nut_shapefile_path: Path to the shapefile that contain the NUT polygons. The shapefile must contain
-            the 'ORDER06' information with the NUT_code.
+            the 'nuts2_id' information with the NUT_code.
         :type nut_shapefile_path: str
 
         :param source_pollutants: List of input pollutants to take into account. Agricultural livestock module can
@@ -84,7 +84,7 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
         :param crop_by_nut:
 
         :param nut_shapefile_path: Path to the shapefile that contain the NUT polygons. The shapefile must contain
-            the 'ORDER07' information with the NUT_code.
+            the 'nuts3_id' information with the NUT_code.
         :type nut_shapefile_path: str
         """
         spent_time = timeit.default_timer()

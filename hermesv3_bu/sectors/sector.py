@@ -421,7 +421,7 @@ class Sector(object):
 
         return dataframe
 
-    def add_nut_code(self, shapefile, nut_shapefile_path, nut_value='ORDER06'):
+    def add_nut_code(self, shapefile, nut_shapefile_path, nut_value='nuts2_id'):
         """
         Add 'nut_code' column into the shapefile based on the 'nut_value' column of the 'nut_shapefile_path' shapefile.
 

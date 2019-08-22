@@ -148,7 +148,7 @@ class LivestockSector(Sector):
         :type molecular_weights_path: str
 
         :param nut_shapefile_path: Path to the shapefile that contain the NUT polygons. The shapefile must contain
-            the 'ORDER07' information with the NUT_code.
+            the 'nuts3_id' information with the NUT_code.
         :type nut_shapefile_path: str
         """
         spent_time = timeit.default_timer()
@@ -187,7 +187,7 @@ class LivestockSector(Sector):
         :type gridded_livestock_path: str
 
         :param nut_shapefile_path: Path to the shapefile that contain the NUT polygons. The shapefile must contain
-            the 'ORDER07' information with the NUT ID.
+            the 'nuts3_id' information with the NUT ID.
         :type nut_shapefile_path: str
 
         :param correction_split_factors_path: Path to the CSV file that contains the correction factors and the
@@ -420,7 +420,7 @@ class LivestockSector(Sector):
         :type dataframe: geopandas.GeoDataframe
 
         :param nut_shapefile_path: Path to the shapefile that contain the NUT polygons. The shapefile must contain
-            the 'ORDER07' information with the NUT_code.
+            the 'nuts3_id' information with the NUT_code.
         :type nut_shapefile_path: str
 
         :param correction_split_factors_path: Path to the CSV file that contains the correction factors and the
@@ -444,7 +444,7 @@ class LivestockSector(Sector):
                                                 'animal_distribution_by_cat.shp')
 
         if not os.path.exists(animal_distribution_path):
-            dataframe = self.add_nut_code(dataframe, nut_shapefile_path, nut_value='ORDER07')
+            dataframe = self.add_nut_code(dataframe, nut_shapefile_path, nut_value='nuts3_id')
 
             splitting_factors = self.get_splitting_factors(correction_split_factors_path)
 
