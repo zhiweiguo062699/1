@@ -505,7 +505,7 @@ class TrafficSector(Sector):
             x = pd.merge(x, speed, left_on='P_speed', right_index=True, how='left')
             x['speed'] = x.groupby('hour').apply(lambda y: x[[str(y.name)]])
 
-            return x[['speed']]
+            return x['speed'] * x['speed_mean']
 
         def get_temporal_factor(x):
             def get_hourly_id_from_weekday(weekday):
@@ -674,6 +674,9 @@ class TrafficSector(Sector):
                          (expanded_aux.Epsilon * expanded_aux.v_aux**2 + expanded_aux.Zita * expanded_aux.v_aux +
                           expanded_aux.Hta)) * (1 - expanded_aux.RF) * \
                         (expanded_aux.PF * expanded_aux['T'] / expanded_aux.Q)
+
+                    # COPERT V equation can give nan for CH4
+                    expanded_aux[ef_name].fillna(0, inplace=True)
                 else:
                     expanded_aux[ef_name] = \
                         ((expanded_aux['a'] * expanded_aux['Cmileage'] + expanded_aux['b']) *
@@ -858,6 +861,8 @@ class TrafficSector(Sector):
             if 'voc' in self.source_pollutants and 'ch4' in self.source_pollutants:
                 expanded['nmvoc_{0}'.format(tstep)] = expanded['voc_{0}'.format(tstep)] - \
                                                       expanded['ch4_{0}'.format(tstep)]
+                # For certain vehicles (mostly diesel) and speeds, in urban road CH4 > than VOC according to COPERT V
+                expanded.loc[expanded['nmvoc_{0}'.format(tstep)] < 0, 'nmvoc_{0}'.format(tstep)] = 0
                 del expanded['voc_{0}'.format(tstep)]
             else:
                 self.logger.write_log("nmvoc emissions cannot be estimated because voc or ch4 are not selected in " +
