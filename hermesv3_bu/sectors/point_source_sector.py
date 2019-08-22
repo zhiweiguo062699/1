@@ -799,7 +799,7 @@ class PointSourceSector(Sector):
             catalog = None
         else:
             catalog = self.to_geodataframe(catalog)
-            catalog = self.add_dates(catalog)
+            catalog = self.add_dates(catalog, drop_utc=False)
             catalog = self.add_measured_emissions(catalog)
 
             catalog.set_index(['Code', 'tstep'], inplace=True)
