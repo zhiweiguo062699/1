@@ -281,7 +281,7 @@ class Config(ArgParser):
         p.add_argument('--crop_machinery_hourly_profiles', required=False, help='...')
         p.add_argument('--crop_machinery_speciation_map', required=False, help='...')
         p.add_argument('--crop_machinery_speciation_profiles', required=False, help='...')
-        p.add_argument('--crop_machinery_by_nut', required=False, help='...')
+        p.add_argument('--crop_machinery_nuts3', required=False, help='...')
 
         # ***** RESIDENTIAL SECTOR *****
         p.add_argument('--fuel_list', required=False, help='...')

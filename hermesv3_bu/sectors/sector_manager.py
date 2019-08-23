@@ -122,7 +122,7 @@ class SectorManager(object):
                     arguments.nuts3_shapefile, arguments.crop_machinery_deterioration_factor_path,
                     arguments.crop_machinery_load_factor_path, arguments.crop_machinery_vehicle_ratio_path,
                     arguments.crop_machinery_vehicle_units_path, arguments.crop_machinery_vehicle_workhours_path,
-                    arguments.crop_machinery_vehicle_power_path, arguments.crop_machinery_by_nut)
+                    arguments.crop_machinery_vehicle_power_path, arguments.crop_machinery_nuts3)
 
             elif sector == 'residential' and comm_world.Get_rank() in sector_procs:
                 from hermesv3_bu.sectors.residential_sector import ResidentialSector

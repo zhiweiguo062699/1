@@ -32,7 +32,9 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
 
         self.cultivated_ratio = self.read_profiles(cultivated_ratio)
         self.fertilizer_rate = self.read_profiles(fertilizer_rate)
+        self.fertilizer_rate.rename(columns={'nuts2_id': 'code'}, inplace=True)
         self.crop_f_parameter = self.read_profiles(crop_f_parameter)
+        self.crop_f_parameter.rename(columns={'nuts2_id': 'code'}, inplace=True)
         self.crop_f_fertilizers = self.read_profiles(crop_f_fertilizers)
 
         if self.comm.Get_rank() == 0:
