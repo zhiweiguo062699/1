@@ -194,7 +194,7 @@ class LivestockSector(Sector):
             splitting factors to discretizise each animal into theirs different animal types.
             '<animal>' will be replaced by each animal of the animal list.
 
-            The CSV file must contain the following columns ["nuts3_na", "nuts3_id", "<animal>_fact", "<animal>_01", ...]
+            The CSV file must contain the following columns ["nuts3_na", "nuts3_id", "<animal>_fact", "<animal>_01",...]
             "nut_code" column must contain the NUT ID.
         :type correction_split_factors_path: str
 
@@ -383,7 +383,7 @@ class LivestockSector(Sector):
             splitting factors to discretizise each animal into theirs different animal types.
             '<animal>' will be replaced by each animal of the animal list.
 
-            The CSV file must contain the following columns ["nuts3_na", "nuts3_id", "<animal>_fact", "<animal>_01", ...]
+            The CSV file must contain the following columns ["nuts3_na", "nuts3_id", "<animal>_fact", "<animal>_01",...]
             "nut_code" column must contain the NUT ID.
         :type correction_split_factors_path: str
 

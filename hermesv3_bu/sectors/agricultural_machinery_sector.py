@@ -54,7 +54,7 @@ class AgriculturalMachinerySector(AgriculturalSector):
 
         def get_fraction(dataframe):
             total_crop_sum = self.crop_machinery_nuts3.loc[self.crop_machinery_nuts3[nut_code] == int(dataframe.name),
-                                                            self.crop_list].values.sum()
+                                                           self.crop_list].values.sum()
             dataframe['fraction'] = dataframe[self.crop_list].sum(axis=1) / total_crop_sum
 
             return dataframe.loc[:, ['fraction']]
