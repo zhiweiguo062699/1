@@ -115,7 +115,7 @@ class TrafficAreaSector(Sector):
         return population_density
 
     def make_population_by_nuts(self, population_shape, nut_shp, pop_by_nut_path, write_file=True, csv_path=None,
-                                column_id='ORDER07'):
+                                column_id='nuts3_id'):
         spent_time = timeit.default_timer()
 
         if not os.path.exists(pop_by_nut_path):
@@ -142,8 +142,7 @@ class TrafficAreaSector(Sector):
         if not os.path.exists(pop_nut_cell_path):
 
             pop_by_nut = pop_by_nut.to_crs(self.grid_shp.crs)
-
-            del pop_by_nut['NAME']
+            # del pop_by_nut['']
             pop_by_nut['area_in'] = pop_by_nut.geometry.area
 
             # df = gpd.overlay(pop_by_nut, grid_shp, how='intersection')
@@ -162,7 +161,7 @@ class TrafficAreaSector(Sector):
         return df
 
     def make_vehicles_by_cell(self, pop_nut_cell, gasoline_path, total_pop_by_nut, veh_by_cell_path,
-                              column_id='ORDER07'):
+                              column_id='nuts3_id'):
         spent_time = timeit.default_timer()
 
         if not os.path.exists(veh_by_cell_path):
@@ -172,8 +171,8 @@ class TrafficAreaSector(Sector):
 
             df = pd.merge(pop_nut_cell, total_pop_by_nut, left_on=column_id, right_on=column_id, how='left')
 
-            df['pop_percent'] = df['data_x'] / df['data_y']
-            df.drop(columns=['data_x', 'data_y'], inplace=True)
+            df['pop_percent'] = df['data'] / df['population']
+            df.drop(columns=['data', 'population'], inplace=True)
 
             gas_df = pd.read_csv(gasoline_path, index_col='COPERT_V_name').transpose()
             vehicle_type_list = list(gas_df.columns.values)

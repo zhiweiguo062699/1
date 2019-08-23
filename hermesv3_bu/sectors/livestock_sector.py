@@ -148,7 +148,7 @@ class LivestockSector(Sector):
         :type molecular_weights_path: str
 
         :param nut_shapefile_path: Path to the shapefile that contain the NUT polygons. The shapefile must contain
-            the 'ORDER07' information with the NUT_code.
+            the 'nuts3_id' information with the NUT_code.
         :type nut_shapefile_path: str
         """
         spent_time = timeit.default_timer()
@@ -187,14 +187,14 @@ class LivestockSector(Sector):
         :type gridded_livestock_path: str
 
         :param nut_shapefile_path: Path to the shapefile that contain the NUT polygons. The shapefile must contain
-            the 'ORDER07' information with the NUT ID.
+            the 'nuts3_id' information with the NUT ID.
         :type nut_shapefile_path: str
 
         :param correction_split_factors_path: Path to the CSV file that contains the correction factors and the
             splitting factors to discretizise each animal into theirs different animal types.
             '<animal>' will be replaced by each animal of the animal list.
 
-            The CSV file must contain the following columns ["NUT", "nut_code", "<animal>_fact", "<animal>_01", ...]
+            The CSV file must contain the following columns ["nuts3_na", "nuts3_id", "<animal>_fact", "<animal>_01",...]
             "nut_code" column must contain the NUT ID.
         :type correction_split_factors_path: str
 
@@ -383,7 +383,7 @@ class LivestockSector(Sector):
             splitting factors to discretizise each animal into theirs different animal types.
             '<animal>' will be replaced by each animal of the animal list.
 
-            The CSV file must contain the following columns ["NUT", "nut_code", "<animal>_fact", "<animal>_01", ...]
+            The CSV file must contain the following columns ["nuts3_na", "nuts3_id", "<animal>_fact", "<animal>_01",...]
             "nut_code" column must contain the NUT ID.
         :type correction_split_factors_path: str
 
@@ -394,20 +394,20 @@ class LivestockSector(Sector):
         splitting_factors_list = []
         for animal in self.animal_list:
             correction_split_factors = pd.read_csv(correction_split_factors_path.replace('<animal>', animal))
-            correction_split_factors.set_index('nut_code', inplace=True)
+            correction_split_factors.set_index('nuts3_id', inplace=True)
 
             categories = list(correction_split_factors.columns.values)
-            categories = [e for e in categories if e not in ['NUT', 'nut_code', '{0}_fact'.format(animal)]]
+            categories = [e for e in categories if e not in ['nuts3_na', 'nuts3_id', '{0}_fact'.format(animal)]]
 
             correction_split_factors[categories] = correction_split_factors.loc[:, categories].multiply(
                 correction_split_factors['{0}_fact'.format(animal)], axis='index')
 
-            correction_split_factors.drop(columns=['NUT', '{0}_fact'.format(animal)], inplace=True)
+            correction_split_factors.drop(columns=['nuts3_na', '{0}_fact'.format(animal)], inplace=True)
             splitting_factors_list.append(correction_split_factors)
         splitting_factors = pd.concat(splitting_factors_list, axis=1)
 
         splitting_factors.reset_index(inplace=True)
-        splitting_factors['nut_code'] = splitting_factors['nut_code'].astype(np.int16)
+        splitting_factors['nuts3_id'] = splitting_factors['nuts3_id'].astype(np.int16)
         self.logger.write_time_log('LivestockSector', 'get_splitting_factors', timeit.default_timer() - spent_time)
 
         return splitting_factors
@@ -420,15 +420,15 @@ class LivestockSector(Sector):
         :type dataframe: geopandas.GeoDataframe
 
         :param nut_shapefile_path: Path to the shapefile that contain the NUT polygons. The shapefile must contain
-            the 'ORDER07' information with the NUT_code.
+            the 'nuts3_id' information with the NUT_code.
         :type nut_shapefile_path: str
 
         :param correction_split_factors_path: Path to the CSV file that contains the correction factors and the
             splitting factors to discretizise each animal into theirs different animal types.
             '<animal>' will be replaced by each animal of the animal list.
-            The CSV file must contain the following columns ["NUT", "nut_code", "<animal>_fact", "<animal>_01",
+            The CSV file must contain the following columns ["nuts3_na", "nuts3_id", "<animal>_fact", "<animal>_01",
             ...]
-            "nut_code" column must contain the NUT ID
+            "nuts3_id" column must contain the NUT ID
         :type correction_split_factors_path: str
 
         :return: GeoDataframe with the amount of each animal subtype by destiny cell (FID)
@@ -444,14 +444,15 @@ class LivestockSector(Sector):
                                                 'animal_distribution_by_cat.shp')
 
         if not os.path.exists(animal_distribution_path):
-            dataframe = self.add_nut_code(dataframe, nut_shapefile_path, nut_value='ORDER07')
+            dataframe = self.add_nut_code(dataframe, nut_shapefile_path, nut_value='nuts3_id')
+            dataframe.rename(columns={'nut_code': 'nuts3_id'}, inplace=True)
 
             splitting_factors = self.get_splitting_factors(correction_split_factors_path)
 
             # Adding the splitting factors by NUT code
-            dataframe = pd.merge(dataframe, splitting_factors, how='left', on='nut_code')
+            dataframe = pd.merge(dataframe, splitting_factors, how='left', on='nuts3_id')
 
-            dataframe.drop(columns=['nut_code'], inplace=True)
+            dataframe.drop(columns=['nuts3_id'], inplace=True)
 
             for animal in self.animal_list:
                 animal_types = [i for i in list(dataframe.columns.values) if i.startswith(animal)]

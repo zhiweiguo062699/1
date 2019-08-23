@@ -440,7 +440,7 @@ class PointSourceSector(Sector):
 
             var = netcdf.variables[var_name][time_index, 0, :]
             netcdf.close()
-            dataframe[var_name] = var[dataframe['X'], dataframe['Y']]
+            dataframe[var_name] = var[dataframe['Y'], dataframe['X']]
 
             return dataframe[[var_name]]
 
@@ -457,7 +457,7 @@ class PointSourceSector(Sector):
 
             var = np.flipud(netcdf.variables[var_name][time_index, :, :, :])
             netcdf.close()
-            var = var[:, dataframe['X'], dataframe['Y']]
+            var = var[:, dataframe['Y'], dataframe['X']]
 
             pre_t_lay = 0
             lay_list = []
@@ -488,7 +488,7 @@ class PointSourceSector(Sector):
 
             var = np.flipud(netcdf.variables[var_name][time_index, :, :, :])
             netcdf.close()
-            var = var[:, dataframe['X'], dataframe['Y']]
+            var = var[:, dataframe['Y'], dataframe['X']]
 
             lay_list = ['temp_sfc']
             for i, t_lay in enumerate(var):
@@ -521,7 +521,7 @@ class PointSourceSector(Sector):
 
             var = u10_netcdf.variables[u_var_name][time_index, 0, :]
             u10_netcdf.close()
-            dataframe['u10'] = var[dataframe['X'], dataframe['Y']]
+            dataframe['u10'] = var[dataframe['Y'], dataframe['X']]
 
             # === v10 ===
             v10_nc_path = os.path.join(
@@ -530,7 +530,7 @@ class PointSourceSector(Sector):
 
             var = v10_netcdf.variables[v_var_name][time_index, 0, :]
             v10_netcdf.close()
-            dataframe['v10'] = var[dataframe['X'], dataframe['Y']]
+            dataframe['v10'] = var[dataframe['Y'], dataframe['X']]
 
             # === wind speed ===
             dataframe['wSpeed_10'] = np.linalg.norm(dataframe[['u10', 'v10']].values, axis=1)
@@ -552,7 +552,7 @@ class PointSourceSector(Sector):
 
             var = np.flipud(u10_netcdf.variables[u_var_name][time_index, :, :, :])
             u10_netcdf.close()
-            var = var[:, dataframe['X'], dataframe['Y']]
+            var = var[:, dataframe['Y'], dataframe['X']]
 
             for i, t_lay in enumerate(var):
                 dataframe['u_{0}'.format(i)] = t_lay
@@ -564,7 +564,7 @@ class PointSourceSector(Sector):
 
             var = np.flipud(v10_netcdf.variables[v_var_name][time_index, :, :, :])
             v10_netcdf.close()
-            var = var[:, dataframe['X'], dataframe['Y']]
+            var = var[:, dataframe['Y'], dataframe['X']]
 
             ws_lay_list = ['wSpeed_10']
             for i, t_lay in enumerate(var):

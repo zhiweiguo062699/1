@@ -21,7 +21,7 @@ class AgriculturalMachinerySector(AgriculturalSector):
                  speciation_profiles_path, molecular_weights_path, landuse_by_nut, crop_by_nut, crop_from_landuse_path,
                  machinery_distibution_nut_shapefile_path, deterioration_factor_path, load_factor_path,
                  vehicle_ratio_path, vehicle_units_path, vehicle_workhours_path, vehicle_power_path,
-                 crop_machinery_by_nut):
+                 crop_machinery_nuts3):
         spent_time = timeit.default_timer()
 
         logger.write_log('===== AGRICULTURAL MACHINERY SECTOR =====')
@@ -32,10 +32,10 @@ class AgriculturalMachinerySector(AgriculturalSector):
             speciation_profiles_path, molecular_weights_path)
 
         self.machinery_list = machinery_list
-        self.crop_machinery_by_nut = self.read_profiles(crop_machinery_by_nut)
+        self.crop_machinery_nuts3 = self.read_profiles(crop_machinery_nuts3)
 
         self.crop_distribution = self.get_crop_distribution_by_nut(
-            self.crop_distribution,  machinery_distibution_nut_shapefile_path, nut_code='ORDER07')
+            self.crop_distribution,  machinery_distibution_nut_shapefile_path, nut_code='nuts3_id')
 
         self.months = self.get_date_array_by_month()
 
@@ -53,8 +53,8 @@ class AgriculturalMachinerySector(AgriculturalSector):
         spent_time = timeit.default_timer()
 
         def get_fraction(dataframe):
-            total_crop_sum = self.crop_machinery_by_nut.loc[self.crop_machinery_by_nut[nut_code] == int(dataframe.name),
-                                                            self.crop_list].values.sum()
+            total_crop_sum = self.crop_machinery_nuts3.loc[self.crop_machinery_nuts3[nut_code] == int(dataframe.name),
+                                                           self.crop_list].values.sum()
             dataframe['fraction'] = dataframe[self.crop_list].sum(axis=1) / total_crop_sum
 
             return dataframe.loc[:, ['fraction']]
@@ -81,7 +81,7 @@ class AgriculturalMachinerySector(AgriculturalSector):
 
             if write_crop_by_nut:
                 crop_distribution.loc[:, self.crop_list + [nut_code]].groupby(nut_code).sum().reset_index().to_csv(
-                    self.crop_machinery_by_nut)
+                    self.crop_machinery_nuts3)
             crop_distribution['fraction'] = crop_distribution.groupby(nut_code).apply(get_fraction)
             crop_distribution.drop(columns=self.crop_list, inplace=True)
             crop_distribution.rename(columns={nut_code: 'NUT_code'}, inplace=True)
@@ -112,30 +112,31 @@ class AgriculturalMachinerySector(AgriculturalSector):
         spent_time = timeit.default_timer()
 
         def get_n(df):
-            df['N'] = self.vehicle_units.loc[self.vehicle_units['code'] == df.name[0], df.name[1]].values[0]
+            df['N'] = self.vehicle_units.loc[self.vehicle_units['nuts3_id'] == df.name[0], df.name[1]].values[0]
             return df.loc[:, ['N']]
 
         def get_s(df):
             df['S'] = self.vehicle_ratio.loc[
-                (self.vehicle_ratio['code'] == df.name[0]) & (self.vehicle_ratio['technology'] == df.name[2]),
+                (self.vehicle_ratio['nuts3_id'] == df.name[0]) & (self.vehicle_ratio['technology'] == df.name[2]),
                 df.name[1]].values[0]
             return df.loc[:, ['S']]
 
         def get_t(df):
 
             try:
-                df['T'] = self.vehicle_workhours.loc[(self.vehicle_workhours['code'] == df.name[0]) &
+                df['T'] = self.vehicle_workhours.loc[(self.vehicle_workhours['nuts3_id'] == df.name[0]) &
                                                      (self.vehicle_workhours['technology'] == df.name[2]),
                                                      df.name[1]].values[0]
             except IndexError:
                 df['T'] = np.nan
             df.loc[df['T'].isna(), 'T'] = self.vehicle_workhours.loc[
-                (self.vehicle_workhours['code'] == df.name[0]) & (self.vehicle_workhours['technology'] == 'default'),
+                (self.vehicle_workhours['nuts3_id'] == df.name[0]) & (self.vehicle_workhours['technology'] ==
+                                                                      'default'),
                 df.name[1]].values[0]
             return df.loc[:, ['T']]
 
         def get_p(df):
-            df['P'] = self.vehicle_power.loc[self.vehicle_power['code'] == df.name[0], df.name[1]].values[0]
+            df['P'] = self.vehicle_power.loc[self.vehicle_power['nuts3_id'] == df.name[0], df.name[1]].values[0]
             return df.loc[:, ['P']]
 
         def get_lf(df):

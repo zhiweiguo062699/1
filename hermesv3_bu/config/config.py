@@ -167,8 +167,8 @@ class Config(ArgParser):
         p.add_argument('--speciation_map', required=False, help='...')
 
         # ===== SHAPEFILES =====
-        p.add_argument('--nut_shapefile_prov', required=False, type=str, default='True')
-        p.add_argument('--nut_shapefile_ccaa', required=False, type=str, default='True')
+        p.add_argument('--nuts3_shapefile', required=False, type=str, default='True')
+        p.add_argument('--nuts2_shapefile', required=False, type=str, default='True')
 
         p.add_argument('--clipping', required=False, type=str, default=None,
                        help='To clip the domain into an specific zone. ' +
@@ -281,17 +281,17 @@ class Config(ArgParser):
         p.add_argument('--crop_machinery_hourly_profiles', required=False, help='...')
         p.add_argument('--crop_machinery_speciation_map', required=False, help='...')
         p.add_argument('--crop_machinery_speciation_profiles', required=False, help='...')
-        p.add_argument('--crop_machinery_by_nut', required=False, help='...')
+        p.add_argument('--crop_machinery_nuts3', required=False, help='...')
 
         # ***** RESIDENTIAL SECTOR *****
         p.add_argument('--fuel_list', required=False, help='...')
         p.add_argument('--residential_source_pollutants', required=False, help='...')
         p.add_argument('--population_density_map', required=False, help='...')
         p.add_argument('--population_type_map', required=False, help='...')
-        p.add_argument('--population_type_by_ccaa', required=False, help='...')
-        p.add_argument('--population_type_by_prov', required=False, help='...')
-        p.add_argument('--energy_consumption_by_prov', required=False, help='...')
-        p.add_argument('--energy_consumption_by_ccaa', required=False, help='...')
+        p.add_argument('--population_type_nuts2', required=False, help='...')
+        p.add_argument('--population_type_nuts3', required=False, help='...')
+        p.add_argument('--energy_consumption_nuts3', required=False, help='...')
+        p.add_argument('--energy_consumption_nuts2', required=False, help='...')
         p.add_argument('--residential_spatial_proxies', required=False, help='...')
         p.add_argument('--residential_ef_files_path', required=False, help='...')
         p.add_argument('--residential_heating_degree_day_path', required=False, help='...')
@@ -353,7 +353,7 @@ class Config(ArgParser):
         p.add_argument('--traffic_area_pollutants', required=False, help='...')
         p.add_argument('--do_evaporative', required=False, help='...')
         p.add_argument('--traffic_area_gas_path', required=False, help='...')
-        p.add_argument('--population_by_municipality', required=False, help='...')
+        p.add_argument('--population_nuts3', required=False, help='...')
         p.add_argument('--traffic_area_speciation_profiles_evaporative', required=False, help='...')
         p.add_argument('--traffic_area_evaporative_ef_file', required=False, help='...')
         p.add_argument('--do_small_cities', required=False, help='...')
