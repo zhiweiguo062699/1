@@ -380,7 +380,7 @@ class AviationSector(Sector):
             new_list = list(set(shp_airport_list) & set(airports_with_operations))
             if len(new_list) != len(shp_airport_list):
                 warn('{0} airports have no operations. Ignoring them.'.format(
-                    list(set(new_list) - set(shp_airport_list))))
+                    list(set(shp_airport_list) - set(new_list))))
 
             max_len = len(new_list)
             # Only for master (rank == 0)
