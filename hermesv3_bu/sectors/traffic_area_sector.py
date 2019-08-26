@@ -59,14 +59,14 @@ class TrafficAreaSector(Sector):
             if not os.path.exists(os.path.join(self.auxiliary_dir, 'traffic_area', 'vehicle_by_cell.shp')):
                 self.logger.write_log('\t\tCreating population shapefile.', message_level=3)
                 pop = self.get_clipped_population(
-                    global_path, os.path.join(self.auxiliary_dir, 'traffic_area', 'population.shp'), write_file=True)
+                    global_path, os.path.join(self.auxiliary_dir, 'traffic_area', 'population.shp'), write_file=False)
                 self.logger.write_log('\t\tCreating population shapefile by NUT.', message_level=3)
                 pop = self.make_population_by_nuts(
                     pop, provinces_shapefile, os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_NUT.shp'),
-                    write_file=True)
+                    write_file=False)
                 self.logger.write_log('\t\tCreating population shapefile by NUT and cell.', message_level=3)
                 pop = self.make_population_by_nuts_cell(
-                    pop,  os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_NUT_cell.shp'), write_file=True)
+                    pop,  os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_NUT_cell.shp'), write_file=False)
                 self.logger.write_log('\t\tCreating vehicle shapefile by cell.', message_level=3)
                 veh_cell = self.make_vehicles_by_cell(
                     pop, gasoline_path, pd.read_csv(total_pop_by_prov),
@@ -89,11 +89,11 @@ class TrafficAreaSector(Sector):
             if not os.path.exists(os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_SMALL_cell.shp')):
                 self.logger.write_log('\t\tCreating population shapefile.', message_level=3)
                 pop = self.get_clipped_population(
-                    global_path, os.path.join(self.auxiliary_dir, 'traffic_area', 'population.shp'), write_file=True)
+                    global_path, os.path.join(self.auxiliary_dir, 'traffic_area', 'population.shp'), write_file=False)
                 self.logger.write_log('\t\tCreating population small cities shapefile.', message_level=3)
                 pop = self.make_population_by_nuts(
                     pop, small_cities_shapefile, os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_SMALL.shp'),
-                    write_file=True)
+                    write_file=False)
                 self.logger.write_log('\t\tCreating population small cities shapefile by cell.', message_level=3)
                 pop = self.make_population_by_nuts_cell(
                     pop, os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_SMALL_cell.shp'), write_file=True)
