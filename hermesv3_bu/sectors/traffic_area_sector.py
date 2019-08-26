@@ -59,14 +59,14 @@ class TrafficAreaSector(Sector):
             if not os.path.exists(os.path.join(self.auxiliary_dir, 'traffic_area', 'vehicle_by_cell.shp')):
                 self.logger.write_log('\t\tCreating population shapefile.', message_level=3)
                 pop = self.get_clipped_population(
-                    global_path, os.path.join(self.auxiliary_dir, 'traffic_area', 'population.shp'))
+                    global_path, os.path.join(self.auxiliary_dir, 'traffic_area', 'population.shp'), write_file=True)
                 self.logger.write_log('\t\tCreating population shapefile by NUT.', message_level=3)
                 pop = self.make_population_by_nuts(
                     pop, provinces_shapefile, os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_NUT.shp'),
-                    write_file=False)
+                    write_file=True)
                 self.logger.write_log('\t\tCreating population shapefile by NUT and cell.', message_level=3)
                 pop = self.make_population_by_nuts_cell(
-                    pop,  os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_NUT_cell.shp'))
+                    pop,  os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_NUT_cell.shp'), write_file=True)
                 self.logger.write_log('\t\tCreating vehicle shapefile by cell.', message_level=3)
                 veh_cell = self.make_vehicles_by_cell(
                     pop, gasoline_path, pd.read_csv(total_pop_by_prov),
@@ -89,14 +89,14 @@ class TrafficAreaSector(Sector):
             if not os.path.exists(os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_SMALL_cell.shp')):
                 self.logger.write_log('\t\tCreating population shapefile.', message_level=3)
                 pop = self.get_clipped_population(
-                    global_path, os.path.join(self.auxiliary_dir, 'traffic_area', 'population.shp'))
+                    global_path, os.path.join(self.auxiliary_dir, 'traffic_area', 'population.shp'), write_file=True)
                 self.logger.write_log('\t\tCreating population small cities shapefile.', message_level=3)
                 pop = self.make_population_by_nuts(
                     pop, small_cities_shapefile, os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_SMALL.shp'),
                     write_file=True)
                 self.logger.write_log('\t\tCreating population small cities shapefile by cell.', message_level=3)
                 pop = self.make_population_by_nuts_cell(
-                    pop, os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_SMALL_cell.shp'))
+                    pop, os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_SMALL_cell.shp'), write_file=True)
             else:
                 self.logger.write_log('\t\tReading population small cities shapefile by cell.', message_level=3)
                 pop = IoShapefile(self.comm).read_shapefile_serial(
@@ -108,7 +108,7 @@ class TrafficAreaSector(Sector):
         self.logger.write_time_log('TrafficAreaSector', 'init_small_cities', timeit.default_timer() - spent_time)
         return pop
 
-    def get_clipped_population(self, global_path, population_shapefile_path):
+    def get_clipped_population(self, global_path, population_shapefile_path, write_file=True):
         from hermesv3_bu.io_server.io_raster import IoRaster
         spent_time = timeit.default_timer()
 
@@ -116,7 +116,8 @@ class TrafficAreaSector(Sector):
             population_density = IoRaster(self.comm).clip_raster_with_shapefile_poly(
                 global_path, self.clip.shapefile,
                 os.path.join(self.auxiliary_dir, 'traffic_area', 'population.tif'))
-            population_density = IoRaster(self.comm).to_shapefile_serie_by_cell(population_density)
+            population_density = IoRaster(self.comm).to_shapefile_serie_by_cell(
+                population_density, out_path=population_shapefile_path, write=write_file)
         else:
             population_density = IoShapefile(self.comm).read_shapefile_serial(population_shapefile_path)
 
