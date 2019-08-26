@@ -32,6 +32,7 @@ class TrafficAreaSector(Sector):
         self.speciation_profiles_evaporative = self.read_speciation_profiles(speciation_profiles_evaporative)
         self.evaporative_ef_file = evaporative_ef_file
         if do_evaporative:
+            logger.write_log('\tInitialising evaporative emissions.', message_level=2)
             self.evaporative = self.init_evaporative(population_tif_path, nuts_shapefile, gasoline_path,
                                                      total_pop_by_prov)
         else:
@@ -44,6 +45,7 @@ class TrafficAreaSector(Sector):
         self.small_cities_weekly_profile = self.read_weekly_profiles(small_cities_weekly_profile)
         self.small_cities_hourly_profile = self.read_hourly_profiles(small_cities_hourly_profile)
         if do_small_cities:
+            logger.write_log('\tInitialising small cities emissions.', message_level=2)
             self.small_cities = self.init_small_cities(population_tif_path, small_cities_shp)
         else:
             self.small_cities = None
@@ -55,18 +57,22 @@ class TrafficAreaSector(Sector):
 
         if self.comm.Get_rank() == 0:
             if not os.path.exists(os.path.join(self.auxiliary_dir, 'traffic_area', 'vehicle_by_cell.shp')):
+                self.logger.write_log('\t\tCreating population shapefile.', message_level=3)
                 pop = self.get_clipped_population(
                     global_path, os.path.join(self.auxiliary_dir, 'traffic_area', 'population.shp'))
+                self.logger.write_log('\t\tCreating population shapefile by NUT.', message_level=3)
                 pop = self.make_population_by_nuts(
                     pop, provinces_shapefile, os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_NUT.shp'),
                     write_file=False)
+                self.logger.write_log('\t\tCreating population shapefile by NUT and cell.', message_level=3)
                 pop = self.make_population_by_nuts_cell(
                     pop,  os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_NUT_cell.shp'))
-
+                self.logger.write_log('\t\tCreating vehicle shapefile by cell.', message_level=3)
                 veh_cell = self.make_vehicles_by_cell(
                     pop, gasoline_path, pd.read_csv(total_pop_by_prov),
                     os.path.join(self.auxiliary_dir, 'traffic_area', 'vehicle_by_cell.shp'))
             else:
+                self.logger.write_log('\t\tReading vehicle shapefile by cell.', message_level=3)
                 veh_cell = IoShapefile(self.comm).read_shapefile_serial(
                     os.path.join(self.auxiliary_dir, 'traffic_area', 'vehicle_by_cell.shp'))
         else:
@@ -81,14 +87,18 @@ class TrafficAreaSector(Sector):
         spent_time = timeit.default_timer()
         if self.comm.Get_rank() == 0:
             if not os.path.exists(os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_SMALL_cell.shp')):
+                self.logger.write_log('\t\tCreating population shapefile.', message_level=3)
                 pop = self.get_clipped_population(
                     global_path, os.path.join(self.auxiliary_dir, 'traffic_area', 'population.shp'))
+                self.logger.write_log('\t\tCreating population small cities shapefile.', message_level=3)
                 pop = self.make_population_by_nuts(
                     pop, small_cities_shapefile, os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_SMALL.shp'),
-                    write_file=False)
+                    write_file=True)
+                self.logger.write_log('\t\tCreating population small cities shapefile by cell.', message_level=3)
                 pop = self.make_population_by_nuts_cell(
                     pop, os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_SMALL_cell.shp'))
             else:
+                self.logger.write_log('\t\tReading population small cities shapefile by cell.', message_level=3)
                 pop = IoShapefile(self.comm).read_shapefile_serial(
                     os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_SMALL_cell.shp'))
         else:
