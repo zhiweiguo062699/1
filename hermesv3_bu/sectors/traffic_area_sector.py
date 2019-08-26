@@ -467,8 +467,10 @@ class TrafficAreaSector(Sector):
         spent_time = timeit.default_timer()
 
         if self.do_evaporative:
+            self.logger.write_log('\tCalculating evaporative emissions.', message_level=2)
             self.calculate_evaporative_emissions()
         if self.do_small_cities:
+            self.logger.write_log('\tCalculating small cities emissions.', message_level=2)
             self.calculate_small_cities_emissions()
 
         emissions = self.to_grid()
