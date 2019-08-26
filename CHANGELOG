@@ -16,6 +16,19 @@
 
     - Sector Manager:
         1. Aviation sector
+        2. Shipping port sector
+        3. Livestock sector
+        4. Crop operations sector
+        5. Crop fertilizers sector
+        6. Agricultural machinery sector
+        7. Residential combustion sector
+        8. Recreational boats sector
+        9. Point sources sector
+        10. Road traffic sector
+        11. Traffic area (evaporative & small cities) sector
 
     - Writing options:
         1. Default writer
+        2. CMAQ writer
+        3. MONARCH writer
+        4. WRF-Chem writer
