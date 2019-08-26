@@ -89,7 +89,7 @@ class TrafficSector(Sector):
 
         self.hourly_profiles = self.read_all_hourly_profiles(hourly_mean_profiles_path, hourly_weekday_profiles_path,
                                                              hourly_saturday_profiles_path, hourly_sunday_profiles_path)
-
+        self.check_profiles()
         self.expanded = self.expand_road_links()
 
         del self.fleet_compo, self.speed_hourly, self.monthly_profiles, self.weekly_profiles, self.hourly_profiles
@@ -102,6 +102,57 @@ class TrafficSector(Sector):
         self.do_resuspension = do_resuspension
 
         self.logger.write_time_log('TrafficSector', '__init__', timeit.default_timer() - spent_time)
+
+    def check_profiles(self):
+        spent_time = timeit.default_timer()
+        # Checking speed profiles IDs
+        links_speed = set(np.unique(np.concatenate([
+            np.unique(self.road_links['sp_hour_su'].dropna().values),
+            np.unique(self.road_links['sp_hour_mo'].dropna().values),
+            np.unique(self.road_links['sp_hour_tu'].dropna().values),
+            np.unique(self.road_links['sp_hour_we'].dropna().values),
+            np.unique(self.road_links['sp_hour_th'].dropna().values),
+            np.unique(self.road_links['sp_hour_fr'].dropna().values),
+            np.unique(self.road_links['sp_hour_sa'].dropna().values),
+        ])))
+        # The '0' speed profile means that we don't know the speed profile and it will be replaced by a flat profile
+        speed = set(np.unique(np.concatenate([self.speed_hourly.index.values, [0]])))
+
+        speed_res = links_speed - speed
+        if len(speed_res) > 0:
+            raise ValueError("The following speed profile IDs reported in the road links shapefile do not appear " +
+                             "in the hourly speed profiles file. {0}".format(speed_res))
+
+        # Checking monthly profiles IDs
+        links_month = set(np.unique(self.road_links['aadt_m_mn'].dropna().values))
+        month = set(self.monthly_profiles.index.values)
+        month_res = links_month - month
+        if len(month_res) > 0:
+            raise ValueError("The following monthly profile IDs reported in the road links shapefile do not appear " +
+                             "in the monthly profiles file. {0}".format(month_res))
+
+        # Checking weekly profiles IDs
+        links_week = set(np.unique(self.road_links['aadt_week'].dropna().values))
+        week = set(self.weekly_profiles.index.values)
+        week_res = links_week - week
+        if len(week_res) > 0:
+            raise ValueError("The following weekly profile IDs reported in the road links shapefile do not appear " +
+                             "in the weekly profiles file. {0}".format(week_res))
+
+        # Checking hourly profiles IDs
+        links_hour = set(np.unique(np.concatenate([
+            np.unique(self.road_links['aadt_h_mn'].dropna().values),
+            np.unique(self.road_links['aadt_h_wd'].dropna().values),
+            np.unique(self.road_links['aadt_h_sat'].dropna().values),
+            np.unique(self.road_links['aadt_h_sun'].dropna().values),
+        ])))
+        hour = set(self.hourly_profiles.index.values)
+        hour_res = links_hour - hour
+        if len(hour_res) > 0:
+            raise ValueError("The following hourly profile IDs reported in the road links shapefile do not appear " +
+                             "in the hourly profiles file. {0}".format(hour_res))
+
+        self.logger.write_time_log('TrafficSector', 'check_profiles', timeit.default_timer() - spent_time)
 
     def read_all_hourly_profiles(self, hourly_mean_profiles_path, hourly_weekday_profiles_path,
                                  hourly_saturday_profiles_path, hourly_sunday_profiles_path):
