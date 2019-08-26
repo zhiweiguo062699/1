@@ -30,8 +30,10 @@ class Hermes(object):
                                 self.grid)
         self.date_array = [self.arguments.start_date + timedelta(hours=hour) for hour in
                            range(self.arguments.output_timestep_num)]
-        self.logger.write_log('Dates to simulate: {0}'.format(
-            [aux_date.strftime("\n\t%Y/%m/%d, %H:%M:%S") for aux_date in self.date_array]), message_level=3)
+
+        self.logger.write_log('Dates to simulate:', message_level=3)
+        for aux_date in self.date_array:
+            self.logger.write_log('\t{0}'.format(aux_date.strftime("%Y/%m/%d, %H:%M:%S")), message_level=3)
 
         self.sector_manager = SectorManager(
             self.comm, self.logger, self.grid, self.clip, self.date_array, self.arguments)
