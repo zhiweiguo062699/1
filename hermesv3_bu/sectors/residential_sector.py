@@ -128,7 +128,8 @@ class ResidentialSector(Sector):
         # src_distribution.reset_index().to_file(
         #     os.path.join(self.auxiliary_dir, 'residential', 'fuel_distribution_src.shp'))
         src_distribution['src_inter_fraction'] = src_distribution.geometry.area
-        src_distribution = self.spatial_overlays(src_distribution, self.grid.shapefile.reset_index(), how='intersection')
+        src_distribution = self.spatial_overlays(src_distribution, self.grid.shapefile.reset_index(),
+                                                 how='intersection')
         # src_distribution.reset_index().to_file(
         #     os.path.join(self.auxiliary_dir, 'residential', 'fuel_distribution_raw.shp'))
         src_distribution['src_inter_fraction'] = src_distribution.geometry.area / src_distribution[
