@@ -1260,7 +1260,7 @@ class TrafficSector(Sector):
             else:
                 grid_aux = self.grid.shapefile.to_crs(FINAL_PROJ)
 
-            link_emissions_aux = link_emissions_aux.to_crs(grid_aux.shapefile.crs)
+            link_emissions_aux = link_emissions_aux.to_crs(grid_aux.crs)
 
             link_emissions_aux = gpd.sjoin(link_emissions_aux, grid_aux.reset_index(), how="inner", op='intersects')
 
