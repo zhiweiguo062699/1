@@ -1258,7 +1258,7 @@ class TrafficSector(Sector):
             if self.grid.grid_type in ['Lambert Conformal Conic', 'Mercator']:
                 grid_aux = self.grid.shapefile
             else:
-                # For REGULAR and ROTATED grids, shapefile projection is transfromed to a metric projected coordinate
+                # For REGULAR and ROTATED grids, shapefile projection is transformed to a metric projected coordinate
                 # system to derive the length in km.
                 grid_aux = self.grid.shapefile.to_crs(FINAL_PROJ)
 
