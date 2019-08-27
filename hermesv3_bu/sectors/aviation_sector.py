@@ -34,7 +34,7 @@ class AviationSector(Sector):
         - Taxi in
         - Post-taxi in
     """
-    def __init__(self, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+    def __init__(self, comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
                  airport_list, plane_list, airport_shapefile_path, airport_runways_shapefile_path,
                  airport_runways_corners_shapefile_path, airport_trajectories_shapefile_path, operations_path,
                  planes_path, times_path, ef_dir, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
@@ -126,7 +126,7 @@ class AviationSector(Sector):
         spent_time = timeit.default_timer()
         logger.write_log('===== AVIATION SECTOR =====')
         super(AviationSector, self).__init__(
-            comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels, None,
+            comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels, None,
             weekly_profiles_path, hourly_profiles_path, speciation_map_path, speciation_profiles_path,
             molecular_weights_path)
 
@@ -363,8 +363,9 @@ class AviationSector(Sector):
         spent_time = timeit.default_timer()
         if self.comm.Get_rank() == 0:
             airport_shapefile = airport_shapefile.reset_index()
-            airport_shapefile = gpd.sjoin(airport_shapefile.to_crs(self.grid_shp.crs),
-                                          self.clip.shapefile.to_crs(self.grid_shp.crs), how='inner', op='intersects')
+            airport_shapefile = gpd.sjoin(airport_shapefile.to_crs(self.grid.shapefile.crs),
+                                          self.clip.shapefile.to_crs(self.grid.shapefile.crs), how='inner',
+                                          op='intersects')
 
             shp_airport_list = list(np.unique(airport_shapefile['airport_id'].values))
 
@@ -423,9 +424,9 @@ class AviationSector(Sector):
                 airport_shapefile = airport_shapefile.loc[self.airport_list_full, :].copy()
                 if not os.path.exists(os.path.dirname(airport_distribution_path)):
                     os.makedirs(os.path.dirname(airport_distribution_path))
-                airport_shapefile.to_crs(self.grid_shp.crs, inplace=True)
+                airport_shapefile.to_crs(self.grid.shapefile.crs, inplace=True)
                 airport_shapefile['area'] = airport_shapefile.area
-                airport_distribution = self.spatial_overlays(airport_shapefile, self.grid_shp.reset_index(),
+                airport_distribution = self.spatial_overlays(airport_shapefile, self.grid.shapefile.reset_index(),
                                                              how='intersection')
                 airport_distribution['fraction'] = airport_distribution.area / airport_distribution['area']
                 airport_distribution.drop(columns=['idx2', 'area', 'geometry', 'cons'], inplace=True)
@@ -482,13 +483,13 @@ class AviationSector(Sector):
             if self.comm.rank == 0:
                 runway_shapefile['{0}_f'.format(phase_type)] = runway_shapefile.groupby('airport_id').apply(normalize)
 
-                runway_shapefile.to_crs(self.grid_shp.crs, inplace=True)
+                runway_shapefile.to_crs(self.grid.shapefile.crs, inplace=True)
                 runway_shapefile['length'] = runway_shapefile.length
                 # duplicating each runway by involved cell
-                runway_shapefile = gpd.sjoin(runway_shapefile.reset_index(), self.grid_shp.reset_index(), how="inner",
-                                             op='intersects')
+                runway_shapefile = gpd.sjoin(runway_shapefile.reset_index(), self.grid.shapefile.reset_index(),
+                                             how="inner", op='intersects')
                 # Adding cell geometry
-                runway_shapefile = runway_shapefile.merge(self.grid_shp.reset_index(), on='FID',  how='left')
+                runway_shapefile = runway_shapefile.merge(self.grid.shapefile.reset_index(), on='FID',  how='left')
                 # Intersection between line (roadway) and polygon (cell)
                 # runway_shapefile['geometry'] = runway_shapefile.apply(do_intersection, axis=1)
                 runway_shapefile['mini_length'] = runway_shapefile.apply(get_intersection_length, axis=1)
@@ -594,8 +595,8 @@ class AviationSector(Sector):
                 trajectories_distr.reset_index(inplace=True)
 
                 # HORIZONTAL DISTRIBUTION
-                aux_grid = self.grid_shp.to_crs(trajectories_distr.crs).reset_index()
-                # trajectories_distr.to_crs(self.grid_shp.crs, inplace=True)
+                aux_grid = self.grid.shapefile.to_crs(trajectories_distr.crs).reset_index()
+                # trajectories_distr.to_crs(self.grid.shapefile.crs, inplace=True)
                 # duplicating each runway by involved cell
                 trajectories_distr = gpd.sjoin(trajectories_distr, aux_grid, how="inner", op='intersects')
                 # Adding cell geometry

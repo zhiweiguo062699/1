@@ -38,7 +38,7 @@ class SectorManager(object):
                 from hermesv3_bu.sectors.aviation_sector import AviationSector
                 self.sector = AviationSector(
                     comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.logger,
-                    arguments.auxiliary_files_path, grid.shapefile, clip, date_array,
+                    arguments.auxiliary_files_path, grid, clip, date_array,
                     arguments.aviation_source_pollutants, grid.vertical_desctiption, arguments.airport_list,
                     arguments.plane_list, arguments.airport_shapefile_path, arguments.airport_runways_shapefile_path,
                     arguments.airport_runways_corners_shapefile_path, arguments.airport_trajectories_shapefile_path,
@@ -50,7 +50,7 @@ class SectorManager(object):
                 from hermesv3_bu.sectors.shipping_port_sector import ShippingPortSector
                 self.sector = ShippingPortSector(
                     comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.logger,
-                    arguments.auxiliary_files_path, grid.shapefile, clip, date_array,
+                    arguments.auxiliary_files_path, grid, clip, date_array,
                     arguments.shipping_port_source_pollutants, grid.vertical_desctiption, arguments.vessel_list,
                     arguments.port_list, arguments.hoteling_shapefile_path, arguments.maneuvering_shapefile_path,
                     arguments.shipping_port_ef_path, arguments.shipping_port_engine_percent_path,
@@ -63,7 +63,7 @@ class SectorManager(object):
                 from hermesv3_bu.sectors.livestock_sector import LivestockSector
                 self.sector = LivestockSector(
                     comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.logger,
-                    arguments.auxiliary_files_path, grid.shapefile, clip, date_array,
+                    arguments.auxiliary_files_path, grid, clip, date_array,
                     arguments.livestock_source_pollutants, grid.vertical_desctiption, arguments.animal_list,
                     arguments.gridded_livestock, arguments.correction_split_factors,
                     arguments.temperature_daily_files_path, arguments.wind_speed_daily_files_path,
@@ -78,7 +78,7 @@ class SectorManager(object):
                 comm_agr = comm_world.Split(agg_color, agg_procs.index(comm_world.Get_rank()))
                 comm = comm_agr.Split(color, sector_procs.index(comm_world.Get_rank()))
                 self.sector = AgriculturalCropOperationsSector(
-                    comm_agr, comm, logger, arguments.auxiliary_files_path, grid.shapefile, clip, date_array,
+                    comm_agr, comm, logger, arguments.auxiliary_files_path, grid, clip, date_array,
                     arguments.crop_operations_source_pollutants,
                     grid.vertical_desctiption, arguments.crop_operations_list, arguments.nuts2_shapefile,
                     arguments.land_uses_path, arguments.crop_operations_ef_files_dir,
@@ -93,7 +93,7 @@ class SectorManager(object):
                 comm_agr = comm_world.Split(agg_color, agg_procs.index(comm_world.Get_rank()))
                 comm = comm_agr.Split(color, sector_procs.index(comm_world.Get_rank()))
                 self.sector = AgriculturalCropFertilizersSector(
-                    comm_agr, comm, logger, arguments.auxiliary_files_path, grid.shapefile, clip, date_array,
+                    comm_agr, comm, logger, arguments.auxiliary_files_path, grid, clip, date_array,
                     arguments.crop_fertilizers_source_pollutants, grid.vertical_desctiption,
                     arguments.crop_fertilizers_list, arguments.nuts2_shapefile, arguments.land_uses_path,
                     arguments.crop_fertilizers_hourly_profiles, arguments.speciation_map,
@@ -111,7 +111,7 @@ class SectorManager(object):
                 comm_agr = comm_world.Split(agg_color, agg_procs.index(comm_world.Get_rank()))
                 comm = comm_agr.Split(color, sector_procs.index(comm_world.Get_rank()))
                 self.sector = AgriculturalMachinerySector(
-                    comm_agr, comm, logger, arguments.auxiliary_files_path, grid.shapefile, clip, date_array,
+                    comm_agr, comm, logger, arguments.auxiliary_files_path, grid, clip, date_array,
                     arguments.crop_machinery_source_pollutants, grid.vertical_desctiption,
                     arguments.crop_machinery_list, arguments.nuts2_shapefile, arguments.machinery_list,
                     arguments.land_uses_path, arguments.crop_machinery_ef_path,
@@ -128,7 +128,7 @@ class SectorManager(object):
                 from hermesv3_bu.sectors.residential_sector import ResidentialSector
                 self.sector = ResidentialSector(
                     comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.logger,
-                    arguments.auxiliary_files_path, grid.shapefile, clip, date_array,
+                    arguments.auxiliary_files_path, grid, clip, date_array,
                     arguments.residential_source_pollutants, grid.vertical_desctiption, arguments.fuel_list,
                     arguments.nuts3_shapefile, arguments.nuts2_shapefile, arguments.population_density_map,
                     arguments.population_type_map, arguments.population_type_nuts2, arguments.population_type_nuts3,
@@ -142,7 +142,7 @@ class SectorManager(object):
                 from hermesv3_bu.sectors.recreational_boats_sector import RecreationalBoatsSector
                 self.sector = RecreationalBoatsSector(
                     comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.logger,
-                    arguments.auxiliary_files_path, grid.shapefile, clip, date_array,
+                    arguments.auxiliary_files_path, grid, clip, date_array,
                     arguments.recreational_boats_source_pollutants, grid.vertical_desctiption,
                     arguments.recreational_boats_list, arguments.recreational_boats_density_map,
                     arguments.recreational_boats_by_type, arguments.recreational_boats_ef_path,
@@ -154,7 +154,7 @@ class SectorManager(object):
                 from hermesv3_bu.sectors.point_source_sector import PointSourceSector
                 self.sector = PointSourceSector(
                     comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.logger,
-                    arguments.auxiliary_files_path, grid.shapefile, clip, date_array,
+                    arguments.auxiliary_files_path, grid, clip, date_array,
                     arguments.point_source_pollutants, grid.vertical_desctiption,
                     arguments.point_source_catalog, arguments.point_source_monthly_profiles,
                     arguments.point_source_weekly_profiles, arguments.point_source_hourly_profiles,
@@ -175,7 +175,7 @@ class SectorManager(object):
                 from hermesv3_bu.sectors.traffic_sector import TrafficSector
                 self.sector = TrafficSector(
                     comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.logger,
-                    arguments.auxiliary_files_path, grid.shapefile, clip, date_array, arguments.traffic_pollutants,
+                    arguments.auxiliary_files_path, grid, clip, date_array, arguments.traffic_pollutants,
                     grid.vertical_desctiption, arguments.road_link_path, arguments.fleet_compo_path,
                     arguments.traffic_speed_hourly_path, arguments.traffic_monthly_profiles,
                     arguments.traffic_weekly_profiles, arguments.traffic_hourly_profiles_mean,
@@ -193,7 +193,7 @@ class SectorManager(object):
                 from hermesv3_bu.sectors.traffic_area_sector import TrafficAreaSector
                 self.sector = TrafficAreaSector(
                     comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.logger,
-                    arguments.auxiliary_files_path, grid.shapefile, clip, date_array, arguments.traffic_area_pollutants,
+                    arguments.auxiliary_files_path, grid, clip, date_array, arguments.traffic_area_pollutants,
                     grid.vertical_desctiption, arguments.population_density_map, arguments.speciation_map,
                     arguments.molecular_weights, arguments.do_evaporative, arguments.traffic_area_gas_path,
                     arguments.population_nuts3, arguments.nuts3_shapefile,

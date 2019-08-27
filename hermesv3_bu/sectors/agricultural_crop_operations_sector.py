@@ -11,7 +11,7 @@ from hermesv3_bu.logger.log import Log
 
 
 class AgriculturalCropOperationsSector(AgriculturalSector):
-    def __init__(self, comm_agr, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants,
+    def __init__(self, comm_agr, comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants,
                  vertical_levels, crop_list, nut_shapefile_path, land_uses_path, ef_dir, monthly_profiles_path,
                  weekly_profiles_path, hourly_profiles_path, speciation_map_path, speciation_profiles_path,
                  molecular_weights_path, landuse_by_nut, crop_by_nut, crop_from_landuse_path):
@@ -90,7 +90,7 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
         spent_time = timeit.default_timer()
         logger.write_log('===== AGRICULTURAL CROP OPERATIONS SECTOR =====')
         super(AgriculturalCropOperationsSector, self).__init__(
-            comm_agr, comm, logger, auxiliary_dir, grid_shp, clip, date_array, nut_shapefile_path, source_pollutants,
+            comm_agr, comm, logger, auxiliary_dir, grid, clip, date_array, nut_shapefile_path, source_pollutants,
             vertical_levels, crop_list, land_uses_path, landuse_by_nut, crop_by_nut, crop_from_landuse_path, ef_dir,
             monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
             speciation_profiles_path, molecular_weights_path)

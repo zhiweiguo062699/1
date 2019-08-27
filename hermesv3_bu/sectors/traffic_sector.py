@@ -21,6 +21,7 @@ libc.malloc_trim(0)
 
 MIN_RAIN = 0.254  # After USEPA (2011)
 RECOVERY_RATIO = 0.0872  # After Amato et al. (2012)
+FINAL_PROJ = {'init': 'epsg:3035'}  # https://epsg.io/3035 ETRS89 / LAEA Europe
 
 
 aerosols = ['oc', 'ec', 'pno3', 'pso4', 'pmfine', 'pmc', 'poa', 'poc', 'pec', 'pcl', 'pnh4', 'pna', 'pmg', 'pk', 'pca',
@@ -43,7 +44,7 @@ class TrafficSector(Sector):
         relative to the timesteps.
     """
 
-    def __init__(self, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+    def __init__(self, comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
                  road_link_path, fleet_compo_path, speed_hourly_path, monthly_profiles_path, weekly_profiles_path,
                  hourly_mean_profiles_path, hourly_weekday_profiles_path, hourly_saturday_profiles_path,
                  hourly_sunday_profiles_path, ef_common_path, vehicle_list=None, load=0.5, speciation_map_path=None,
@@ -55,7 +56,7 @@ class TrafficSector(Sector):
         spent_time = timeit.default_timer()
         logger.write_log('===== TRAFFIC SECTOR =====')
         super(TrafficSector, self).__init__(
-            comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+            comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
             monthly_profiles_path, weekly_profiles_path, None, speciation_map_path, None, molecular_weights_path)
 
         self.resuspension_correction = resuspension_correction
@@ -89,7 +90,7 @@ class TrafficSector(Sector):
 
         self.hourly_profiles = self.read_all_hourly_profiles(hourly_mean_profiles_path, hourly_weekday_profiles_path,
                                                              hourly_saturday_profiles_path, hourly_sunday_profiles_path)
-
+        self.check_profiles()
         self.expanded = self.expand_road_links()
 
         del self.fleet_compo, self.speed_hourly, self.monthly_profiles, self.weekly_profiles, self.hourly_profiles
@@ -102,6 +103,57 @@ class TrafficSector(Sector):
         self.do_resuspension = do_resuspension
 
         self.logger.write_time_log('TrafficSector', '__init__', timeit.default_timer() - spent_time)
+
+    def check_profiles(self):
+        spent_time = timeit.default_timer()
+        # Checking speed profiles IDs
+        links_speed = set(np.unique(np.concatenate([
+            np.unique(self.road_links['sp_hour_su'].dropna().values),
+            np.unique(self.road_links['sp_hour_mo'].dropna().values),
+            np.unique(self.road_links['sp_hour_tu'].dropna().values),
+            np.unique(self.road_links['sp_hour_we'].dropna().values),
+            np.unique(self.road_links['sp_hour_th'].dropna().values),
+            np.unique(self.road_links['sp_hour_fr'].dropna().values),
+            np.unique(self.road_links['sp_hour_sa'].dropna().values),
+        ])))
+        # The '0' speed profile means that we don't know the speed profile and it will be replaced by a flat profile
+        speed = set(np.unique(np.concatenate([self.speed_hourly.index.values, [0]])))
+
+        speed_res = links_speed - speed
+        if len(speed_res) > 0:
+            raise ValueError("The following speed profile IDs reported in the road links shapefile do not appear " +
+                             "in the hourly speed profiles file. {0}".format(speed_res))
+
+        # Checking monthly profiles IDs
+        links_month = set(np.unique(self.road_links['aadt_m_mn'].dropna().values))
+        month = set(self.monthly_profiles.index.values)
+        month_res = links_month - month
+        if len(month_res) > 0:
+            raise ValueError("The following monthly profile IDs reported in the road links shapefile do not appear " +
+                             "in the monthly profiles file. {0}".format(month_res))
+
+        # Checking weekly profiles IDs
+        links_week = set(np.unique(self.road_links['aadt_week'].dropna().values))
+        week = set(self.weekly_profiles.index.values)
+        week_res = links_week - week
+        if len(week_res) > 0:
+            raise ValueError("The following weekly profile IDs reported in the road links shapefile do not appear " +
+                             "in the weekly profiles file. {0}".format(week_res))
+
+        # Checking hourly profiles IDs
+        links_hour = set(np.unique(np.concatenate([
+            np.unique(self.road_links['aadt_h_mn'].dropna().values),
+            np.unique(self.road_links['aadt_h_wd'].dropna().values),
+            np.unique(self.road_links['aadt_h_sat'].dropna().values),
+            np.unique(self.road_links['aadt_h_sun'].dropna().values),
+        ])))
+        hour = set(self.hourly_profiles.index.values)
+        hour_res = links_hour - hour
+        if len(hour_res) > 0:
+            raise ValueError("The following hourly profile IDs reported in the road links shapefile do not appear " +
+                             "in the hourly profiles file. {0}".format(hour_res))
+
+        self.logger.write_time_log('TrafficSector', 'check_profiles', timeit.default_timer() - spent_time)
 
     def read_all_hourly_profiles(self, hourly_mean_profiles_path, hourly_weekday_profiles_path,
                                  hourly_saturday_profiles_path, hourly_sunday_profiles_path):
@@ -312,6 +364,7 @@ class TrafficSector(Sector):
 
         self.logger.write_time_log('TrafficSector', 'read_road_links', timeit.default_timer() - spent_time)
         libc.malloc_trim(0)
+
         return df
 
     def read_ef(self, emission_type, pollutant_name):
@@ -1202,14 +1255,20 @@ class TrafficSector(Sector):
         if not os.path.exists(self.link_to_grid_csv):
             link_emissions_aux = link_emissions.loc[link_emissions['tstep'] == 0, :]
 
-            link_emissions_aux = link_emissions_aux.to_crs(self.grid_shp.crs)
+            if self.grid.grid_type in ['Lambert Conformal Conic', 'Mercator']:
+                grid_aux = self.grid.shapefile
+            else:
+                # For REGULAR and ROTATED grids, shapefile projection is transformed to a metric projected coordinate
+                # system to derive the length in km.
+                grid_aux = self.grid.shapefile.to_crs(FINAL_PROJ)
 
-            link_emissions_aux = gpd.sjoin(link_emissions_aux, self.grid_shp.reset_index(),
-                                           how="inner", op='intersects')
+            link_emissions_aux = link_emissions_aux.to_crs(grid_aux.crs)
+
+            link_emissions_aux = gpd.sjoin(link_emissions_aux, grid_aux.reset_index(), how="inner", op='intersects')
 
             link_emissions_aux = link_emissions_aux.loc[:, ['Link_ID', 'geometry', 'FID']]
 
-            link_emissions_aux = link_emissions_aux.merge(self.grid_shp.reset_index().loc[:, ['FID', 'geometry']],
+            link_emissions_aux = link_emissions_aux.merge(grid_aux.reset_index().loc[:, ['FID', 'geometry']],
                                                           on='FID', how='left')
 
             length_list = []
@@ -1315,7 +1374,6 @@ class TrafficSector(Sector):
 
             df_in = df_in.to_crs({u'units': u'm', u'no_defs': True, u'ellps': u'intl', u'proj': u'utm', u'zone': 31})
             if rline_shp:
-                gpd.GeoDataFrame().to_file
                 df_in.to_file(os.path.join(self.output_dir, 'roads.shp'))
 
             count = 0

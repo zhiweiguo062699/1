@@ -18,7 +18,7 @@ from pandas import DataFrame
 
 
 class AgriculturalSector(Sector):
-    def __init__(self, comm_agr, comm, logger, auxiliary_dir, grid_shp, clip, date_array, nut_shapefile,
+    def __init__(self, comm_agr, comm, logger, auxiliary_dir, grid, clip, date_array, nut_shapefile,
                  source_pollutants, vertical_levels, crop_list, land_uses_path, land_use_by_nut, crop_by_nut,
                  crop_from_landuse_path, ef_files_dir, monthly_profiles_path, weekly_profiles_path,
                  hourly_profiles_path, speciation_map_path, speciation_profiles_path, molecular_weights_path):
@@ -110,7 +110,7 @@ class AgriculturalSector(Sector):
         spent_time = timeit.default_timer()
 
         super(AgriculturalSector, self).__init__(
-            comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+            comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
             monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
             speciation_profiles_path, molecular_weights_path)
 
@@ -128,7 +128,7 @@ class AgriculturalSector(Sector):
 
     def involved_grid_cells(self, src_shp):
         spent_time = timeit.default_timer()
-        grid_shp = IoShapefile(self.comm).split_shapefile(self.grid_shp)
+        grid_shp = IoShapefile(self.comm).split_shapefile(self.grid.shapefile)
         src_union = src_shp.to_crs(grid_shp.crs).geometry.unary_union
         grid_shp = grid_shp.loc[grid_shp.intersects(src_union), :]
 
@@ -418,10 +418,10 @@ class AgriculturalSector(Sector):
         spent_time = timeit.default_timer()
         crop_list = list(np.setdiff1d(crop_distribution.columns.values, ['NUT', 'geometry']))
 
-        crop_distribution = crop_distribution.to_crs(self.grid_shp.crs)
+        crop_distribution = crop_distribution.to_crs(self.grid.shapefile.crs)
         crop_distribution['src_inter_fraction'] = crop_distribution.geometry.area
 
-        crop_distribution = self.spatial_overlays(crop_distribution.reset_index(), self.grid_shp.reset_index(),
+        crop_distribution = self.spatial_overlays(crop_distribution.reset_index(), self.grid.shapefile.reset_index(),
                                                   how='intersection')
         crop_distribution['src_inter_fraction'] = \
             crop_distribution.geometry.area / crop_distribution['src_inter_fraction']
@@ -431,8 +431,8 @@ class AgriculturalSector(Sector):
 
         crop_distribution = crop_distribution.loc[:, crop_list + ['FID']].groupby('FID').sum()
 
-        crop_distribution = gpd.GeoDataFrame(crop_distribution, crs=self.grid_shp.crs,
-                                             geometry=self.grid_shp.loc[crop_distribution.index, 'geometry'])
+        crop_distribution = gpd.GeoDataFrame(crop_distribution, crs=self.grid.shapefile.crs,
+                                             geometry=self.grid.shapefile.loc[crop_distribution.index, 'geometry'])
         crop_distribution.reset_index(inplace=True)
         crop_distribution.set_index('FID', inplace=True)
 

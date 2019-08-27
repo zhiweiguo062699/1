@@ -22,7 +22,7 @@ class LivestockSector(Sector):
     """
     Class that contains all the information and methods to calculate the livestock emissions.
     """
-    def __init__(self, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+    def __init__(self, comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
                  animal_list, gridded_livestock_path, correction_split_factors_path, temperature_dir, wind_speed_dir,
                  denominator_yearly_factor_dir, ef_dir, monthly_profiles_path, weekly_profiles_path,
                  hourly_profiles_path, speciation_map_path, speciation_profiles_path, molecular_weights_path,
@@ -154,7 +154,7 @@ class LivestockSector(Sector):
         spent_time = timeit.default_timer()
         logger.write_log('===== LIVESTOCK SECTOR =====')
         super(LivestockSector, self).__init__(
-            comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+            comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
             monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
             speciation_profiles_path, molecular_weights_path)
 
@@ -315,14 +315,14 @@ class LivestockSector(Sector):
         """
         spent_time = timeit.default_timer()
         self.logger.write_log('\t\tCreating animal shapefile into destiny resolution', message_level=3)
-        self.grid_shp.reset_index(inplace=True)
+        self.grid.shapefile.reset_index(inplace=True)
         # Changing coordinates system to the grid one
-        animal_distribution.to_crs(self.grid_shp.crs, inplace=True)
+        animal_distribution.to_crs(self.grid.shapefile.crs, inplace=True)
         # Getting src area
         animal_distribution['src_inter_fraction'] = animal_distribution.geometry.area
 
         # Making the intersection between the src distribution and the destiny grid
-        animal_distribution = self.spatial_overlays(animal_distribution.reset_index(), self.grid_shp,
+        animal_distribution = self.spatial_overlays(animal_distribution.reset_index(), self.grid.shapefile,
                                                     how='intersection')
         # Getting proportion of intersection in the src cell (src_area/portion_area)
         animal_distribution['src_inter_fraction'] = \
@@ -333,10 +333,10 @@ class LivestockSector(Sector):
         # Sum by destiny cell
         animal_distribution = animal_distribution.loc[:, self.animal_list + ['FID']].groupby('FID').sum()
 
-        self.grid_shp.set_index('FID', drop=False, inplace=True)
+        self.grid.shapefile.set_index('FID', drop=False, inplace=True)
         # Adding geometry and coordinates system from the destiny grid shapefile
-        animal_distribution = gpd.GeoDataFrame(animal_distribution, crs=self.grid_shp.crs,
-                                               geometry=self.grid_shp.loc[animal_distribution.index, 'geometry'])
+        animal_distribution = gpd.GeoDataFrame(animal_distribution, crs=self.grid.shapefile.crs,
+                                               geometry=self.grid.shapefile.loc[animal_distribution.index, 'geometry'])
         animal_distribution.reset_index(inplace=True)
         self.logger.write_time_log('LivestockSector', 'animals_shapefile_to_dst_resolution',
                                    timeit.default_timer() - spent_time)

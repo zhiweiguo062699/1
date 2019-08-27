@@ -16,7 +16,7 @@ from hermesv3_bu.logger.log import Log
 
 
 class ResidentialSector(Sector):
-    def __init__(self, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+    def __init__(self, comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
                  fuel_list, prov_shapefile, ccaa_shapefile, population_density_map, population_type_map,
                  population_type_nuts2, population_type_nuts3, energy_consumption_nuts3,
                  energy_consumption_nuts2, residential_spatial_proxies, residential_ef_files_path,
@@ -25,7 +25,7 @@ class ResidentialSector(Sector):
         spent_time = timeit.default_timer()
 
         super(ResidentialSector, self).__init__(
-            comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+            comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
             None, None, hourly_profiles_path, speciation_map_path,
             speciation_profiles_path, molecular_weights_path)
 
@@ -124,11 +124,12 @@ class ResidentialSector(Sector):
     def to_dst_resolution(self, src_distribution):
         spent_time = timeit.default_timer()
 
-        src_distribution.to_crs(self.grid_shp.crs, inplace=True)
+        src_distribution.to_crs(self.grid.shapefile.crs, inplace=True)
         # src_distribution.reset_index().to_file(
         #     os.path.join(self.auxiliary_dir, 'residential', 'fuel_distribution_src.shp'))
         src_distribution['src_inter_fraction'] = src_distribution.geometry.area
-        src_distribution = self.spatial_overlays(src_distribution, self.grid_shp.reset_index(), how='intersection')
+        src_distribution = self.spatial_overlays(src_distribution, self.grid.shapefile.reset_index(),
+                                                 how='intersection')
         # src_distribution.reset_index().to_file(
         #     os.path.join(self.auxiliary_dir, 'residential', 'fuel_distribution_raw.shp'))
         src_distribution['src_inter_fraction'] = src_distribution.geometry.area / src_distribution[
@@ -138,8 +139,8 @@ class ResidentialSector(Sector):
             src_distribution["src_inter_fraction"], axis="index")
 
         src_distribution = src_distribution.loc[:, self.fuel_list + ['FID']].groupby('FID').sum()
-        src_distribution = gpd.GeoDataFrame(src_distribution, crs=self.grid_shp.crs,
-                                            geometry=self.grid_shp.loc[src_distribution.index, 'geometry'])
+        src_distribution = gpd.GeoDataFrame(src_distribution, crs=self.grid.shapefile.crs,
+                                            geometry=self.grid.shapefile.loc[src_distribution.index, 'geometry'])
         src_distribution.reset_index(inplace=True)
 
         self.logger.write_time_log('ResidentialSector', 'to_dst_resolution', timeit.default_timer() - spent_time)

@@ -9,11 +9,12 @@ import pandas as pd
 import geopandas as gpd
 from geopandas import GeoDataFrame
 from mpi4py import MPI
+from hermesv3_bu.grids.grid import Grid
 
 
 class Sector(object):
 
-    def __init__(self, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+    def __init__(self, comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
                  monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
                  speciation_profiles_path, molecular_weights_path):
         """
@@ -29,8 +30,8 @@ class Sector(object):
             created yet.
         :type auxiliary_dir: str
 
-        :param grid_shp: Shapefile with the grid horizontal distribution.
-        :type grid_shp: GeoDataFrame
+        :param grid: Grid object
+        :type grid: Grid
 
         :param date_array: List of datetimes.
         :type date_array: list(datetime.datetime, ...)
@@ -74,7 +75,7 @@ class Sector(object):
         self.comm = comm
         self.logger = logger
         self.auxiliary_dir = auxiliary_dir
-        self.grid_shp = grid_shp
+        self.grid = grid
         self.clip = clip
         self.date_array = date_array
         self.source_pollutants = source_pollutants
