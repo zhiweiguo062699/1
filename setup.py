@@ -59,6 +59,7 @@ setup(
     entry_points={
         'console_scripts': [
             'hermesv3_bu = hermesv3_bu.hermes:run',
+            'hermesv3_bu_download_benchmark = hermesv3_bu.tools.download_benchmark:download_benchmark',
         ],
     },
 )
