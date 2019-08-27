@@ -46,14 +46,14 @@ class PointSourceSector(Sector):
     :param sector_list: List os sectors (SNAPS) to take into account. 01, 03, 04, 09
     :type sector_list: list
     """
-    def __init__(self, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+    def __init__(self, comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
                  catalog_path, monthly_profiles_path, weekly_profiles_path, hourly_profiles_path,
                  speciation_map_path, speciation_profiles_path, sector_list, measured_emission_path,
                  molecular_weights_path, plume_rise=False, plume_rise_pahts=None):
         spent_time = timeit.default_timer()
 
         super(PointSourceSector, self).__init__(
-            comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+            comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
             monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
             speciation_profiles_path, molecular_weights_path)
 
@@ -856,9 +856,9 @@ class PointSourceSector(Sector):
 
     def point_source_to_fid(self, catalog):
         catalog.reset_index(inplace=True)
-        catalog = catalog.to_crs(self.grid_shp.crs)
+        catalog = catalog.to_crs(self.grid.shapefile.crs)
 
-        catalog = gpd.sjoin(catalog, self.grid_shp.reset_index(), how="inner", op='intersects')
+        catalog = gpd.sjoin(catalog, self.grid.shapefile.reset_index(), how="inner", op='intersects')
 
         # Drops duplicates when the point source is on the boundary of the cell
         catalog = catalog[~catalog.index.duplicated(keep='first')]

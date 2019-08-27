@@ -21,6 +21,7 @@ libc.malloc_trim(0)
 
 MIN_RAIN = 0.254  # After USEPA (2011)
 RECOVERY_RATIO = 0.0872  # After Amato et al. (2012)
+FINAL_PROJ = {'init': 'epsg:3035'}
 
 
 aerosols = ['oc', 'ec', 'pno3', 'pso4', 'pmfine', 'pmc', 'poa', 'poc', 'pec', 'pcl', 'pnh4', 'pna', 'pmg', 'pk', 'pca',
@@ -43,7 +44,7 @@ class TrafficSector(Sector):
         relative to the timesteps.
     """
 
-    def __init__(self, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+    def __init__(self, comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
                  road_link_path, fleet_compo_path, speed_hourly_path, monthly_profiles_path, weekly_profiles_path,
                  hourly_mean_profiles_path, hourly_weekday_profiles_path, hourly_saturday_profiles_path,
                  hourly_sunday_profiles_path, ef_common_path, vehicle_list=None, load=0.5, speciation_map_path=None,
@@ -55,7 +56,7 @@ class TrafficSector(Sector):
         spent_time = timeit.default_timer()
         logger.write_log('===== TRAFFIC SECTOR =====')
         super(TrafficSector, self).__init__(
-            comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+            comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
             monthly_profiles_path, weekly_profiles_path, None, speciation_map_path, None, molecular_weights_path)
 
         self.resuspension_correction = resuspension_correction
@@ -363,6 +364,7 @@ class TrafficSector(Sector):
 
         self.logger.write_time_log('TrafficSector', 'read_road_links', timeit.default_timer() - spent_time)
         libc.malloc_trim(0)
+
         return df
 
     def read_ef(self, emission_type, pollutant_name):
@@ -1253,14 +1255,18 @@ class TrafficSector(Sector):
         if not os.path.exists(self.link_to_grid_csv):
             link_emissions_aux = link_emissions.loc[link_emissions['tstep'] == 0, :]
 
-            link_emissions_aux = link_emissions_aux.to_crs(self.grid_shp.crs)
+            if self.grid.grid_type in ['Lambert Conformal Conic', 'Mercator']:
+                grid_aux = self.grid.shapefile
+            else:
+                grid_aux = self.grid.shapefile.to_crs(FINAL_PROJ)
+                
+            link_emissions_aux = link_emissions_aux.to_crs(grid_aux.shapefile.crs)
 
-            link_emissions_aux = gpd.sjoin(link_emissions_aux, self.grid_shp.reset_index(),
-                                           how="inner", op='intersects')
+            link_emissions_aux = gpd.sjoin(link_emissions_aux, grid_aux.reset_index(), how="inner", op='intersects')
 
             link_emissions_aux = link_emissions_aux.loc[:, ['Link_ID', 'geometry', 'FID']]
 
-            link_emissions_aux = link_emissions_aux.merge(self.grid_shp.reset_index().loc[:, ['FID', 'geometry']],
+            link_emissions_aux = link_emissions_aux.merge(grid_aux.reset_index().loc[:, ['FID', 'geometry']],
                                                           on='FID', how='left')
 
             length_list = []
@@ -1366,7 +1372,6 @@ class TrafficSector(Sector):
 
             df_in = df_in.to_crs({u'units': u'm', u'no_defs': True, u'ellps': u'intl', u'proj': u'utm', u'zone': 31})
             if rline_shp:
-                gpd.GeoDataFrame().to_file
                 df_in.to_file(os.path.join(self.output_dir, 'roads.shp'))
 
             count = 0

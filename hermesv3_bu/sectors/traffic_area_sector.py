@@ -14,7 +14,7 @@ pmc_list = ['pmc', 'PMC']
 
 
 class TrafficAreaSector(Sector):
-    def __init__(self, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+    def __init__(self, comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
                  population_tif_path, speciation_map_path, molecular_weights_path,
                  do_evaporative, gasoline_path, total_pop_by_prov, nuts_shapefile, speciation_profiles_evaporative,
                  evaporative_ef_file, temperature_dir,
@@ -24,7 +24,7 @@ class TrafficAreaSector(Sector):
         logger.write_log('===== TRAFFIC AREA SECTOR =====')
 
         super(TrafficAreaSector, self).__init__(
-            comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+            comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
             None, None, None, speciation_map_path, None, molecular_weights_path)
 
         self.do_evaporative = do_evaporative
@@ -152,14 +152,14 @@ class TrafficAreaSector(Sector):
 
         if not os.path.exists(pop_nut_cell_path):
 
-            pop_by_nut = pop_by_nut.to_crs(self.grid_shp.crs)
+            pop_by_nut = pop_by_nut.to_crs(self.grid.shapefile.crs)
             # del pop_by_nut['']
             pop_by_nut['area_in'] = pop_by_nut.geometry.area
 
             # df = gpd.overlay(pop_by_nut, grid_shp, how='intersection')
-            df = self.spatial_overlays(pop_by_nut, self.grid_shp.reset_index(), how='intersection')
+            df = self.spatial_overlays(pop_by_nut, self.grid.shapefile.reset_index(), how='intersection')
 
-            df.crs = self.grid_shp.crs
+            df.crs = self.grid.shapefile.crs
             df.loc[:, 'data'] = df['data'] * (df.geometry.area / df['area_in'])
             del pop_by_nut['area_in']
             if write_file:
@@ -198,7 +198,7 @@ class TrafficAreaSector(Sector):
             aux_df = df.loc[:, ['FID'] + vehicle_type_list].groupby('FID').sum()
             aux_df.loc[:, 'FID'] = aux_df.index
 
-            geom = self.grid_shp.loc[aux_df.index, 'geometry']
+            geom = self.grid.shapefile.loc[aux_df.index, 'geometry']
 
             df = gpd.GeoDataFrame(aux_df, geometry=geom, crs=pop_nut_cell.crs)
             IoShapefile(self.comm).write_shapefile_serial(df, veh_by_cell_path)
@@ -384,7 +384,7 @@ class TrafficAreaSector(Sector):
 
         p_names = small_cities.columns.values
 
-        aux_grid = self.grid_shp.loc[small_cities.index.values, :].reset_index().copy()
+        aux_grid = self.grid.shapefile.loc[small_cities.index.values, :].reset_index().copy()
 
         aux_grid = self.add_timezone(aux_grid)
         aux_grid.set_index('FID', inplace=True)

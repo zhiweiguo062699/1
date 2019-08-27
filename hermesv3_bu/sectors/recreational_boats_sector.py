@@ -14,14 +14,14 @@ from hermesv3_bu.logger.log import Log
 
 
 class RecreationalBoatsSector(Sector):
-    def __init__(self, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+    def __init__(self, comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
                  boat_list, density_map_path, boats_data_path, ef_file_path, monthly_profiles_path,
                  weekly_profiles_path, hourly_profiles_path, speciation_map_path, speciation_profiles_path,
                  molecular_weights_path):
         spent_time = timeit.default_timer()
 
         super(RecreationalBoatsSector, self).__init__(
-            comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+            comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
             monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
             speciation_profiles_path, molecular_weights_path)
 
@@ -42,9 +42,9 @@ class RecreationalBoatsSector(Sector):
                 src_density_map = IoRaster(self.comm).to_shapefile_serie(density_map_path, nodata=0)
                 src_density_map = src_density_map.loc[src_density_map['data'] > 0]
                 src_density_map['data'] = src_density_map['data'] / src_density_map['data'].sum()
-                src_density_map.to_crs(self.grid_shp.crs, inplace=True)
+                src_density_map.to_crs(self.grid.shapefile.crs, inplace=True)
                 src_density_map['src_inter_fraction'] = src_density_map.area
-                src_density_map = self.spatial_overlays(src_density_map, self.grid_shp.reset_index(),
+                src_density_map = self.spatial_overlays(src_density_map, self.grid.shapefile.reset_index(),
                                                         how='intersection')
                 src_density_map['src_inter_fraction'] = src_density_map.area / src_density_map['src_inter_fraction']
 
@@ -52,8 +52,8 @@ class RecreationalBoatsSector(Sector):
                                                                                   axis="index")
 
                 src_density_map = src_density_map.loc[:, ['FID', 'data']].groupby('FID').sum()
-                src_density_map = gpd.GeoDataFrame(src_density_map, crs=self.grid_shp.crs,
-                                                   geometry=self.grid_shp.loc[src_density_map.index, 'geometry'])
+                src_density_map = gpd.GeoDataFrame(src_density_map, crs=self.grid.shapefile.crs,
+                                                   geometry=self.grid.shapefile.loc[src_density_map.index, 'geometry'])
                 src_density_map.reset_index(inplace=True)
 
                 IoShapefile(self.comm).write_shapefile_serial(src_density_map, density_map_auxpath)

@@ -10,13 +10,13 @@ from hermesv3_bu.io_server.io_shapefile import IoShapefile
 
 
 class ShippingPortSector(Sector):
-    def __init__(self, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+    def __init__(self, comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
                  vessel_list, port_list, hoteling_shapefile_path, maneuvering_shapefile_path, ef_dir,
                  engine_percent_path, tonnage_path, load_factor_path, power_path, monthly_profiles_path,
                  weekly_profiles_path, hourly_profiles_path, speciation_map_path, speciation_profiles_path,
                  molecular_weights_path):
         """
-        Initialise the Shipping port sectopr class
+        Initialise the Shipping port sector class
 
         :param comm: Communicator for the sector calculation.
         :type comm: MPI.COMM
@@ -83,7 +83,7 @@ class ShippingPortSector(Sector):
         logger.write_log('===== SHIPPING PORT SECTOR =====')
 
         super(ShippingPortSector, self).__init__(
-            comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+            comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
             monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
             speciation_profiles_path, molecular_weights_path)
 
@@ -579,9 +579,9 @@ class ShippingPortSector(Sector):
         dataframe.reset_index(inplace=True)
         dataframe.drop(columns=['code'], inplace=True)
 
-        dataframe.to_crs(self.grid_shp.crs, inplace=True)
+        dataframe.to_crs(self.grid.shapefile.crs, inplace=True)
         dataframe['src_inter_fraction'] = dataframe.geometry.area
-        dataframe = self.spatial_overlays(dataframe, self.grid_shp, how='intersection')
+        dataframe = self.spatial_overlays(dataframe, self.grid.shapefile, how='intersection')
         dataframe['src_inter_fraction'] = dataframe.geometry.area / dataframe['src_inter_fraction']
 
         dataframe[self.source_pollutants] = dataframe[self.source_pollutants].multiply(dataframe["src_inter_fraction"],
