@@ -21,7 +21,7 @@ libc.malloc_trim(0)
 
 MIN_RAIN = 0.254  # After USEPA (2011)
 RECOVERY_RATIO = 0.0872  # After Amato et al. (2012)
-FINAL_PROJ = {'init': 'epsg:3035'}
+FINAL_PROJ = {'init': 'epsg:3035'}  # https://epsg.io/3035 ETRS89 / LAEA Europe
 
 
 aerosols = ['oc', 'ec', 'pno3', 'pso4', 'pmfine', 'pmc', 'poa', 'poc', 'pec', 'pcl', 'pnh4', 'pna', 'pmg', 'pk', 'pca',
@@ -1258,6 +1258,8 @@ class TrafficSector(Sector):
             if self.grid.grid_type in ['Lambert Conformal Conic', 'Mercator']:
                 grid_aux = self.grid.shapefile
             else:
+                # For REGULAR and ROTATED grids, shapefile projection is trasnfromed to a metric projected coordinate
+                # system to derive the length in km.
                 grid_aux = self.grid.shapefile.to_crs(FINAL_PROJ)
 
             link_emissions_aux = link_emissions_aux.to_crs(grid_aux.crs)
