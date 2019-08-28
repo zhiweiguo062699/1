@@ -26,7 +26,8 @@ class TrafficAreaSector(Sector):
         logger.write_log('===== TRAFFIC AREA SECTOR =====')
         if do_evaporative:
             check_files([population_tif_path, speciation_map_path, molecular_weights_path,
-                         nuts_shapefile, gasoline_path, total_pop_by_prov])
+                         gasoline_path, total_pop_by_prov, nuts_shapefile, speciation_profiles_evaporative,
+                         evaporative_ef_file, temperature_dir])
         if do_small_cities:
             check_files([population_tif_path, speciation_map_path, molecular_weights_path,
                          small_cities_shp, speciation_profiles_small_cities, small_cities_ef_file,
