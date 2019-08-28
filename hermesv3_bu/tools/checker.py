@@ -22,6 +22,7 @@ def check_files(file_path_list, warning=False):
 
         if warning:
             warn(error_message.replace('ERROR', 'WARNING'))
+            return False
         else:
             error_exit(error_message)
     return True

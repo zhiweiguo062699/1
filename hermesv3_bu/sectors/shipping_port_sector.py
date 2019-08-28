@@ -7,6 +7,8 @@ import numpy as np
 import timeit
 from hermesv3_bu.logger.log import Log
 from hermesv3_bu.io_server.io_shapefile import IoShapefile
+from hermesv3_bu.grids.grid import Grid
+from hermesv3_bu.tools.checker import check_files, error_exit
 
 
 class ShippingPortSector(Sector):
@@ -28,8 +30,8 @@ class ShippingPortSector(Sector):
             created yet.
         :type auxiliary_dir: str
 
-        :param grid_shp: Shapefile with the grid horizontal distribution.
-        :type grid_shp: GeoDataFrame
+        :param grid: Grid object.
+        :type grid: Grid
 
         :param date_array: List of datetimes.
         :type date_array: list(datetime.datetime, ...)
@@ -82,6 +84,11 @@ class ShippingPortSector(Sector):
         spent_time = timeit.default_timer()
         logger.write_log('===== SHIPPING PORT SECTOR =====')
 
+        check_files(
+            [hoteling_shapefile_path, maneuvering_shapefile_path, engine_percent_path, tonnage_path, load_factor_path,
+             power_path, monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
+             speciation_profiles_path, molecular_weights_path, ef_dir])
+
         super(ShippingPortSector, self).__init__(
             comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
             monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
@@ -111,7 +118,7 @@ class ShippingPortSector(Sector):
             port_shp = gpd.sjoin(port_shp, self.clip.shapefile.to_crs(port_shp.crs), how='inner', op='intersects')
             port_list = np.unique(port_shp['code'].values)
             if len(port_list) < self.comm.Get_size():
-                raise ValueError("The chosen number of processors {0} exceeds the number of involved ports {1}.".format(
+                error_exit("The chosen number of processors {0} exceeds the number of involved ports {1}.".format(
                     self.comm.Get_size(), len(port_list)) + " Set {0} at shipping_port_processors value.".format(
                     len(port_list)))
             port_list = np.array_split(port_list, self.comm.Get_size())
@@ -120,8 +127,6 @@ class ShippingPortSector(Sector):
 
         port_list = self.comm.scatter(port_list, root=0)
 
-        if len(port_list) == 0:
-            raise ValueError("The number ")
         return list(port_list)
 
     def read_monthly_profiles(self, path):
