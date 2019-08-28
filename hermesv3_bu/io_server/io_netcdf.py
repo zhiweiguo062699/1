@@ -12,7 +12,7 @@ from cf_units import num2date, CALENDAR_STANDARD
 from geopandas import GeoDataFrame
 
 from hermesv3_bu.io_server.io_server import IoServer
-from hermesv3_bu.tools.checker import check_files, error_exit
+from hermesv3_bu.tools.checker import check_files
 
 
 class IoNetcdf(IoServer):
