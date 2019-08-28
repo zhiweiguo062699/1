@@ -19,7 +19,7 @@ class AgriculturalMachinerySector(AgriculturalSector):
                  vertical_levels, crop_list, nut_shapefile, machinery_list, land_uses_path, ef_files_dir,
                  monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
                  speciation_profiles_path, molecular_weights_path, landuse_by_nut, crop_by_nut, crop_from_landuse_path,
-                 machinery_distibution_nut_shapefile_path, deterioration_factor_path, load_factor_path,
+                 machinery_distribution_nut_shapefile_path, deterioration_factor_path, load_factor_path,
                  vehicle_ratio_path, vehicle_units_path, vehicle_workhours_path, vehicle_power_path,
                  crop_machinery_nuts3):
         spent_time = timeit.default_timer()
@@ -28,9 +28,9 @@ class AgriculturalMachinerySector(AgriculturalSector):
         check_files(
             [nut_shapefile, land_uses_path, ef_files_dir, monthly_profiles_path, weekly_profiles_path,
              hourly_profiles_path, speciation_map_path, speciation_profiles_path, molecular_weights_path,
-             landuse_by_nut, crop_by_nut, crop_from_landuse_path, machinery_distibution_nut_shapefile_path,
-             deterioration_factor_path, load_factor_path, vehicle_ratio_path, vehicle_units_path, vehicle_workhours_path,
-             vehicle_power_path, crop_machinery_nuts3])
+             landuse_by_nut, crop_by_nut, crop_from_landuse_path, machinery_distribution_nut_shapefile_path,
+             deterioration_factor_path, load_factor_path, vehicle_ratio_path, vehicle_units_path,
+             vehicle_workhours_path, vehicle_power_path, crop_machinery_nuts3])
         super(AgriculturalMachinerySector, self).__init__(
             comm_agr, comm, logger, auxiliary_dir, grid, clip, date_array, nut_shapefile, source_pollutants,
             vertical_levels, crop_list, land_uses_path, landuse_by_nut, crop_by_nut, crop_from_landuse_path,
@@ -41,7 +41,7 @@ class AgriculturalMachinerySector(AgriculturalSector):
         self.crop_machinery_nuts3 = self.read_profiles(crop_machinery_nuts3)
 
         self.crop_distribution = self.get_crop_distribution_by_nut(
-            self.crop_distribution, machinery_distibution_nut_shapefile_path, nut_code='nuts3_id')
+            self.crop_distribution, machinery_distribution_nut_shapefile_path, nut_code='nuts3_id')
 
         self.months = self.get_date_array_by_month()
 
