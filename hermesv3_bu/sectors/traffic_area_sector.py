@@ -9,6 +9,8 @@ import numpy as np
 from hermesv3_bu.sectors.sector import Sector
 from hermesv3_bu.io_server.io_shapefile import IoShapefile
 from hermesv3_bu.io_server.io_netcdf import IoNetcdf
+from hermesv3_bu.tools.checker import check_files, error_exit
+
 
 pmc_list = ['pmc', 'PMC']
 
@@ -22,7 +24,14 @@ class TrafficAreaSector(Sector):
                  small_cities_monthly_profile, small_cities_weekly_profile, small_cities_hourly_profile):
         spent_time = timeit.default_timer()
         logger.write_log('===== TRAFFIC AREA SECTOR =====')
-
+        if do_evaporative:
+            check_files([population_tif_path, speciation_map_path, molecular_weights_path,
+                         gasoline_path, total_pop_by_prov, nuts_shapefile, speciation_profiles_evaporative,
+                         evaporative_ef_file, temperature_dir])
+        if do_small_cities:
+            check_files([population_tif_path, speciation_map_path, molecular_weights_path,
+                         small_cities_shp, speciation_profiles_small_cities, small_cities_ef_file,
+                         small_cities_monthly_profile, small_cities_weekly_profile, small_cities_hourly_profile])
         super(TrafficAreaSector, self).__init__(
             comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
             None, None, None, speciation_map_path, None, molecular_weights_path)
@@ -456,7 +465,7 @@ class TrafficAreaSector(Sector):
         elif self.do_small_cities:
             dataset = self.small_cities
         else:
-            raise ValueError('No traffic area emission selected. do_evaporative and do_small_cities are False')
+            error_exit('No traffic area emission selected. do_evaporative and do_small_cities are False')
 
         dataset['layer'] = 0
         dataset = dataset.groupby(['FID', 'layer', 'tstep']).sum()

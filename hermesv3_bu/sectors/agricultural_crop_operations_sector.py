@@ -8,6 +8,8 @@ import numpy as np
 from hermesv3_bu.sectors.agricultural_sector import AgriculturalSector
 from hermesv3_bu.io_server.io_shapefile import IoShapefile
 from hermesv3_bu.logger.log import Log
+from hermesv3_bu.grids.grid import Grid
+from hermesv3_bu.tools.checker import check_files
 
 
 class AgriculturalCropOperationsSector(AgriculturalSector):
@@ -21,8 +23,8 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
             not created yet.
         :type auxiliary_dir: str
 
-        :param grid_shp: Shapefile that contains the destination grid. It must contains the 'FID' (cell num).
-        :type grid_shp: GeoPandas.GeoDataframe
+        :param grid: Grid object.
+        :type grid: Grid
 
         :param clip: Path to the shapefile that contains the region of interest.
         :type clip: str
@@ -89,6 +91,13 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
         """
         spent_time = timeit.default_timer()
         logger.write_log('===== AGRICULTURAL CROP OPERATIONS SECTOR =====')
+
+        check_files(
+            [nut_shapefile_path, land_uses_path, monthly_profiles_path, weekly_profiles_path,
+             hourly_profiles_path, speciation_map_path, speciation_profiles_path, molecular_weights_path,
+             landuse_by_nut, crop_by_nut, crop_from_landuse_path] +
+            [os.path.join(ef_dir, ef_file) for ef_file in ['{0}.csv'.format(pol) for pol in source_pollutants]])
+
         super(AgriculturalCropOperationsSector, self).__init__(
             comm_agr, comm, logger, auxiliary_dir, grid, clip, date_array, nut_shapefile_path, source_pollutants,
             vertical_levels, crop_list, land_uses_path, landuse_by_nut, crop_by_nut, crop_from_landuse_path, ef_dir,

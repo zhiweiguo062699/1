@@ -4,14 +4,15 @@ import sys
 import os
 from mpi4py import MPI
 from datetime import timedelta
-from hermesv3_bu.io_server.io_server import IoServer
 import numpy as np
 import geopandas as gpd
 from netCDF4 import Dataset
 from shapely.geometry import Point
 from cf_units import num2date, CALENDAR_STANDARD
-
 from geopandas import GeoDataFrame
+
+from hermesv3_bu.io_server.io_server import IoServer
+from hermesv3_bu.tools.checker import check_files
 
 
 class IoNetcdf(IoServer):
@@ -42,6 +43,7 @@ class IoNetcdf(IoServer):
         :return: GeoDataframe with the data in the desired points.
         :rtype: geopandas.GeoDataframe
         """
+        check_files(netcdf_path)
         nc = Dataset(netcdf_path, mode='r')
         lat_o = nc.variables['latitude'][:]
         lon_o = nc.variables['longitude'][:]
@@ -106,7 +108,7 @@ class IoNetcdf(IoServer):
         path = os.path.join(netcdf_dir, '{0}_{1}{2}.nc'.format(var_name, date_array[0].year,
                                                                str(date_array[0].month).zfill(2)))
         # self.logger.write_log('Getting temperature from {0}'.format(path), message_level=2)
-
+        check_files(path)
         nc = Dataset(path, mode='r')
         lat_o = nc.variables['latitude'][:]
         lon_o = nc.variables['longitude'][:]

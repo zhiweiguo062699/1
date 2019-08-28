@@ -1,19 +1,16 @@
 #!/usr/bin/env python
 
-import sys
 import os
 import timeit
-from warnings import warn
 from mpi4py import MPI
 import rasterio
 from rasterio.mask import mask
 import geopandas as gpd
-import pandas as pd
 import numpy as np
 from shapely.geometry import Polygon
 
-
 from hermesv3_bu.io_server.io_server import IoServer
+from hermesv3_bu.tools.checker import check_files
 
 
 class IoRaster(IoServer):
@@ -49,7 +46,7 @@ class IoRaster(IoServer):
             Function to parse features from GeoDataFrame in such a manner that rasterio wants them"""
             import json
             return [json.loads(gdf.to_json())['features'][0]['geometry']]
-
+        check_files([raster_path, shape_path])
         data = rasterio.open(raster_path)
         geo = gpd.read_file(shape_path)
         if len(geo) > 1:
@@ -106,7 +103,7 @@ class IoRaster(IoServer):
             Function to parse features from GeoDataFrame in such a manner that rasterio wants them"""
             import json
             return [json.loads(gdf.to_json())['features'][0]['geometry']]
-
+        check_files(raster_path)
         data = rasterio.open(raster_path)
 
         if len(geo) > 1:

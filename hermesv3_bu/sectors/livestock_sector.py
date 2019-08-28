@@ -12,6 +12,8 @@ from hermesv3_bu.sectors.sector import Sector
 from hermesv3_bu.io_server.io_shapefile import IoShapefile
 from hermesv3_bu.io_server.io_raster import IoRaster
 from hermesv3_bu.io_server.io_netcdf import IoNetcdf
+from hermesv3_bu.grids.grid import Grid
+from hermesv3_bu.tools.checker import check_files, error_exit
 
 # Constants for grassing daily factor estimation
 SIGMA = 60
@@ -43,8 +45,8 @@ class LivestockSector(Sector):
             ['nox_no', 'nh3', 'nmvoc', 'pm10', 'pm25']
         :type source_pollutants: list
 
-        :param grid_shp: Shapefile that contains the destination grid. It must contains the 'FID' (cell num).
-        :type grid_shp: GeoPandas.GeoDataframe
+        :param grid: Grid object.
+        :type grid: Grid
 
         :param clip: Clip.
         :type clip: Clip
@@ -153,6 +155,18 @@ class LivestockSector(Sector):
         """
         spent_time = timeit.default_timer()
         logger.write_log('===== LIVESTOCK SECTOR =====')
+        check_files(
+            [gridded_livestock_path.replace('<animal>', animal) for animal in animal_list] +
+            [correction_split_factors_path.replace('<animal>', animal) for animal in animal_list] +
+            [temperature_dir, wind_speed_dir,
+             denominator_yearly_factor_dir, monthly_profiles_path, weekly_profiles_path, hourly_profiles_path,
+             speciation_map_path, speciation_profiles_path, molecular_weights_path, nut_shapefile_path] +
+            [os.path.join(ef_dir, ef_file) for ef_file in
+             ['{0}.csv'.format(pol) for pol in source_pollutants if pol not in ['pm10', 'pm25']]])
+        for pol in source_pollutants:
+            if pol in ['pm10', 'pm25']:
+                check_files(os.path.join(ef_dir, 'pm.csv'))
+
         super(LivestockSector, self).__init__(
             comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
             monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
@@ -722,7 +736,7 @@ class LivestockSector(Sector):
                                 (animals_df[animal['Code']] * animals_df['FD_housing_closed']).multiply(
                                     animal['EF_housing'])
                         else:
-                            raise KeyError('Animal {0} not found on the nh3 emission factors file.'.format(animal.Code))
+                            error_exit('Animal {0} not found on the nh3 emission factors file.'.format(animal.Code))
                         # Storage emissions
                         out_df.loc[:, out_p] += \
                             (animals_df[animal['Code']] * animals_df['FD_storage']).multiply(animal['EF_yarding'])

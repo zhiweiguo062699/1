@@ -10,6 +10,8 @@ import geopandas as gpd
 from warnings import warn
 
 from hermesv3_bu.sectors.sector import Sector
+from hermesv3_bu.grids.grid import Grid
+from hermesv3_bu.tools.checker import check_files, error_exit
 
 PHASE_TYPE = {'taxi_out': 'departure', 'pre-taxi_out': 'departure', 'takeoff': 'departure', 'climbout': 'departure',
               'approach': 'arrival', 'taxi_in': 'arrival', 'post-taxi_in': 'arrival', 'landing': 'arrival',
@@ -50,8 +52,8 @@ class AviationSector(Sector):
             created yet.
         :type auxiliary_dir: str
 
-        :param grid_shp: Shapefile with the grid horizontal distribution.
-        :type grid_shp: GeoDataFrame
+        :param grid: Grid object.
+        :type grid: Grid
 
         :param date_array: List of datetimes.
         :type date_array: list(datetime.datetime, ...)
@@ -123,8 +125,16 @@ class AviationSector(Sector):
             file must contain the 'Specie' and 'MW' columns.
         :type molecular_weights_path: str
         """
+
         spent_time = timeit.default_timer()
+
         logger.write_log('===== AVIATION SECTOR =====')
+        check_files(
+            [airport_shapefile_path, airport_runways_shapefile_path, airport_runways_corners_shapefile_path,
+             airport_trajectories_shapefile_path, operations_path, planes_path, times_path, weekly_profiles_path,
+             hourly_profiles_path, speciation_map_path, speciation_profiles_path, molecular_weights_path] +
+            [os.path.join(ef_dir, PHASE_EF_FILE[phase]) for phase in PHASE_TYPE.keys()])
+
         super(AviationSector, self).__init__(
             comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels, None,
             weekly_profiles_path, hourly_profiles_path, speciation_map_path, speciation_profiles_path,
@@ -295,7 +305,7 @@ class AviationSector(Sector):
             operations = operations.loc[operations['plane_id'].isin(self.plane_list), :]
 
         if len(operations) == 0:
-            raise NameError("The plane/s defined in the plane_list do not exist.")
+            error_exit("The plane/s defined in the plane_list do not exist.")
         operations = operations.loc[operations['airport_id'].isin(self.airport_list), :]
         operations.set_index(['airport_id', 'plane_id', 'operation'], inplace=True)
         operations.rename(columns={'1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10,
@@ -373,8 +383,8 @@ class AviationSector(Sector):
                 shp_airport_list = list(set(conf_airport_list).intersection(shp_airport_list))
 
             if len(shp_airport_list) == 0:
-                raise NameError("No airports intersect with the defined domain or the defined aiport/s in the " +
-                                "airport_list do no exist ")
+                error_exit("No airports intersect with the defined domain or the defined aiport/s in the " +
+                           "airport_list do no exist ")
 
             airports_with_operations = np.unique(pd.read_csv(operations_file, usecols=['airport_id']).values)
 
@@ -391,9 +401,9 @@ class AviationSector(Sector):
                         for i in range(self.comm.size)]
             for sublist in new_list:
                 if len(sublist) == 0:
-                    raise ValueError("ERROR: The selected number of processors is to high. " +
-                                     "The maximum number of processors accepted are {0}".format(max_len) +
-                                     "(Maximum number of airports included in the working domain")
+                    error_exit("The selected number of processors is to high. " +
+                               "The maximum number of processors accepted are {0}".format(max_len) +
+                               "(Maximum number of airports included in the working domain")
         else:
             new_list = None
 

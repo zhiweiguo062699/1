@@ -10,6 +10,7 @@ import geopandas as gpd
 from mpi4py import MPI
 
 from hermesv3_bu.io_server.io_server import IoServer
+from hermesv3_bu.tools.checker import check_files
 
 
 class IoShapefile(IoServer):
@@ -59,13 +60,14 @@ class IoShapefile(IoServer):
         return True
 
     def read_shapefile_serial(self, path):
-
+        check_files(path)
         gdf = gpd.read_file(path)
 
         return gdf
 
     def read_shapefile(self, path, rank=0):
         if self.comm.Get_rank() == rank:
+            check_files(path)
             gdf = gpd.read_file(path)
             gdf = np.array_split(gdf, self.comm.Get_size())
         else:
