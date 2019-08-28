@@ -344,8 +344,11 @@ class TrafficSector(Sector):
 
         if self.comm.Get_rank() == 0:
             df = gpd.read_file(path)
-            df.drop(columns=['Adminis', 'CCAA', 'NETWORK_ID', 'Province', 'Road_name', 'aadt_m_sat', 'aadt_m_sun',
-                             'aadt_m_wd', 'Source'], inplace=True)
+            try:
+                df.drop(columns=['Adminis', 'CCAA', 'NETWORK_ID', 'Province', 'Road_name', 'aadt_m_sat', 'aadt_m_sun',
+                                 'aadt_m_wd', 'Source'], inplace=True)
+            except KeyError as e:
+                error_exit(str(e).replace('axis', 'the road links shapefile'))
             libc.malloc_trim(0)
             # df.to_file('~/temp/road_links.shp')
             df = gpd.sjoin(df, self.clip.shapefile.to_crs(df.crs), how="inner", op='intersects')
@@ -358,7 +361,11 @@ class TrafficSector(Sector):
             df = df[df['CONS'] != 0]
             df = df[df['aadt'] > 0]
 
-            df.drop(columns=['CONS'], inplace=True)
+            try:
+                df.drop(columns=['CONS'], inplace=True)
+            except KeyError as e:
+                error_exit(str(e).replace('axis', 'the road links shapefile'))
+
             df = df.loc[df['aadt_m_mn'] != 'NULL', :]
             libc.malloc_trim(0)
 
@@ -429,7 +436,10 @@ class TrafficSector(Sector):
 
         # Pollutants different to NH3
         if pollutant_name != 'nh3':
-            df.drop(columns=['Copert_V_name'], inplace=True)
+            try:
+                df.drop(columns=['Copert_V_name'], inplace=True)
+            except KeyError as e:
+                error_exit(str(e).replace('axis', 'the {0} file'.format(ef_path)))
 
             # For hot emission factors
             if emission_type == 'hot':
@@ -437,8 +447,10 @@ class TrafficSector(Sector):
 
                 df.loc[df['Technology'].isnull(), 'Technology'] = ''
                 df = df[df['Technology'] != 'EGR']
-
-                df.drop(columns=['Technology', 'Load'], inplace=True)
+                try:
+                    df.drop(columns=['Technology', 'Load'], inplace=True)
+                except KeyError as e:
+                    error_exit(str(e).replace('axis', 'the {0} file'.format(ef_path)))
 
                 # Split the EF file into small DataFrames divided by column Road.Slope and Mode restrictions.
                 df_code_slope_road = df[df['Road.Slope'].notnull() & df['Mode'].notnull()]
@@ -457,7 +469,10 @@ class TrafficSector(Sector):
                 return df
         # NH3 pollutant
         else:
-            df.drop(columns=['Copert_V_name'], inplace=True)
+            try:
+                df.drop(columns=['Copert_V_name'], inplace=True)
+            except KeyError as e:
+                error_exit(str(e).replace('axis', 'the {0} file'.format(ef_path)))
             # Specific case for cold NH3 emission factors that needs the hot emission factors and the cold ones.
             if emission_type == 'cold':
                 df_hot = self.read_ef('hot', pollutant_name)
@@ -465,7 +480,10 @@ class TrafficSector(Sector):
 
                 df = df.merge(df_hot, left_on=['Code', 'Mode'], right_on=['Code_hot', 'Mode_hot'],
                               how='left')
-                df.drop(columns=['Cmileage_hot', 'Mode_hot', 'Code_hot'], inplace=True)
+                try:
+                    df.drop(columns=['Cmileage_hot', 'Mode_hot', 'Code_hot'], inplace=True)
+                except KeyError as e:
+                    error_exit(str(e).replace('axis', 'the {0} file'.format(ef_path)))
 
             return df
 
@@ -551,7 +569,10 @@ class TrafficSector(Sector):
         df = df[df['Fleet_value'] > 0]
 
         # Deleting unused columns
-        df.drop(columns=['aadt', 'PcLight', 'PcHeavy', 'PcMoto', 'PcMoped', 'Fleet_Class'], inplace=True)
+        try:
+            df.drop(columns=['aadt', 'PcLight', 'PcHeavy', 'PcMoto', 'PcMoped', 'Fleet_Class'], inplace=True)
+        except KeyError as e:
+            error_exit(str(e).replace('axis', 'the road links shapefile'))
         libc.malloc_trim(0)
 
         self.logger.write_time_log('TrafficSector', 'update_fleet_value', timeit.default_timer() - spent_time)
@@ -645,10 +666,13 @@ class TrafficSector(Sector):
                 df[['month', 'weekday', 'hour', 'aadt_m_mn', 'aadt_week', 'aadt_h_mn', 'aadt_h_wd', 'aadt_h_sat',
                     'aadt_h_sun']])
 
-        df.drop(columns=['month', 'weekday', 'hour', 'P_speed', 'speed_mean', 'sp_wd', 'sp_we', 'sp_hour_mo',
-                         'sp_hour_tu', 'sp_hour_we', 'sp_hour_th', 'sp_hour_fr', 'sp_hour_sa', 'sp_hour_su', 'aux_date',
-                         'aadt_m_mn', 'aadt_h_mn', 'aadt_h_wd', 'aadt_h_sat', 'aadt_h_sun', 'aadt_week', 'start_date'],
-                inplace=True)
+        try:
+            df.drop(columns=['month', 'weekday', 'hour', 'P_speed', 'speed_mean', 'sp_wd', 'sp_we', 'sp_hour_mo',
+                             'sp_hour_tu', 'sp_hour_we', 'sp_hour_th', 'sp_hour_fr', 'sp_hour_sa', 'sp_hour_su',
+                             'aux_date', 'aadt_m_mn', 'aadt_h_mn', 'aadt_h_wd', 'aadt_h_sat', 'aadt_h_sun', 'aadt_week',
+                             'start_date'], inplace=True)
+        except KeyError as e:
+            error_exit(str(e).replace('axis', 'the road links shapefile'))
         libc.malloc_trim(0)
 
         self.logger.write_time_log('TrafficSector', 'calculate_time_dependent_values',
