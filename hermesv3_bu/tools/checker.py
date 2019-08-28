@@ -3,9 +3,10 @@
 import os
 import sys
 from mpi4py import MPI
+from warnings import warn
 
 
-def check_file(file_path_list, warning=False):
+def check_files(file_path_list, warning=False):
     if isinstance(file_path_list, str):
         file_path_list = [file_path_list]
 
@@ -18,5 +19,16 @@ def check_file(file_path_list, warning=False):
         error_message = "*ERROR* (Rank {0}) File/s not found:".format(MPI.COMM_WORLD.Get_rank())
         for file_path in files_not_found:
             error_message += "\n\t{0}".format(file_path)
-        print(error_message, file=sys.stderr)
-        MPI.COMM_WORLD.Abort()
+
+        if warning:
+            warn(error_message.replace('ERROR', 'WARNING'))
+        else:
+            error_exit(error_message)
+    return True
+
+
+def error_exit(error_message):
+    if not error_message[:7] == "*ERROR*":
+        error_message = "*ERROR* (Rank {0}) ".format(MPI.COMM_WORLD.Get_rank()) + error_message
+    print(error_message, file=sys.stderr)
+    MPI.COMM_WORLD.Abort()
