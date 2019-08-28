@@ -12,7 +12,7 @@ from hermesv3_bu.sectors.sector import Sector
 from hermesv3_bu.io_server.io_raster import IoRaster
 from hermesv3_bu.io_server.io_shapefile import IoShapefile
 from hermesv3_bu.io_server.io_netcdf import IoNetcdf
-from hermesv3_bu.logger.log import Log
+from hermesv3_bu.tools.checker import check_files
 
 
 class ResidentialSector(Sector):
@@ -23,7 +23,12 @@ class ResidentialSector(Sector):
                  heating_degree_day_path, temperature_path, hourly_profiles_path, speciation_map_path,
                  speciation_profiles_path, molecular_weights_path):
         spent_time = timeit.default_timer()
-
+        logger.write_log('===== RESIDENTIAL COMBUSTION SECTOR =====')
+        check_files(
+            [prov_shapefile, ccaa_shapefile, population_density_map, population_type_map, population_type_nuts2,
+             population_type_nuts3, energy_consumption_nuts3, energy_consumption_nuts2, residential_spatial_proxies,
+             residential_ef_files_path, temperature_path, hourly_profiles_path, speciation_map_path,
+             speciation_profiles_path, molecular_weights_path])
         super(ResidentialSector, self).__init__(
             comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
             None, None, hourly_profiles_path, speciation_map_path,
