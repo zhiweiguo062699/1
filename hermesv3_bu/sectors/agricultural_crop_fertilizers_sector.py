@@ -10,8 +10,9 @@ from hermesv3_bu.io_server.io_raster import IoRaster
 from hermesv3_bu.io_server.io_shapefile import IoShapefile
 from hermesv3_bu.io_server.io_netcdf import IoNetcdf
 from hermesv3_bu.logger.log import Log
+from hermesv3_bu.tools.checker import check_files
 
-formula = True
+FORMULA = True
 
 
 class AgriculturalCropFertilizersSector(AgriculturalSector):
@@ -23,6 +24,11 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
                  crop_growing_degree_day_path):
         spent_time = timeit.default_timer()
         logger.write_log('===== AGRICULTURAL CROP FERTILIZERS SECTOR =====')
+        check_files(
+            [nut_shapefile, land_uses_path, hourly_profiles_path, speciation_map_path, speciation_profiles_path,
+             molecular_weights_path, landuse_by_nut, crop_by_nut, crop_from_landuse_path, cultivated_ratio,
+             fertilizer_rate, crop_f_parameter, crop_f_fertilizers, gridded_ph, gridded_cec, crop_calendar,
+             temperature_path, wind_speed_path])
         super(AgriculturalCropFertilizersSector, self).__init__(
             comm_agr, comm, logger, auxiliary_dir, grid, clip, date_array, nut_shapefile, source_pollutants,
             vertical_levels, crop_list, land_uses_path, landuse_by_nut, crop_by_nut, crop_from_landuse_path, None, None,
@@ -93,7 +99,7 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
         for crop in self.crop_list:
             crop_ef = self.gridded_constants.loc[:, ['geometry', 'nut_code']].copy()
             # f_ph
-            if formula:
+            if FORMULA:
                 # After Zhang et al. (2018)
                 crop_ef['f_ph'] = (0.067 * self.gridded_constants['ph'] ** 2) - \
                                   (0.69 * self.gridded_constants['ph']) + 0.68
