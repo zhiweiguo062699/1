@@ -63,12 +63,42 @@ class PointSourceSector(Sector):
 
         self.plume_rise = plume_rise
         self.catalog = self.read_catalog_shapefile(catalog_path, sector_list)
-
+        self.check_catalog()
         self.catalog_measured = self.read_catalog_for_measured_emissions(catalog_path, sector_list)
         self.measured_path = measured_emission_path
         self.plume_rise_pahts = plume_rise_pahts
 
         self.logger.write_time_log('PointSourceSector', '__init__', timeit.default_timer() - spent_time)
+
+    def check_catalog(self):
+        # Checking monthly profiles IDs
+        links_month = set(np.unique(self.catalog['P_month'].dropna().values))
+        month = set(self.monthly_profiles.index.values)
+        month_res = links_month - month
+        if len(month_res) > 0:
+            error_exit("The following monthly profile IDs reported in the point sources shapefile do not appear " +
+                       "in the monthly profiles file. {0}".format(month_res))
+        # Checking weekly profiles IDs
+        links_week = set(np.unique(self.catalog['P_week'].dropna().values))
+        week = set(self.weekly_profiles.index.values)
+        week_res = links_week - week
+        if len(week_res) > 0:
+            error_exit("The following weekly profile IDs reported in the point sources shapefile do not appear " +
+                       "in the weekly profiles file. {0}".format(week_res))
+        # Checking hourly profiles IDs
+        links_hour = set(np.unique(self.catalog['P_hour'].dropna().values))
+        hour = set(self.hourly_profiles.index.values)
+        hour_res = links_hour - hour
+        if len(hour_res) > 0:
+            error_exit("The following hourly profile IDs reported in the point sources shapefile do not appear " +
+                       "in the hourly profiles file. {0}".format(hour_res))
+        # Checking specly profiles IDs
+        links_spec = set(np.unique(self.catalog['P_spec'].dropna().values))
+        spec = set(self.speciation_profile.index.values)
+        spec_res = links_spec - spec
+        if len(spec_res) > 0:
+            error_exit("The following speciation profile IDs reported in the point sources shapefile do not appear " +
+                       "in the speciation profiles file. {0}".format(month_res))
 
     def read_catalog_csv(self, catalog_path, sector_list):
         """
