@@ -10,7 +10,7 @@ import geopandas as gpd
 from hermesv3_bu.sectors.sector import Sector
 from hermesv3_bu.io_server.io_shapefile import IoShapefile
 from hermesv3_bu.io_server.io_raster import IoRaster
-from hermesv3_bu.logger.log import Log
+from hermesv3_bu.tools.checker import check_files
 
 
 class RecreationalBoatsSector(Sector):
@@ -19,7 +19,10 @@ class RecreationalBoatsSector(Sector):
                  weekly_profiles_path, hourly_profiles_path, speciation_map_path, speciation_profiles_path,
                  molecular_weights_path):
         spent_time = timeit.default_timer()
-
+        logger.write_log('===== RECREATIONAL BOATS SECTOR =====')
+        check_files(
+            [density_map_path, boats_data_path, ef_file_path, monthly_profiles_path, weekly_profiles_path,
+             hourly_profiles_path, speciation_map_path, speciation_profiles_path, molecular_weights_path])
         super(RecreationalBoatsSector, self).__init__(
             comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
             monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
