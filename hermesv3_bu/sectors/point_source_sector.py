@@ -10,6 +10,7 @@ from hermesv3_bu.sectors.sector import Sector
 from hermesv3_bu.io_server.io_shapefile import IoShapefile
 # from hermesv3_bu.io_server.io_netcdf import IoNetcdf
 from hermesv3_bu.logger.log import Log
+from hermesv3_bu.tools.checker import check_files, error_exit
 
 INTERPOLATION_TYPE = 'linear'
 # GRAVITI m/s-2
@@ -22,8 +23,8 @@ class PointSourceSector(Sector):
     """
     Class to calculate the Point Source emissions
 
-    :param grid_shp: Grid of the destination domain
-    :type grid_shp: Grid
+    :param grid: Grid of the destination domain
+    :type grid: Grid
 
     :param catalog_path: Path to the fine that contains all the information for each point source.
     :type catalog_path: str
@@ -51,7 +52,10 @@ class PointSourceSector(Sector):
                  speciation_map_path, speciation_profiles_path, sector_list, measured_emission_path,
                  molecular_weights_path, plume_rise=False, plume_rise_pahts=None):
         spent_time = timeit.default_timer()
-
+        logger.write_log('===== POINT SOURCES SECTOR =====')
+        check_files(
+            [catalog_path, monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
+             speciation_profiles_path])
         super(PointSourceSector, self).__init__(
             comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
             monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
@@ -782,7 +786,7 @@ class PointSourceSector(Sector):
             try:
                 test.set_index(x.index, inplace=True)
             except ValueError:
-                raise IOError('No measured emissions for the selected dates: {0}'.format(x.values))
+                error_exit('No measured emissions for the selected dates: {0}'.format(x.values))
 
             return test[pollutant]
 
