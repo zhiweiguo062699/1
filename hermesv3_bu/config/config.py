@@ -1,26 +1,9 @@
 #!/usr/bin/env python
 
-# Copyright 2018 Earth Sciences Department, BSC-CNS
-#
-# This file is part of HERMESv3_BU.
-#
-# HERMESv3_BU is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# HERMESv3_BU is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with HERMESv3_BU. If not, see <http://www.gnu.org/licenses/>.
-
-
 from configargparse import ArgParser
 import os
 from mpi4py import MPI
+from hermesv3_bu.tools.checker import error_exit
 
 
 class Config(ArgParser):
@@ -566,10 +549,10 @@ class Config(ArgParser):
                 break
             except ValueError as e:
                 if str(e) == 'day is out of range for month':
-                    raise ValueError(e)
+                    error_exit(e)
 
         if date is None:
-            raise ValueError("Date format '{0}' not contemplated. Use one of this: {1}".format(str_date, format_types))
+            error_exit("Date format '{0}' not contemplated. Use one of this: {1}".format(str_date, format_types))
 
         return date
 

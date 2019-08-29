@@ -9,6 +9,7 @@ from hermesv3_bu.writer.writer import Writer
 from mpi4py import MPI
 import timeit
 from hermesv3_bu.logger.log import Log
+from hermesv3_bu.tools.checker import error_exit
 
 
 class CmaqWriter(Writer):
@@ -67,8 +68,8 @@ class CmaqWriter(Writer):
         super(CmaqWriter, self).__init__(comm_world, comm_write, logger, netcdf_path, grid, date_array, pollutant_info,
                                          rank_distribution, emission_summary)
         if self.grid.grid_type not in ['Lambert Conformal Conic']:
-            raise TypeError("ERROR: Only Lambert Conformal Conic grid is implemented for CMAQ. " +
-                            "The current grid type is '{0}'".format(self.grid.grid_type))
+            error_exit("Only Lambert Conformal Conic grid is implemented for CMAQ. " +
+                       "The current grid type is '{0}'".format(self.grid.grid_type))
 
         self.global_attributes_order = [
             'IOAPI_VERSION', 'EXEC_ID', 'FTYPE', 'CDATE', 'CTIME', 'WDATE', 'WTIME', 'SDATE', 'STIME', 'TSTEP', 'NTHIK',
@@ -111,8 +112,8 @@ class CmaqWriter(Writer):
 
         for i, (pollutant, variable) in enumerate(self.pollutant_info.iterrows()):
             if variable.get('units') not in ['mol.s-1', 'g.s-1', 'mole/s', 'g/s']:
-                raise ValueError("'{0}' unit is not supported for CMAQ emission ".format(variable.get('units')) +
-                                 "input file. Set mol.s-1 or g.s-1 in the speciation_map file.")
+                error_exit("'{0}' unit is not supported for CMAQ emission ".format(variable.get('units')) +
+                           "input file. Set mol.s-1 or g.s-1 in the speciation_map file.")
             new_pollutant_info.loc[i, 'pollutant'] = pollutant
             if variable.get('units') in ['mol.s-1', 'mole/s']:
                 new_pollutant_info.loc[i, 'units'] = "{:<16}".format('mole/s')

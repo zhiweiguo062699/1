@@ -6,6 +6,7 @@ import timeit
 import geopandas as gpd
 from hermesv3_bu.clipping.clip import Clip
 from hermesv3_bu.logger.log import Log
+from hermesv3_bu.tools.checker import error_exit
 
 
 class ShapefileClip(Clip):
@@ -48,7 +49,7 @@ class ShapefileClip(Clip):
                 clip = gpd.GeoDataFrame(geometry=[clip.unary_union], crs=clip.crs)
                 clip.to_file(self.shapefile_path)
             else:
-                raise IOError(" Clip shapefile {0} not found.")
+                error_exit(" Clip shapefile {0} not found.")
         else:
             clip = gpd.read_file(self.shapefile_path)
         self.logger.write_log("\tClip created at '{0}'".format(self.shapefile_path), 3)

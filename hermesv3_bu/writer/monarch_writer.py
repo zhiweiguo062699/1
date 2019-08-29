@@ -6,6 +6,7 @@ from hermesv3_bu.writer.writer import Writer
 from mpi4py import MPI
 import timeit
 from hermesv3_bu.logger.log import Log
+from hermesv3_bu.tools.checker import error_exit
 
 
 class MonarchWriter(Writer):
@@ -62,13 +63,13 @@ class MonarchWriter(Writer):
                                             pollutant_info, rank_distribution, emission_summary)
 
         if self.grid.grid_type not in ['Rotated']:
-            raise TypeError("ERROR: Only Rotated grid is implemented for MONARCH. " +
-                            "The current grid type is '{0}'".format(self.grid.grid_type))
+            error_exit("ERROR: Only Rotated grid is implemented for MONARCH. " +
+                       "The current grid type is '{0}'".format(self.grid.grid_type))
 
         for i, (pollutant, variable) in enumerate(self.pollutant_info.iterrows()):
             if variable.get('units') not in ['mol.s-1.m-2', 'kg.s-1.m-2']:
-                raise ValueError("'{0}' unit is not supported for CMAQ emission ".format(variable.get('units')) +
-                                 "input file. Set mol.s-1.m-2 or kg.s-1.m-2 in the speciation_map file.")
+                error_exit("'{0}' unit is not supported for CMAQ emission ".format(variable.get('units')) +
+                           "input file. Set mol.s-1.m-2 or kg.s-1.m-2 in the speciation_map file.")
 
         self.logger.write_time_log('MonarchWriter', '__init__', timeit.default_timer() - spent_time)
 

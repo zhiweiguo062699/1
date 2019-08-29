@@ -12,7 +12,7 @@ from cf_units import num2date, CALENDAR_STANDARD
 from geopandas import GeoDataFrame
 
 from hermesv3_bu.io_server.io_server import IoServer
-from hermesv3_bu.tools.checker import check_files
+from hermesv3_bu.tools.checker import check_files, error_exit
 
 
 class IoNetcdf(IoServer):
@@ -45,11 +45,17 @@ class IoNetcdf(IoServer):
         """
         check_files(netcdf_path)
         nc = Dataset(netcdf_path, mode='r')
-        lat_o = nc.variables['latitude'][:]
-        lon_o = nc.variables['longitude'][:]
+        try:
+            lat_o = nc.variables['latitude'][:]
+            lon_o = nc.variables['longitude'][:]
+        except KeyError as e:
+            error_exit("{0} variable not found in {1} file.".format(str(e), netcdf_path))
 
         if date_type == 'daily':
-            time = nc.variables['time']
+            try:
+                time = nc.variables['time']
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), netcdf_path))
             # From time array to list of dates.
             time_array = num2date(time[:], time.units, CALENDAR_STANDARD)
             time_array = np.array([aux.date() for aux in time_array])
@@ -72,7 +78,10 @@ class IoNetcdf(IoServer):
         del lat_o, lon_o
 
         # Reads the tas variable of the xone and the times needed.
-        var = nc.variables[var_name][i_time, j_min:j_max, i_min:i_max]
+        try:
+            var = nc.variables[var_name][i_time, j_min:j_max, i_min:i_max]
+        except KeyError as e:
+            error_exit("{0} variable not found in {1} file.".format(str(e), netcdf_path))
         nc.close()
 
         var_df = gpd.GeoDataFrame(var.flatten().T, columns=[var_name], crs={'init': 'epsg:4326'},
@@ -110,9 +119,12 @@ class IoNetcdf(IoServer):
         # self.logger.write_log('Getting temperature from {0}'.format(path), message_level=2)
         check_files(path)
         nc = Dataset(path, mode='r')
-        lat_o = nc.variables['latitude'][:]
-        lon_o = nc.variables['longitude'][:]
-        time = nc.variables['time']
+        try:
+            lat_o = nc.variables['latitude'][:]
+            lon_o = nc.variables['longitude'][:]
+            time = nc.variables['time']
+        except KeyError as e:
+            error_exit("{0} variable not found in {1} file.".format(str(e), path))
         # From time array to list of dates.
         time_array = num2date(time[:], time.units,  CALENDAR_STANDARD)
         i_time = np.where(time_array == date_array[0])[0][0]
@@ -134,7 +146,10 @@ class IoNetcdf(IoServer):
         del lat_o, lon_o
 
         # Reads the var variable of the xone and the times needed.
-        var = nc.variables[var_name][i_time:i_time + (len(date_array)), j_min:j_max, i_min:i_max]
+        try:
+            var = nc.variables[var_name][i_time:i_time + (len(date_array)), j_min:j_max, i_min:i_max]
+        except KeyError as e:
+            error_exit("{0} variable not found in {1} file.".format(str(e), path))
 
         nc.close()
         # That condition is fot the cases that the needed temperature is in a different NetCDF.
@@ -143,9 +158,13 @@ class IoNetcdf(IoServer):
             path = os.path.join(netcdf_dir, '{0}_{1}{2}.nc'.format(var_name, aux_date.year,
                                                                    str(aux_date.month).zfill(2)))
             # self.logger.write_log('Getting {0} from {1}'.format(var_name, path), message_level=2)
+            check_files(path)
             nc = Dataset(path, mode='r')
             i_time = 0
-            new_var = nc.variables[var_name][i_time:i_time + (len(date_array) - len(var)), j_min:j_max, i_min:i_max]
+            try:
+                new_var = nc.variables[var_name][i_time:i_time + (len(date_array) - len(var)), j_min:j_max, i_min:i_max]
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), path))
 
             var = np.concatenate([var, new_var])
 

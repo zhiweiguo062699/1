@@ -5,6 +5,7 @@ import timeit
 import numpy as np
 
 from hermesv3_bu.logger.log import Log
+from hermesv3_bu.tools.checker import error_exit
 
 
 def select_grid(comm, logger, arguments):
@@ -53,7 +54,7 @@ def select_grid(comm, logger, arguments):
                 arguments.inc_x, arguments.inc_y, arguments.x_0, arguments.y_0)
 
         else:
-            raise NameError('Unknown grid type {0}'.format(arguments.domain_type))
+            error_exit('Unknown grid type {0}'.format(arguments.domain_type))
     else:
         grid = None
 
@@ -169,7 +170,7 @@ class Grid(object):
             else:
                 bound_coords = np.dstack((coords_left, coords_right, coords_right, coords_left))
         else:
-            raise ValueError('ERROR: The number of vertices of the boundaries must be 2 or 4.')
+            error_exit('The number of vertices of the boundaries must be 2 or 4.')
         self.logger.write_time_log('Grid', 'create_bounds', timeit.default_timer() - spent_time, 3)
         return bound_coords
 

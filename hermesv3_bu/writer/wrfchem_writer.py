@@ -9,6 +9,7 @@ from hermesv3_bu.writer.writer import Writer
 from mpi4py import MPI
 import timeit
 from hermesv3_bu.logger.log import Log
+from hermesv3_bu.tools.checker import error_exit
 
 
 class WrfChemWriter(Writer):
@@ -67,8 +68,8 @@ class WrfChemWriter(Writer):
         super(WrfChemWriter, self).__init__(comm_world, comm_write, logger, netcdf_path, grid, date_array,
                                             pollutant_info, rank_distribution, emission_summary)
         if self.grid.grid_type not in ['Lambert Conformal Conic', 'Mercator']:
-            raise TypeError("ERROR: Only Lambert Conformal Conic or Mercator grid is implemented for WRF-Chem. " +
-                            "The current grid type is '{0}'".format(self.grid.grid_type))
+            error_exit("ERROR: Only Lambert Conformal Conic or Mercator grid is implemented for WRF-Chem. " +
+                       "The current grid type is '{0}'".format(self.grid.grid_type))
 
         self.global_attributes_order = [
             'TITLE', 'START_DATE', 'WEST-EAST_GRID_DIMENSION', 'SOUTH-NORTH_GRID_DIMENSION',
@@ -138,9 +139,9 @@ class WrfChemWriter(Writer):
 
         for i, (pollutant, variable) in enumerate(self.pollutant_info.iterrows()):
             if variable.get('units') not in ['mol.h-1.km-2', "mol km^-2 hr^-1", 'ug.s-1.m-2', "ug/m3 m/s"]:
-                raise ValueError("'{0}' unit is not supported for WRF-Chem emission ".format(variable.get('units')) +
-                                 "input file. Set '{0}' in the speciation_map file.".format(
-                                     ['mol.h-1.km-2', "mol km^-2 hr^-1", 'ug.s-1.m-2', "ug/m3 m/s"]))
+                error_exit("'{0}' unit is not supported for WRF-Chem emission ".format(variable.get('units')) +
+                           "input file. Set '{0}' in the speciation_map file.".format(
+                               ['mol.h-1.km-2', "mol km^-2 hr^-1", 'ug.s-1.m-2', "ug/m3 m/s"]))
 
             new_pollutant_info.loc[i, 'pollutant'] = pollutant
             if variable.get('units') in ['mol.h-1.km-2', "mol km^-2 hr^-1"]:
@@ -177,8 +178,8 @@ class WrfChemWriter(Writer):
         elif self.grid.grid_type == 'Mercator':
             lat_ts = np.float32(self.grid.attributes['lat_ts'])
         else:
-            raise TypeError("ERROR: Only Lambert Conformal Conic or Mercator grid is implemented for WRF-Chem. " +
-                            "The current grid type is '{0}'".format(self.grid.grid_type))
+            error_exit("Only Lambert Conformal Conic or Mercator grid is implemented for WRF-Chem. " +
+                       "The current grid type is '{0}'".format(self.grid.grid_type))
 
         atts_dict = {
             'BOTTOM-TOP_GRID_DIMENSION': np.int32(45),

@@ -10,7 +10,7 @@ import numpy as np
 from shapely.geometry import Polygon
 
 from hermesv3_bu.io_server.io_server import IoServer
-from hermesv3_bu.tools.checker import check_files
+from hermesv3_bu.tools.checker import check_files, error_exit
 
 
 class IoRaster(IoServer):
@@ -169,7 +169,7 @@ class IoRaster(IoServer):
             else:
                 bound_coords = np.dstack((coords_left, coords_right, coords_right, coords_left))
         else:
-            raise ValueError('ERROR: The number of vertices of the boundaries must be 2 or 4.')
+            error_exit('ERROR: The number of vertices of the boundaries must be 2 or 4.')
         # self.logger.write_time_log('IoRaster', 'create_bounds', timeit.default_timer() - spent_time, 3)
         return bound_coords
 
