@@ -2,6 +2,7 @@
 
 import timeit
 from hermesv3_bu.logger.log import Log
+from hermesv3_bu.tools.checker import error_exit
 
 SECTOR_LIST = ['traffic', 'traffic_area', 'aviation', 'point_sources', 'recreational_boats', 'shipping_port',
                'residential', 'livestock', 'crop_operations', 'crop_fertilizers', 'agricultural_machinery']
@@ -224,10 +225,10 @@ class SectorManager(object):
                 sector_dict[sector] = [accum + x for x in range(n_procs)]
                 accum += n_procs
         if accum != max_procs:
-            raise ValueError("The selected number of processors '{0}' does not fit ".format(max_procs) +
-                             "with the sum of processors dedicated for all the sectors " +
-                             "'{0}': {1}".format(accum, {sector: len(sector_procs)
-                                                         for sector, sector_procs in sector_dict.items()}))
+            error_exit("The selected number of processors '{0}' does not fit ".format(max_procs) +
+                       "with the sum of processors dedicated for all the sectors " +
+                       "'{0}': {1}".format(
+                           accum, {sector: len(sector_procs) for sector, sector_procs in  sector_dict.items()}))
 
         self.logger.write_time_log('SectorManager', 'make_sector_list', timeit.default_timer() - spent_time)
         return sector_dict

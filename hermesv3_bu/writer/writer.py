@@ -8,6 +8,7 @@ from mpi4py import MPI
 from warnings import warn
 import timeit
 from hermesv3_bu.logger.log import Log
+from hermesv3_bu.tools.checker import error_exit
 
 CHUNKING = True
 BALANCED = False
@@ -80,8 +81,8 @@ def select_writer(logger, arguments, grid, date_array):
         writer = WrfChemWriter(comm_world, comm_write, logger, arguments.output_name, grid, date_array, pollutant_info,
                                rank_distribution, arguments.output_attributes, arguments.emission_summary)
     else:
-        raise TypeError("Unknown output model '{0}'. ".format(arguments.output_model) +
-                        "Only MONARCH, CMAQ, WRF_CHEM or DEFAULT writers are available")
+        error_exit("Unknown output model '{0}'. ".format(arguments.output_model) +
+                   "Only MONARCH, CMAQ, WRF_CHEM or DEFAULT writers are available")
 
     logger.write_time_log('Writer', 'select_writer', timeit.default_timer() - spent_time)
     return writer
