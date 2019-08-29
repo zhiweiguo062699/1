@@ -118,13 +118,23 @@ class AgriculturalMachinerySector(AgriculturalSector):
         spent_time = timeit.default_timer()
 
         def get_n(df):
-            df['N'] = self.vehicle_units.loc[self.vehicle_units['nuts3_id'] == df.name[0], df.name[1]].values[0]
+            try:
+                df['N'] = self.vehicle_units.loc[self.vehicle_units['nuts3_id'] == df.name[0], df.name[1]].values[0]
+            except IndexError:
+                warn("*WARNING*: NUT3_ID {0} not found in the {1} file".format(
+                    df.name[0], 'crop_machinery_vehicle_units_path'))
+                df['N'] = 0.0
             return df.loc[:, ['N']]
 
         def get_s(df):
-            df['S'] = self.vehicle_ratio.loc[
-                (self.vehicle_ratio['nuts3_id'] == df.name[0]) & (self.vehicle_ratio['technology'] == df.name[2]),
-                df.name[1]].values[0]
+            try:
+                df['S'] = self.vehicle_ratio.loc[
+                    (self.vehicle_ratio['nuts3_id'] == df.name[0]) & (self.vehicle_ratio['technology'] == df.name[2]),
+                    df.name[1]].values[0]
+            except IndexError:
+                warn("*WARNING*: NUT3_ID {0} not found in the {1} file".format(
+                    df.name[0], 'crop_machinery_vehicle_ratio_path'))
+                df['S'] = 0.0
             return df.loc[:, ['S']]
 
         def get_t(df):
@@ -135,14 +145,23 @@ class AgriculturalMachinerySector(AgriculturalSector):
                                                      df.name[1]].values[0]
             except IndexError:
                 df['T'] = np.nan
-            df.loc[df['T'].isna(), 'T'] = self.vehicle_workhours.loc[
-                (self.vehicle_workhours['nuts3_id'] == df.name[0]) & (self.vehicle_workhours['technology'] ==
-                                                                      'default'),
-                df.name[1]].values[0]
+            try:
+                df.loc[df['T'].isna(), 'T'] = self.vehicle_workhours.loc[
+                    (self.vehicle_workhours['nuts3_id'] == df.name[0]) & (self.vehicle_workhours['technology'] ==
+                                                                          'default'), df.name[1]].values[0]
+            except IndexError:
+                warn("*WARNING*: NUT3_ID {0} not found in the {1} file".format(
+                    df.name[0], 'crop_machinery_vehicle_workhours_path'))
+                df.loc[df['T'].isna(), 'T'] = 0.0
             return df.loc[:, ['T']]
 
         def get_p(df):
-            df['P'] = self.vehicle_power.loc[self.vehicle_power['nuts3_id'] == df.name[0], df.name[1]].values[0]
+            try:
+                df['P'] = self.vehicle_power.loc[self.vehicle_power['nuts3_id'] == df.name[0], df.name[1]].values[0]
+            except IndexError:
+                warn("*WARNING*: NUT3_ID {0} not found in the {1} file".format(
+                    df.name[0], 'crop_machinery_vehicle_power_path'))
+                df['P'] = 0.0
             return df.loc[:, ['P']]
 
         def get_lf(df):

@@ -7,6 +7,7 @@ import timeit
 import numpy as np
 import pandas as pd
 import geopandas as gpd
+from warnings import warn
 
 from hermesv3_bu.sectors.sector import Sector
 from hermesv3_bu.io_server.io_raster import IoRaster
@@ -217,27 +218,43 @@ class ResidentialSector(Sector):
                                 population_density['ccaa'] == ccaa, fuel] = population_density['pop'].multiply(
                                 energy_consumption / total_pop)
                         else:
-                            total_pop = self.pop_type_by_ccaa.loc[
-                                (self.pop_type_by_ccaa.index.get_level_values('ccaa') == ccaa) &
-                                (self.pop_type_by_ccaa.index.get_level_values('type') == spatial_proxy['proxy_type']),
-                                'pop'].values[0]
-                            energy_consumption = self.energy_consumption_nuts2.loc[
-                                self.energy_consumption_nuts2['nuts2_id'] == ccaa, fuel].values[0]
-
-                            fuel_distribution.loc[(population_density['ccaa'] == ccaa) &
-                                                  (population_density['type'] == spatial_proxy['proxy_type']),
-                                                  fuel] = population_density['pop'].multiply(
-                                energy_consumption / total_pop)
+                            try:
+                                total_pop = self.pop_type_by_ccaa.loc[
+                                    (self.pop_type_by_ccaa.index.get_level_values('ccaa') == ccaa) &
+                                    (self.pop_type_by_ccaa.index.get_level_values('type') == spatial_proxy[
+                                        'proxy_type']),
+                                    'pop'].values[0]
+                                try:
+                                    energy_consumption = self.energy_consumption_nuts2.loc[
+                                        self.energy_consumption_nuts2['nuts2_id'] == ccaa, fuel].values[0]
+                                except IndexError:
+                                    warn("*WARNING*: NUT2_ID {0} not found in the ".format(ccaa) +
+                                         "energy_consumption_nuts2 file. Setting it to 0.")
+                                    energy_consumption = 0.0
+                                fuel_distribution.loc[(population_density['ccaa'] == ccaa) &
+                                                      (population_density['type'] == spatial_proxy['proxy_type']),
+                                                      fuel] = population_density['pop'].multiply(
+                                    energy_consumption / total_pop)
+                            except IndexError:
+                                warn("*WARNING*: NUT2_ID {0} not found in the ".format(ccaa) +
+                                     "population_type_nuts2 file. Setting it to 0.")
+                                fuel_distribution.loc[(population_density['ccaa'] == ccaa) &
+                                                      (population_density['type'] == spatial_proxy['proxy_type']),
+                                                      fuel] = 0.0
                 if spatial_proxy['nut_level'] == 'prov':
                     for prov in np.unique(population_density['prov']):
                         if spatial_proxy['proxy_type'] == 'all':
                             total_pop = self.pop_type_by_prov.loc[self.pop_type_by_prov.index.get_level_values(
                                 'prov') == prov, 'pop'].sum()
-                            energy_consumption = self.energy_consumption_nuts3.loc[
-                                self.energy_consumption_nuts3['nuts3_id'] == prov, fuel].values[0]
-
-                            fuel_distribution.loc[population_density['prov'] == prov, fuel] = population_density[
-                                'pop'].multiply(energy_consumption / total_pop)
+                            try:
+                                energy_consumption = self.energy_consumption_nuts3.loc[
+                                    self.energy_consumption_nuts3['nuts3_id'] == prov, fuel].values[0]
+                                fuel_distribution.loc[population_density['prov'] == prov, fuel] = population_density[
+                                    'pop'].multiply(energy_consumption / total_pop)
+                            except IndexError:
+                                warn("*WARNING*: NUT3_ID {0} not found in the ".format(prov) +
+                                     "energy_consumption_nuts3 file. Setting it to 0.")
+                                fuel_distribution.loc[population_density['prov'] == prov, fuel] = 0.0
                         else:
                             total_pop = self.pop_type_by_prov.loc[
                                 (self.pop_type_by_prov.index.get_level_values('prov') == prov) &
