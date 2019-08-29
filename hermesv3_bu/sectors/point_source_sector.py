@@ -616,7 +616,7 @@ class PointSourceSector(Sector):
             u10_netcdf = Dataset(u10_nc_path, mode='r')
             # time_index
             try:
-                time = u10_netcdf.variables['time2']
+                time = u10_netcdf.variables['time']
             except KeyError as e:
                 error_exit("{0} variable not found in {1} file.".format(str(e), u10_nc_path))
             nc_times = [x.replace(minute=0, second=0, microsecond=0) for x in
