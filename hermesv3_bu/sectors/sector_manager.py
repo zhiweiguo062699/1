@@ -228,7 +228,7 @@ class SectorManager(object):
             error_exit("The selected number of processors '{0}' does not fit ".format(max_procs) +
                        "with the sum of processors dedicated for all the sectors " +
                        "'{0}': {1}".format(
-                           accum, {sector: len(sector_procs) for sector, sector_procs in  sector_dict.items()}))
+                           accum, {sector: len(sector_procs) for sector, sector_procs in sector_dict.items()}))
 
         self.logger.write_time_log('SectorManager', 'make_sector_list', timeit.default_timer() - spent_time)
         return sector_dict
