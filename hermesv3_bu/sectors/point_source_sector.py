@@ -437,10 +437,13 @@ class PointSourceSector(Sector):
         import numpy as np
         import pandas as pd
         import geopandas as gpd
-
+        check_files(netcdf_path)
         nc = Dataset(netcdf_path, mode='r')
-        lats = nc.variables['lat'][:]
-        lons = nc.variables['lon'][:]
+        try:
+            lats = nc.variables['lat'][:]
+            lons = nc.variables['lon'][:]
+        except KeyError as e:
+            error_exit("{0} variable not found in {1} file.".format(str(e), netcdf_path))
         x = np.array([np.arange(lats.shape[1])] * lats.shape[0])
         y = np.array([np.arange(lats.shape[0]).T] * lats.shape[1]).T
 
@@ -465,14 +468,21 @@ class PointSourceSector(Sector):
             from netCDF4 import Dataset, num2date
             nc_path = os.path.join(dir_path,
                                    '{0}_{1}.nc'.format(var_name, dataframe.name.replace(hour=0).strftime("%Y%m%d%H")))
+            check_files(nc_path)
             netcdf = Dataset(nc_path, mode='r')
             # time_index
-            time = netcdf.variables['time']
+            try:
+                time = netcdf.variables['time']
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), nc_path))
             nc_times = [x.replace(minute=0, second=0, microsecond=0) for x in
                         num2date(time[:], time.units, time.calendar)]
             time_index = nc_times.index(dataframe.name.to_pydatetime().replace(tzinfo=None))
 
-            var = netcdf.variables[var_name][time_index, 0, :]
+            try:
+                var = netcdf.variables[var_name][time_index, 0, :]
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), nc_path))
             netcdf.close()
             dataframe[var_name] = var[dataframe['Y'], dataframe['X']]
 
@@ -482,14 +492,21 @@ class PointSourceSector(Sector):
             from netCDF4 import Dataset, num2date
             nc_path = os.path.join(dir_path,
                                    '{0}_{1}.nc'.format(var_name, dataframe.name.replace(hour=0).strftime("%Y%m%d%H")))
+            check_files(nc_path)
             netcdf = Dataset(nc_path, mode='r')
             # time_index
-            time = netcdf.variables['time']
+            try:
+                time = netcdf.variables['time']
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), nc_path))
             nc_times = [x.replace(minute=0, second=0, microsecond=0) for x in
                         num2date(time[:], time.units, time.calendar)]
             time_index = nc_times.index(dataframe.name.to_pydatetime().replace(tzinfo=None))
 
-            var = np.flipud(netcdf.variables[var_name][time_index, :, :, :])
+            try:
+                var = np.flipud(netcdf.variables[var_name][time_index, :, :, :])
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), nc_path))
             netcdf.close()
             var = var[:, dataframe['Y'], dataframe['X']]
 
@@ -513,14 +530,21 @@ class PointSourceSector(Sector):
 
             nc_path = os.path.join(dir_path,
                                    '{0}_{1}.nc'.format(var_name, dataframe.name.replace(hour=0).strftime("%Y%m%d%H")))
+            check_files(nc_path)
             netcdf = Dataset(nc_path, mode='r')
             # time_index
-            time = netcdf.variables['time']
+            try:
+                time = netcdf.variables['time']
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), nc_path))
             nc_times = [x.replace(minute=0, second=0, microsecond=0) for x in
                         num2date(time[:], time.units, time.calendar)]
             time_index = nc_times.index(dataframe.name.to_pydatetime().replace(tzinfo=None))
 
-            var = np.flipud(netcdf.variables[var_name][time_index, :, :, :])
+            try:
+                var = np.flipud(netcdf.variables[var_name][time_index, :, :, :])
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), nc_path))
             netcdf.close()
             var = var[:, dataframe['Y'], dataframe['X']]
 
@@ -546,23 +570,34 @@ class PointSourceSector(Sector):
             # === u10 ===
             u10_nc_path = os.path.join(
                 u_dir_path, '{0}_{1}.nc'.format(u_var_name, dataframe.name.replace(hour=0).strftime("%Y%m%d%H")))
+            check_files(u10_nc_path)
             u10_netcdf = Dataset(u10_nc_path, mode='r')
             # time_index
-            time = u10_netcdf.variables['time']
+            try:
+                time = u10_netcdf.variables['time']
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), u10_nc_path))
             nc_times = [x.replace(minute=0, second=0, microsecond=0) for x in
                         num2date(time[:], time.units, time.calendar)]
             time_index = nc_times.index(dataframe.name.to_pydatetime().replace(tzinfo=None))
 
-            var = u10_netcdf.variables[u_var_name][time_index, 0, :]
+            try:
+                var = u10_netcdf.variables[u_var_name][time_index, 0, :]
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), u10_nc_path))
             u10_netcdf.close()
             dataframe['u10'] = var[dataframe['Y'], dataframe['X']]
 
             # === v10 ===
             v10_nc_path = os.path.join(
                 v_dir_path, '{0}_{1}.nc'.format(v_var_name, dataframe.name.replace(hour=0).strftime("%Y%m%d%H")))
+            check_files(v10_nc_path)
             v10_netcdf = Dataset(v10_nc_path, mode='r')
 
-            var = v10_netcdf.variables[v_var_name][time_index, 0, :]
+            try:
+                var = v10_netcdf.variables[v_var_name][time_index, 0, :]
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), v10_nc_path))
             v10_netcdf.close()
             dataframe['v10'] = var[dataframe['Y'], dataframe['X']]
 
@@ -577,14 +612,22 @@ class PointSourceSector(Sector):
             # === u10 ===
             u10_nc_path = os.path.join(
                 u_dir_path, '{0}_{1}.nc'.format(u_var_name, dataframe.name.replace(hour=0).strftime("%Y%m%d%H")))
+            check_files(u10_nc_path)
             u10_netcdf = Dataset(u10_nc_path, mode='r')
             # time_index
-            time = u10_netcdf.variables['time']
+            try:
+                time = u10_netcdf.variables['time2']
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), u10_nc_path))
             nc_times = [x.replace(minute=0, second=0, microsecond=0) for x in
                         num2date(time[:], time.units, time.calendar)]
             time_index = nc_times.index(dataframe.name.to_pydatetime().replace(tzinfo=None))
 
-            var = np.flipud(u10_netcdf.variables[u_var_name][time_index, :, :, :])
+            try:
+                var = np.flipud(u10_netcdf.variables[u_var_name][time_index, :, :, :])
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), u10_nc_path))
+
             u10_netcdf.close()
             var = var[:, dataframe['Y'], dataframe['X']]
 
@@ -594,9 +637,13 @@ class PointSourceSector(Sector):
             # === v10 ===
             v10_nc_path = os.path.join(
                 v_dir_path, '{0}_{1}.nc'.format(v_var_name, dataframe.name.replace(hour=0).strftime("%Y%m%d%H")))
+            check_files(v10_nc_path)
             v10_netcdf = Dataset(v10_nc_path, mode='r')
 
-            var = np.flipud(v10_netcdf.variables[v_var_name][time_index, :, :, :])
+            try:
+                var = np.flipud(v10_netcdf.variables[v_var_name][time_index, :, :, :])
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), v10_nc_path))
             v10_netcdf.close()
             var = var[:, dataframe['Y'], dataframe['X']]
 
