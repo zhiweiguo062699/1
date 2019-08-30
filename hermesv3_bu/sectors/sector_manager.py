@@ -86,7 +86,7 @@ class SectorManager(object):
                     arguments.crop_operations_monthly_profiles, arguments.crop_operations_weekly_profiles,
                     arguments.crop_operations_hourly_profiles, arguments.speciation_map,
                     arguments.crop_operations_speciation_profiles, arguments.molecular_weights,
-                    arguments.land_use_by_nut_path, arguments.crop_by_nut_path, arguments.crop_from_landuse_path)
+                    arguments.land_use_by_nuts2_path, arguments.crop_by_nut_path, arguments.crop_from_landuse_path)
 
             elif sector == 'crop_fertilizers' and comm_world.Get_rank() in sector_procs:
                 from hermesv3_bu.sectors.agricultural_crop_fertilizers_sector import AgriculturalCropFertilizersSector
@@ -99,7 +99,7 @@ class SectorManager(object):
                     arguments.crop_fertilizers_list, arguments.nuts2_shapefile, arguments.land_uses_path,
                     arguments.crop_fertilizers_hourly_profiles, arguments.speciation_map,
                     arguments.crop_fertilizers_speciation_profiles, arguments.molecular_weights,
-                    arguments.land_use_by_nut_path,  arguments.crop_by_nut_path, arguments.crop_from_landuse_path,
+                    arguments.land_use_by_nuts2_path,  arguments.crop_by_nut_path, arguments.crop_from_landuse_path,
                     arguments.cultivated_ratio, arguments.fertilizers_rate, arguments.crop_f_parameter,
                     arguments.crop_f_fertilizers, arguments.gridded_ph, arguments.gridded_cec,
                     arguments.fertilizers_denominator_yearly_factor_path, arguments.crop_calendar,
@@ -119,7 +119,7 @@ class SectorManager(object):
                     arguments.crop_machinery_monthly_profiles, arguments.crop_machinery_weekly_profiles,
                     arguments.crop_machinery_hourly_profiles,
                     arguments.speciation_map, arguments.crop_machinery_speciation_profiles, arguments.molecular_weights,
-                    arguments.land_use_by_nut_path, arguments.crop_by_nut_path, arguments.crop_from_landuse_path,
+                    arguments.land_use_by_nuts2_path, arguments.crop_by_nut_path, arguments.crop_from_landuse_path,
                     arguments.nuts3_shapefile, arguments.crop_machinery_deterioration_factor_path,
                     arguments.crop_machinery_load_factor_path, arguments.crop_machinery_vehicle_ratio_path,
                     arguments.crop_machinery_vehicle_units_path, arguments.crop_machinery_vehicle_workhours_path,
@@ -214,7 +214,7 @@ class SectorManager(object):
                     arguments.solvents_weekly_profile, arguments.solvents_hourly_profile,
                     arguments.solvents_proxies_path, arguments.solvents_yearly_emissions_by_nut2_path,
                     arguments.solvents_point_sources_shapefile, arguments.population_density_map,
-                    arguments.land_uses_path)
+                    arguments.population_nuts2, arguments.land_uses_path, arguments.land_use_by_nuts2_path)
 
             color += 1
 

@@ -153,6 +153,7 @@ class Config(ArgParser):
         # ===== SHAPEFILES =====
         p.add_argument('--nuts3_shapefile', required=False, type=str, default='True')
         p.add_argument('--nuts2_shapefile', required=False, type=str, default='True')
+        p.add_argument('--population_nuts2', required=False, type=str, default='True')
 
         p.add_argument('--clipping', required=False, type=str, default=None,
                        help='To clip the domain into an specific zone. ' +
@@ -221,7 +222,7 @@ class Config(ArgParser):
 
         # ***** AGRICULTURAL SECTOR*****
         p.add_argument('--land_uses_path', required=False, help='...')
-        p.add_argument('--land_use_by_nut_path', required=False, help='...')
+        p.add_argument('--land_use_by_nuts2_path', required=False, help='...')
         p.add_argument('--crop_by_nut_path', required=False, help='...')
         p.add_argument('--crop_from_landuse_path', required=False, help='...')
 
