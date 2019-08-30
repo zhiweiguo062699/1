@@ -146,6 +146,7 @@ class Config(ArgParser):
         p.add_argument('--crop_operations_processors', required=True, type=int)
         p.add_argument('--crop_fertilizers_processors', required=True, type=int)
         p.add_argument('--agricultural_machinery_processors', required=True, type=int)
+        p.add_argument('--solvents_processors', required=True, type=int)
 
         p.add_argument('--speciation_map', required=False, help='...')
 
@@ -347,6 +348,16 @@ class Config(ArgParser):
         p.add_argument('--small_cities_weekly_profile', required=False, help='...')
         p.add_argument('--small_cities_monthly_profile', required=False, help='...')
 
+        # ***** SOLVENTS SECTOR *****
+        p.add_argument('--solvents_pollutants', required=False, help='...')
+        p.add_argument('--solvents_proxies_path', required=False, help='...')
+        p.add_argument('--solvents_yearly_emissions_by_nut2_path', required=False, help='...')
+        p.add_argument('--solvents_point_sources_shapefile', required=False, help='...')
+        p.add_argument('--solvents_monthly_profile', required=False, help='...')
+        p.add_argument('--solvents_weekly_profile', required=False, help='...')
+        p.add_argument('--solvents_hourly_profile', required=False, help='...')
+        p.add_argument('--solvents_speciation_profiles', required=False, help='...')
+
         arguments = p.parse_args()
 
         for item in vars(arguments):
@@ -382,6 +393,7 @@ class Config(ArgParser):
                 comm.Barrier()
         self.create_dir(arguments.auxiliary_files_path)
 
+        # Booleans
         arguments.do_traffic = arguments.traffic_processors > 0
         arguments.do_traffic_area = arguments.traffic_area_processors > 0
         arguments.do_aviation = arguments.aviation_processors > 0
@@ -393,6 +405,7 @@ class Config(ArgParser):
         arguments.do_crop_operations = arguments.crop_operations_processors > 0
         arguments.do_crop_fertilizers = arguments.crop_fertilizers_processors > 0
         arguments.do_agricultural_machinery = arguments.agricultural_machinery_processors > 0
+        arguments.do_solvents = arguments.solvents_processors > 0
 
         # Aviation lists
         arguments.airport_list = self._parse_list(arguments.airport_list)
@@ -457,6 +470,9 @@ class Config(ArgParser):
 
         # Traffic area lists
         arguments.traffic_area_pollutants = self._parse_list(arguments.traffic_area_pollutants)
+
+        # Solvents lists
+        arguments.solvents_pollutants = self._parse_list(arguments.solvents_pollutants)
 
         return arguments
 

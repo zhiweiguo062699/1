@@ -5,7 +5,7 @@ from hermesv3_bu.logger.log import Log
 from hermesv3_bu.tools.checker import error_exit
 
 SECTOR_LIST = ['traffic', 'traffic_area', 'aviation', 'point_sources', 'recreational_boats', 'shipping_port',
-               'residential', 'livestock', 'crop_operations', 'crop_fertilizers', 'agricultural_machinery']
+               'residential', 'livestock', 'crop_operations', 'crop_fertilizers', 'agricultural_machinery', 'solvents']
 
 
 class SectorManager(object):
@@ -204,6 +204,17 @@ class SectorManager(object):
                     arguments.traffic_area_small_cities_ef_file, arguments.small_cities_monthly_profile,
                     arguments.small_cities_weekly_profile, arguments.small_cities_hourly_profile
                 )
+            elif sector == 'solvents' and comm_world.Get_rank() in sector_procs:
+                from hermesv3_bu.sectors.solvent_sector import SolventSector
+                self.sector = SolventSector(
+                    comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.logger,
+                    arguments.auxiliary_files_path, grid, clip, date_array, arguments.solvents_pollutants,
+                    grid.vertical_desctiption, arguments.speciation_map, arguments.molecular_weights,
+                    arguments.solvents_speciation_profiles, arguments.solvents_monthly_profile,
+                    arguments.solvents_weekly_profile, arguments.solvents_hourly_profile,
+                    arguments.solvents_proxies_path, arguments.solvents_yearly_emissions_by_nut2_path,
+                    arguments.solvents_point_sources_shapefile, arguments.population_density_map,
+                    arguments.land_uses_path)
 
             color += 1
 
