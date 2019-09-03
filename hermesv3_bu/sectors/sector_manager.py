@@ -205,8 +205,8 @@ class SectorManager(object):
                     arguments.small_cities_weekly_profile, arguments.small_cities_hourly_profile
                 )
             elif sector == 'solvents' and comm_world.Get_rank() in sector_procs:
-                from hermesv3_bu.sectors.solvent_sector import SolventSector
-                self.sector = SolventSector(
+                from hermesv3_bu.sectors.solvents_sector import SolventsSector
+                self.sector = SolventsSector(
                     comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.logger,
                     arguments.auxiliary_files_path, grid, clip, date_array, arguments.solvents_pollutants,
                     grid.vertical_desctiption, arguments.speciation_map, arguments.molecular_weights,
@@ -214,7 +214,8 @@ class SectorManager(object):
                     arguments.solvents_weekly_profile, arguments.solvents_hourly_profile,
                     arguments.solvents_proxies_path, arguments.solvents_yearly_emissions_by_nut2_path,
                     arguments.solvents_point_sources_shapefile, arguments.population_density_map,
-                    arguments.population_nuts2, arguments.land_uses_path, arguments.land_use_by_nuts2_path)
+                    arguments.population_nuts2, arguments.land_uses_path, arguments.land_use_by_nuts2_path,
+                    arguments.nuts2_shapefile)
 
             color += 1
 

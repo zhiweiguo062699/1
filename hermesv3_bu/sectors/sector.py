@@ -3,12 +3,13 @@
 import sys
 import os
 import timeit
-from hermesv3_bu.logger.log import Log
 import numpy as np
 import pandas as pd
 import geopandas as gpd
-from geopandas import GeoDataFrame
 from mpi4py import MPI
+
+from geopandas import GeoDataFrame
+from hermesv3_bu.logger.log import Log
 from hermesv3_bu.grids.grid import Grid
 
 
@@ -445,8 +446,8 @@ class Sector(object):
         spent_time = timeit.default_timer()
         nut_shapefile = gpd.read_file(nut_shapefile_path).to_crs(shapefile.crs)
         shapefile = gpd.sjoin(shapefile, nut_shapefile.loc[:, [nut_value, 'geometry']], how='left', op='intersects')
-
-        shapefile = shapefile[~shapefile.index.duplicated(keep='first')]
+        del nut_shapefile
+        # shapefile = shapefile[~shapefile.index.duplicated(keep='first')]
         shapefile.drop('index_right', axis=1, inplace=True)
 
         shapefile.rename(columns={nut_value: 'nut_code'}, inplace=True)

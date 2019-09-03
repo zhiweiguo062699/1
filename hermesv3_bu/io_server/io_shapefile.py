@@ -100,6 +100,32 @@ class IoShapefile(IoServer):
 
         return data
 
+    def gather_bcast_shapefile(self, data, rank=0):
+
+        if self.comm.Get_size() == 1:
+            data = data
+        else:
+            data = self.comm.gather(data, root=rank)
+            if self.comm.Get_rank() == rank:
+                data = pd.concat(data)
+            else:
+                data = None
+            data = self.comm.bcast(data, root=rank)
+
+        return data
+
+    def gather_shapefile(self, data, rank=0):
+
+        if self.comm.Get_size() == 1:
+            data = data
+        else:
+            data = self.comm.gather(data, root=rank)
+            if self.comm.Get_rank() == rank:
+                data = pd.concat(data)
+            else:
+                data = None
+        return data
+
     def balance(self, data, rank=0):
 
         data = self.comm.gather(data, root=rank)
