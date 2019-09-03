@@ -22,7 +22,6 @@ PROXY_NAMES = {'boat_building': 'boat',
                'pharmaceutical_products_manufacturing': 'pharma',
                'leather_taning': 'leather',
                'printing': 'printing',
-               'automobile_manufacturing': 'automobile'
                }
 
 
@@ -118,12 +117,13 @@ class SolventsSector(Sector):
 
     def get_pop_by_nut2(self, path):
         pop_by_nut2 = pd.read_csv(path)
+        pop_by_nut2.set_index('nuts2_id', inplace=True)
         pop_by_nut2 = pop_by_nut2.to_dict()['pop']
 
         return pop_by_nut2
 
-
     def get_population_proxie(self, pop_raster_path, pop_by_nut2_path, nut2_shapefile_path):
+        spent_time = timeit.default_timer()
 
         # 1st Clip the raster
         if self.comm.Get_rank() == 0:
@@ -133,22 +133,33 @@ class SolventsSector(Sector):
         # 2nd Raster to shapefile
         pop_shp = IoRaster(self.comm).to_shapefile_parallel(pop_raster_path, gather=True, bcast=False,
                                                             crs={'init': 'epsg:4326'})
+
         # 3rd Add NUT code
         if self.comm.Get_rank() == 0:
+            pop_shp.drop(columns='CELL_ID', inplace=True)
             pop_shp.rename(columns={'data': 'population'}, inplace=True)
             pop_shp = self.add_nut_code(pop_shp, nut2_shapefile_path, nut_value='nuts2_id')
             pop_shp = pop_shp[pop_shp['nut_code'] != -999]
         pop_shp = IoShapefile(self.comm).split_shapefile(pop_shp)
-
         # 4th Calculate pop percent
         pop_by_nut2 = self.get_pop_by_nut2(pop_by_nut2_path)
-        pop_shp['pop_percent'] = pop_shp.groupby('nut_code').apply(
-            lambda x: x['population'] / pop_by_nut2[x.name])
-        print(pop_shp)
-        # if self.comm.Get_rank() == 0:
-        #     pop_shp.to_file('~/temp/pop{0}.shp'.format(self.comm.Get_size()))
-        #     print(pop_shp)
-        exit()
+        pop_shp['tot_pop'] = pop_shp['nut_code'].map(pop_by_nut2)
+        pop_shp['pop_percent'] = pop_shp['population'] / pop_shp['tot_pop']
+        pop_shp.drop(columns=['tot_pop', 'population'], inplace=True)
+
+        # 5th Calculate percent by dest_cell
+        pop_shp.to_crs(self.grid.shapefile.crs, inplace=True)
+        pop_shp['src_inter_fraction'] = pop_shp.geometry.area
+        pop_shp = self.spatial_overlays(pop_shp.reset_index(), self.grid.shapefile.reset_index())
+        pop_shp.drop(columns=['idx1', 'idx2', 'index'], inplace=True)
+        pop_shp['src_inter_fraction'] = pop_shp.geometry.area / pop_shp['src_inter_fraction']
+        pop_shp['pop_percent'] = pop_shp['pop_percent'] * pop_shp['src_inter_fraction']
+        pop_shp.drop(columns=['src_inter_fraction'], inplace=True)
+
+        popu_dist = pop_shp.groupby(['FID', 'nut_code']).sum()
+        popu_dist.rename({'pop_percent': 'population'}, inplace=True)
+        self.logger.write_time_log('SolventsSector', 'get_population_proxie', timeit.default_timer() - spent_time)
+        return popu_dist
 
     def get_proxy_shapefile(self, population_raster_path, population_nuts2_path, nut2_shapefile_path):
 
@@ -157,11 +168,18 @@ class SolventsSector(Sector):
         proxy_shp_name = os.path.join(self.auxiliary_dir, 'solvents', 'proxy_distributions.shp')
         if not os.path.exists(proxy_shp_name):
             for proxy in proxies_list:
-                proxy_shp = self.grid.shapefile.copy()
+                proxies_list = []
                 if proxy == 'population':
-                    proxy_shp['population'] = self.get_population_proxie(population_raster_path, population_nuts2_path,
-                                                                         nut2_shapefile_path)
+                    pop_proxy = self.get_population_proxie(population_raster_path, population_nuts2_path,
+                                                           nut2_shapefile_path)
+                    pop_proxy = self.comm.gather(pop_proxy.reset_index(), root=0)
+                    if self.comm.Get_rank() == 0:
+                        pop_proxy = pd.concat(pop_proxy)
+                        pop_proxy = pop_proxy.groupby(['FID', 'nut_code']).sum()
+                        pop_proxy.to_csv('/gpfs/projects/bsc32/bsc32538/temp/population_proxy.csv')
+                    self.comm.Barrier()
         else:
             pass
-        print(proxy_shp)
+        exit()
+        # print(proxy_shp)
         print(proxies_list)

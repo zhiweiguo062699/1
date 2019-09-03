@@ -447,7 +447,7 @@ class Sector(object):
         nut_shapefile = gpd.read_file(nut_shapefile_path).to_crs(shapefile.crs)
         shapefile = gpd.sjoin(shapefile, nut_shapefile.loc[:, [nut_value, 'geometry']], how='left', op='intersects')
         del nut_shapefile
-        # shapefile = shapefile[~shapefile.index.duplicated(keep='first')]
+        shapefile = shapefile[~shapefile.index.duplicated(keep='first')]
         shapefile.drop('index_right', axis=1, inplace=True)
 
         shapefile.rename(columns={nut_value: 'nut_code'}, inplace=True)
