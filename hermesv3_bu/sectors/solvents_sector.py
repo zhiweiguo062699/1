@@ -126,7 +126,6 @@ class SolventsSector(Sector):
         if self.comm.Get_rank() == 0:
             pop_shp.rename(columns={'data': 'population'}, inplace=True)
             pop_shp = self.add_nut_code(pop_shp, nut2_shapefile_path, nut_value='nuts2_id')
-            pop_shp.to_file('/gpfs/projects/bsc32/bsc32538/temp/pop_nut.shp')
         pop_shp = IoShapefile(self.comm).split_shapefile(pop_shp)
 
         print(pop_shp)
