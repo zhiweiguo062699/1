@@ -71,7 +71,7 @@ class SolventsSector(Sector):
 
         self.logger.write_time_log('SolventsSector', 'read_proxies', timeit.default_timer() - spent_time)
         return proxies_df
-    
+
     def check_profiles(self):
         spent_time = timeit.default_timer()
         # Checking monthly profiles IDs
@@ -116,18 +116,34 @@ class SolventsSector(Sector):
         self.logger.write_time_log('SolventsSector', 'read_yearly_emissions', timeit.default_timer() - spent_time)
         return year_emis
 
+    def get_pop_by_nut2(self, path):
+        pop_by_nut2 = pd.read_csv(path)
+        pop_by_nut2 = pop_by_nut2.to_dict()['pop']
+
+        return pop_by_nut2
+
+
     def get_population_proxie(self, pop_raster_path, pop_by_nut2_path, nut2_shapefile_path):
 
+        # 1st Clip the raster
         if self.comm.Get_rank() == 0:
             pop_raster_path = IoRaster(self.comm).clip_raster_with_shapefile_poly(
                 pop_raster_path, self.clip.shapefile, os.path.join(self.auxiliary_dir, 'solvents', 'pop.tif'))
+
+        # 2nd Raster to shapefile
         pop_shp = IoRaster(self.comm).to_shapefile_parallel(pop_raster_path, gather=True, bcast=False,
                                                             crs={'init': 'epsg:4326'})
+        # 3rd Add NUT code
         if self.comm.Get_rank() == 0:
             pop_shp.rename(columns={'data': 'population'}, inplace=True)
             pop_shp = self.add_nut_code(pop_shp, nut2_shapefile_path, nut_value='nuts2_id')
+            pop_shp = pop_shp[pop_shp['nut_code'] != -999]
         pop_shp = IoShapefile(self.comm).split_shapefile(pop_shp)
 
+        # 4th Calculate pop percent
+        pop_by_nut2 = self.get_pop_by_nut2(pop_by_nut2_path)
+        pop_shp['pop_percent'] = pop_shp.groupby('nut_code').apply(
+            lambda x: x['population'] / pop_by_nut2[x.name])
         print(pop_shp)
         # if self.comm.Get_rank() == 0:
         #     pop_shp.to_file('~/temp/pop{0}.shp'.format(self.comm.Get_size()))

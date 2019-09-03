@@ -9,6 +9,7 @@ import pandas as pd
 import geopandas as gpd
 from mpi4py import MPI
 
+from geopandas import GeoDataFrame
 from hermesv3_bu.io_server.io_server import IoServer
 from hermesv3_bu.tools.checker import check_files
 
@@ -88,6 +89,13 @@ class IoShapefile(IoServer):
         return data
 
     def split_shapefile(self, data, rank=0):
+        """
+
+        :param data:
+        :param rank:
+        :return: Splitted Shapefile
+        :rtype: GeoDataFrame
+        """
 
         if self.comm.Get_size() == 1:
             data = data

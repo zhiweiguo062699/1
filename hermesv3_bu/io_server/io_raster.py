@@ -319,7 +319,7 @@ class IoRaster(IoServer):
         if self.comm.Get_rank() == 0:
             ds = rasterio.open(raster_path)
             grid_info = ds.transform
-            print('TIME 1:', timeit.default_timer() - spent_time)
+
             # TODO remove when new version will be installed
             if rasterio.__version__ == '0.36.0':
                 lons = np.arange(ds.width) * grid_info[1] + grid_info[0]
@@ -330,11 +330,10 @@ class IoRaster(IoServer):
             else:
                 lons = np.arange(ds.width) * grid_info[0] + grid_info[2]
                 lats = np.arange(ds.height) * grid_info[4] + grid_info[5]
-            print('TIME 2:', timeit.default_timer() - spent_time)
+
             # 1D to 2D
             c_lats = np.array([lats] * len(lons)).T.flatten()
             c_lons = np.array([lons] * len(lats)).flatten()
-            print('TIME 3:', timeit.default_timer() - spent_time)
             del lons, lats
             if rasterio.__version__ == '0.36.0':
                 b_lons = self.create_bounds(c_lons, grid_info[1], number_vertices=4) + grid_info[1] / 2
@@ -345,10 +344,10 @@ class IoRaster(IoServer):
             else:
                 b_lons = self.create_bounds(c_lons, grid_info[0], number_vertices=4) + grid_info[0] / 2
                 b_lats = self.create_bounds(c_lats, grid_info[4], number_vertices=4, inverse=True) + grid_info[4] / 2
-            print('TIME 4:', timeit.default_timer() - spent_time)
+
             b_lats = b_lats.reshape((b_lats.shape[1], b_lats.shape[2]))
             b_lons = b_lons.reshape((b_lons.shape[1], b_lons.shape[2]))
-            print('TIME 5:', timeit.default_timer() - spent_time)
+
             gdf = gpd.GeoDataFrame(ds.read(1).flatten(), columns=['data'], index=range(b_lons.shape[0]), crs=ds.crs)
             gdf['geometry'] = None
             # nodata_i = gdf['data'] != nodata
@@ -367,7 +366,7 @@ class IoRaster(IoServer):
 
         b_lons = IoShapefile(self.comm).split_shapefile(b_lons)
         b_lats = IoShapefile(self.comm).split_shapefile(b_lats)
-        print('TIME 6:', timeit.default_timer() - spent_time)
+
         i = 0
         for j, df_aux in gdf.iterrows():
             gdf.loc[j, 'geometry'] = Polygon([(b_lons[i, 0], b_lats[i, 0]),
@@ -377,9 +376,7 @@ class IoRaster(IoServer):
                                               (b_lons[i, 0], b_lats[i, 0])])
             i += 1
 
-        print('TIME 7:', timeit.default_timer() - spent_time)
         gdf['CELL_ID'] = gdf.index
-        print('TIME 8:', timeit.default_timer() - spent_time)
         gdf = gdf[gdf['data'] != nodata]
         if crs is not None:
             gdf = gdf.to_crs(crs)
@@ -389,4 +386,3 @@ class IoRaster(IoServer):
         elif gather and bcast:
             gdf = IoShapefile(self.comm).gather_bcast_shapefile(gdf)
         return gdf
-
