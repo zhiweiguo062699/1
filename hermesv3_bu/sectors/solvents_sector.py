@@ -149,6 +149,3 @@ class SolventsSector(Sector):
             pass
         print(proxy_shp)
         print(proxies_list)
-
-
-
