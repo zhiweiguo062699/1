@@ -135,16 +135,14 @@ class AviationSector(Sector):
              hourly_profiles_path, speciation_map_path, speciation_profiles_path, molecular_weights_path] +
             [os.path.join(ef_dir, PHASE_EF_FILE[phase]) for phase in PHASE_TYPE.keys()])
 
+        if 'nmvoc' in source_pollutants or 'ch4' in source_pollutants:
+            if 'hc' not in source_pollutants:
+                source_pollutants.append('hc')
+
         super(AviationSector, self).__init__(
             comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels, None,
             weekly_profiles_path, hourly_profiles_path, speciation_map_path, speciation_profiles_path,
             molecular_weights_path)
-
-        if 'hc' in self.source_pollutants:
-            for poll in ['nmvoc', 'ch4']:
-                if poll not in self.source_pollutants:
-                    self.source_pollutants.append(poll)
-            self.source_pollutants.remove('hc')
 
         # self.ef_dir = ef_dir
         self.ef_files = self.read_ef_files(ef_dir)
@@ -1028,7 +1026,7 @@ class AviationSector(Sector):
             emissions['nmvoc'] = 0.9 * emissions['hc']
             emissions['ch4'] = 0.1 * emissions['hc']
 
-        # Speceiation
+        # Speciation
         runway_arrival_emissions_wear = self.speciate(runway_arrival_emissions_wear, 'landing_wear')
         emissions = self.speciate(emissions, 'default')
 
