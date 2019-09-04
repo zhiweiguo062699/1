@@ -195,8 +195,7 @@ class SolventsSector(Sector):
 
         # 2nd Raster to shapefile
         self.logger.write_log("\t\tRaster to shapefile", message_level=3)
-        land_use_shp = IoRaster(self.comm).to_shapefile_parallel(
-            lu_raster_path, gather=False, bcast=False, crs={'init': 'epsg:4326'})
+        land_use_shp = IoRaster(self.comm).to_shapefile_parallel(lu_raster_path, gather=False, bcast=False)
 
         # 3rd Add NUT code
         self.logger.write_log("\t\tAdding nut codes to the shapefile", message_level=3)
