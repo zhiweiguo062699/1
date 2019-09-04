@@ -149,16 +149,16 @@ class SolventsSector(Sector):
         # 2nd Raster to shapefile
         self.logger.write_log("\t\tRaster to shapefile", message_level=3)
         pop_shp = IoRaster(self.comm).to_shapefile_parallel(
-            pop_raster_path, gather=True, bcast=False, crs={'init': 'epsg:4326'})
+            pop_raster_path, gather=False, bcast=False, crs={'init': 'epsg:4326'})
 
         # 3rd Add NUT code
         self.logger.write_log("\t\tAdding nut codes to the shapefile", message_level=3)
-        if self.comm.Get_rank() == 0:
-            pop_shp.drop(columns='CELL_ID', inplace=True)
-            pop_shp.rename(columns={'data': 'population'}, inplace=True)
-            pop_shp = self.add_nut_code(pop_shp, nut2_shapefile_path, nut_value='nuts2_id')
-            pop_shp = pop_shp[pop_shp['nut_code'] != -999]
-        pop_shp = IoShapefile(self.comm).split_shapefile(pop_shp)
+        # if self.comm.Get_rank() == 0:
+        pop_shp.drop(columns='CELL_ID', inplace=True)
+        pop_shp.rename(columns={'data': 'population'}, inplace=True)
+        pop_shp = self.add_nut_code(pop_shp, nut2_shapefile_path, nut_value='nuts2_id')
+        pop_shp = pop_shp[pop_shp['nut_code'] != -999]
+        # pop_shp = IoShapefile(self.comm).split_shapefile(pop_shp)
 
         # 4th Calculate population percent
         self.logger.write_log("\t\tCalculating population percentage on source resolution", message_level=3)
@@ -197,8 +197,7 @@ class SolventsSector(Sector):
         self.logger.write_log("\t\tRaster to shapefile", message_level=3)
         land_use_shp = IoRaster(self.comm).to_shapefile_parallel(
             lu_raster_path, gather=False, bcast=False, crs={'init': 'epsg:4326'})
-        print(land_use_shp)
-        sys.stdout.flush()
+
         # 3rd Add NUT code
         self.logger.write_log("\t\tAdding nut codes to the shapefile", message_level=3)
         # if self.comm.Get_rank() == 0:
@@ -212,7 +211,8 @@ class SolventsSector(Sector):
         self.logger.write_log("\t\tCalculating land use percentage on source resolution", message_level=3)
         land_use_by_nut2 = self.get_land_use_by_nut2(
             land_use_by_nut2_path, land_uses, np.unique(land_use_shp['nut_code']))
-
+        print(land_use_by_nut2)
+        exit()
         # 5th Calculate percent by dest_cell
         self.logger.write_log("\t\tCalculating land use percentage on destiny resolution", message_level=3)
 
