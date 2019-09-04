@@ -48,7 +48,8 @@ class SolventsSector(Sector):
         self.proxies_map = self.read_proxies(proxies_map_path)
         self.check_profiles()
 
-        self.proxy = self.get_proxy_shapefile(population_raster_path, population_nuts2_path, nut2_shapefile_path)
+        self.proxy = self.get_proxy_shapefile(population_raster_path, population_nuts2_path, land_uses_raster_path,
+                                              land_uses_nuts2_path, nut2_shapefile_path)
 
         self.yearly_emissions = self.read_yearly_emissions(yearly_emissions_by_nut2_path)
         exit()
@@ -115,39 +116,59 @@ class SolventsSector(Sector):
         self.logger.write_time_log('SolventsSector', 'read_yearly_emissions', timeit.default_timer() - spent_time)
         return year_emis
 
-    def get_pop_by_nut2(self, path):
+    def get_population_by_nut2(self, path):
+        spent_time = timeit.default_timer()
+
         pop_by_nut2 = pd.read_csv(path)
         pop_by_nut2.set_index('nuts2_id', inplace=True)
         pop_by_nut2 = pop_by_nut2.to_dict()['pop']
 
+        self.logger.write_time_log('SolventsSector', 'get_pop_by_nut2', timeit.default_timer() - spent_time)
         return pop_by_nut2
 
-    def get_population_proxie(self, pop_raster_path, pop_by_nut2_path, nut2_shapefile_path):
+    def get_land_use_by_nut2(self, path, land_uses, nut_codes):
+        spent_time = timeit.default_timer()
+
+        land_use_by_nut2 = pd.read_csv(path)
+        land_use_by_nut2 = land_use_by_nut2[land_use_by_nut2['nuts2_id'].isin(nut_codes)]
+        land_use_by_nut2 = land_use_by_nut2[land_use_by_nut2['land_use'].isin(land_uses)]
+        land_use_by_nut2.set_index(['nuts2_id', 'land_use'], inplace=True)
+
+        self.logger.write_time_log('SolventsSector', 'get_land_use_by_nut2', timeit.default_timer() - spent_time)
+        return land_use_by_nut2
+
+    def get_population_proxy(self, pop_raster_path, pop_by_nut2_path, nut2_shapefile_path):
         spent_time = timeit.default_timer()
 
         # 1st Clip the raster
+        self.logger.write_log("\t\tCreating clipped population raster", message_level=3)
         if self.comm.Get_rank() == 0:
             pop_raster_path = IoRaster(self.comm).clip_raster_with_shapefile_poly(
                 pop_raster_path, self.clip.shapefile, os.path.join(self.auxiliary_dir, 'solvents', 'pop.tif'))
 
         # 2nd Raster to shapefile
-        pop_shp = IoRaster(self.comm).to_shapefile_parallel(pop_raster_path, gather=True, bcast=False,
-                                                            crs={'init': 'epsg:4326'})
+        self.logger.write_log("\t\tRaster to shapefile", message_level=3)
+        pop_shp = IoRaster(self.comm).to_shapefile_parallel(
+            pop_raster_path, gather=True, bcast=False, crs={'init': 'epsg:4326'})
 
         # 3rd Add NUT code
+        self.logger.write_log("\t\tAdding nut codes to the shapefile", message_level=3)
         if self.comm.Get_rank() == 0:
             pop_shp.drop(columns='CELL_ID', inplace=True)
             pop_shp.rename(columns={'data': 'population'}, inplace=True)
             pop_shp = self.add_nut_code(pop_shp, nut2_shapefile_path, nut_value='nuts2_id')
             pop_shp = pop_shp[pop_shp['nut_code'] != -999]
         pop_shp = IoShapefile(self.comm).split_shapefile(pop_shp)
-        # 4th Calculate pop percent
-        pop_by_nut2 = self.get_pop_by_nut2(pop_by_nut2_path)
+
+        # 4th Calculate population percent
+        self.logger.write_log("\t\tCalculating population percentage on source resolution", message_level=3)
+        pop_by_nut2 = self.get_population_by_nut2(pop_by_nut2_path)
         pop_shp['tot_pop'] = pop_shp['nut_code'].map(pop_by_nut2)
         pop_shp['pop_percent'] = pop_shp['population'] / pop_shp['tot_pop']
         pop_shp.drop(columns=['tot_pop', 'population'], inplace=True)
 
         # 5th Calculate percent by dest_cell
+        self.logger.write_log("\t\tCalculating population percentage on destiny resolution", message_level=3)
         pop_shp.to_crs(self.grid.shapefile.crs, inplace=True)
         pop_shp['src_inter_fraction'] = pop_shp.geometry.area
         pop_shp = self.spatial_overlays(pop_shp.reset_index(), self.grid.shapefile.reset_index())
@@ -158,28 +179,67 @@ class SolventsSector(Sector):
 
         popu_dist = pop_shp.groupby(['FID', 'nut_code']).sum()
         popu_dist.rename({'pop_percent': 'population'}, inplace=True)
+
         self.logger.write_time_log('SolventsSector', 'get_population_proxie', timeit.default_timer() - spent_time)
         return popu_dist
 
-    def get_proxy_shapefile(self, population_raster_path, population_nuts2_path, nut2_shapefile_path):
+    def get_land_use_proxy(self, land_use_raster, land_use_by_nut2_path, land_uses, nut2_shapefile_path):
+        spent_time = timeit.default_timer()
+        # 1st Clip the raster
+        self.logger.write_log("\t\tCreating clipped land use raster", message_level=3)
+        lu_raster_path = os.path.join(self.auxiliary_dir, 'solvents', 'lu_{0}.tif'.format('_'.join(land_uses)))
+        if self.comm.Get_rank() == 0:
+            if not os.path.exists(lu_raster_path):
+                lu_raster_path = IoRaster(self.comm).clip_raster_with_shapefile_poly(
+                    land_use_raster, self.clip.shapefile, lu_raster_path)
 
-        proxies_list = np.unique(self.proxies_map['proxy_name'])
-        proxies_list = np.unique(['population'])
+        # 2nd Raster to shapefile
+        self.logger.write_log("\t\tRaster to shapefile", message_level=3)
+        land_use_shp = IoRaster(self.comm).to_shapefile_parallel(
+            lu_raster_path, gather=False, bcast=False, crs={'init': 'epsg:4326'})
+        print(land_use_shp)
+        sys.stdout.flush()
+        # 3rd Add NUT code
+        self.logger.write_log("\t\tAdding nut codes to the shapefile", message_level=3)
+        # if self.comm.Get_rank() == 0:
+        land_use_shp.drop(columns='CELL_ID', inplace=True)
+        land_use_shp.rename(columns={'data': 'population'}, inplace=True)
+        land_use_shp = self.add_nut_code(land_use_shp, nut2_shapefile_path, nut_value='nuts2_id')
+        land_use_shp = land_use_shp[land_use_shp['nut_code'] != -999]
+        # land_use_shp = IoShapefile(self.comm).split_shapefile(land_use_shp)
+
+        # 4th Calculate land_use percent
+        self.logger.write_log("\t\tCalculating land use percentage on source resolution", message_level=3)
+        land_use_by_nut2 = self.get_land_use_by_nut2(
+            land_use_by_nut2_path, land_uses, np.unique(land_use_shp['nut_code']))
+
+        # 5th Calculate percent by dest_cell
+        self.logger.write_log("\t\tCalculating land use percentage on destiny resolution", message_level=3)
+
+        self.logger.write_time_log('SolventsSector', 'get_land_use_proxy', timeit.default_timer() - spent_time)
+        return True
+
+    def get_proxy_shapefile(self, population_raster_path, population_nuts2_path, land_uses_raster_path,
+                            land_uses_nuts2_path, nut2_shapefile_path):
+        spent_time = timeit.default_timer()
+        self.logger.write_log("Getting proxies shapefile")
+        # proxy_names_list = np.unique(self.proxies_map['proxy_name'])
+        proxy_names_list = np.unique(['lu_3'])
         proxy_shp_name = os.path.join(self.auxiliary_dir, 'solvents', 'proxy_distributions.shp')
         if not os.path.exists(proxy_shp_name):
-            for proxy in proxies_list:
+            for proxy_name in proxy_names_list:
+                self.logger.write_log("\tGetting proxy for {0}".format(proxy_name), message_level=2)
                 proxies_list = []
-                if proxy == 'population':
-                    pop_proxy = self.get_population_proxie(population_raster_path, population_nuts2_path,
-                                                           nut2_shapefile_path)
-                    pop_proxy = self.comm.gather(pop_proxy.reset_index(), root=0)
-                    if self.comm.Get_rank() == 0:
-                        pop_proxy = pd.concat(pop_proxy)
-                        pop_proxy = pop_proxy.groupby(['FID', 'nut_code']).sum()
-                        pop_proxy.to_csv('/gpfs/projects/bsc32/bsc32538/temp/population_proxy.csv')
-                    self.comm.Barrier()
+                if proxy_name == 'population':
+                    pop_proxy = self.get_population_proxy(population_raster_path, population_nuts2_path,
+                                                          nut2_shapefile_path)
+                    proxies_list.append(pop_proxy)
+                if proxy_name[:3] == 'lu_':
+                    land_uses = proxy_name.split('_')
+                    land_use_proxy = self.get_land_use_proxy(land_uses_raster_path, land_uses_nuts2_path, land_uses,
+                                                             nut2_shapefile_path)
         else:
             pass
-        exit()
-        # print(proxy_shp)
-        print(proxies_list)
+
+        self.logger.write_time_log('SolventsSector', 'get_proxy_shapefile', timeit.default_timer() - spent_time)
+        return True
