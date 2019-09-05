@@ -187,11 +187,13 @@ class SolventsSector(Sector):
         spent_time = timeit.default_timer()
         # 1st Clip the raster
         self.logger.write_log("\t\tCreating clipped land use raster", message_level=3)
-        lu_raster_path = os.path.join(self.auxiliary_dir, 'solvents', 'lu_{0}.tif'.format('_'.join(land_uses)))
+        lu_raster_path = os.path.join(self.auxiliary_dir, 'solvents', 'lu_{0}.tif'.format(
+            '_'.join([str(x) for x in land_uses])))
+
         if self.comm.Get_rank() == 0:
             if not os.path.exists(lu_raster_path):
                 lu_raster_path = IoRaster(self.comm).clip_raster_with_shapefile_poly(
-                    land_use_raster, self.clip.shapefile, lu_raster_path)
+                    land_use_raster, self.clip.shapefile, lu_raster_path, values=land_uses)
 
         # 2nd Raster to shapefile
         self.logger.write_log("\t\tRaster to shapefile", message_level=3)
@@ -201,16 +203,18 @@ class SolventsSector(Sector):
         self.logger.write_log("\t\tAdding nut codes to the shapefile", message_level=3)
         # if self.comm.Get_rank() == 0:
         land_use_shp.drop(columns='CELL_ID', inplace=True)
-        land_use_shp.rename(columns={'data': 'population'}, inplace=True)
+        land_use_shp.rename(columns={'data': 'land_use'}, inplace=True)
         land_use_shp = self.add_nut_code(land_use_shp, nut2_shapefile_path, nut_value='nuts2_id')
         land_use_shp = land_use_shp[land_use_shp['nut_code'] != -999]
+        land_use_shp = IoShapefile(self.comm).balance(land_use_shp)
         # land_use_shp = IoShapefile(self.comm).split_shapefile(land_use_shp)
 
         # 4th Calculate land_use percent
         self.logger.write_log("\t\tCalculating land use percentage on source resolution", message_level=3)
         land_use_by_nut2 = self.get_land_use_by_nut2(
             land_use_by_nut2_path, land_uses, np.unique(land_use_shp['nut_code']))
-        print(land_use_by_nut2)
+        print(land_use_shp)
+        sys.stdout.flush()
         exit()
         # 5th Calculate percent by dest_cell
         self.logger.write_log("\t\tCalculating land use percentage on destiny resolution", message_level=3)
@@ -234,7 +238,8 @@ class SolventsSector(Sector):
                                                           nut2_shapefile_path)
                     proxies_list.append(pop_proxy)
                 if proxy_name[:3] == 'lu_':
-                    land_uses = proxy_name.split('_')
+                    land_uses = [int(x) for x in proxy_name[3:].split('_')]
+
                     land_use_proxy = self.get_land_use_proxy(land_uses_raster_path, land_uses_nuts2_path, land_uses,
                                                              nut2_shapefile_path)
         else:
