@@ -34,16 +34,19 @@ class SolventsSector(Sector):
 
         spent_time = timeit.default_timer()
         logger.write_log('===== SOLVENTS SECTOR =====')
+
         check_files([speciation_map_path, molecular_weights_path, speciation_profiles_path, monthly_profile_path,
                      weekly_profile_path, hourly_profile_path, proxies_map_path, yearly_emissions_by_nut2_path,
-                     point_sources_shapefile_path, population_raster_path,
-                     # population_nuts2_path,
+                     point_sources_shapefile_path, population_raster_path,population_nuts2_path,
                      land_uses_raster_path, land_uses_nuts2_path, nut2_shapefile_path])
 
         super(SolventsSector, self).__init__(
             comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
             monthly_profile_path, weekly_profile_path, hourly_profile_path, speciation_map_path,
             speciation_profiles_path, molecular_weights_path)
+
+        # self.calculate_land_use_by_nut(land_uses_raster_path, nut2_shapefile_path, land_uses_nuts2_path)
+        # exit()
 
         self.proxies_map = self.read_proxies(proxies_map_path)
         self.check_profiles()
@@ -158,6 +161,7 @@ class SolventsSector(Sector):
         pop_shp.rename(columns={'data': 'population'}, inplace=True)
         pop_shp = self.add_nut_code(pop_shp, nut2_shapefile_path, nut_value='nuts2_id')
         pop_shp = pop_shp[pop_shp['nut_code'] != -999]
+        pop_shp = IoShapefile(self.comm).balance(pop_shp)
         # pop_shp = IoShapefile(self.comm).split_shapefile(pop_shp)
 
         # 4th Calculate population percent
@@ -178,7 +182,7 @@ class SolventsSector(Sector):
         pop_shp.drop(columns=['src_inter_fraction'], inplace=True)
 
         popu_dist = pop_shp.groupby(['FID', 'nut_code']).sum()
-        popu_dist.rename({'pop_percent': 'population'}, inplace=True)
+        popu_dist.rename(columns={'pop_percent': 'population'}, inplace=True)
 
         self.logger.write_time_log('SolventsSector', 'get_population_proxie', timeit.default_timer() - spent_time)
         return popu_dist
@@ -211,23 +215,39 @@ class SolventsSector(Sector):
 
         # 4th Calculate land_use percent
         self.logger.write_log("\t\tCalculating land use percentage on source resolution", message_level=3)
+
+        land_use_shp['area'] = land_use_shp.geometry.area
         land_use_by_nut2 = self.get_land_use_by_nut2(
             land_use_by_nut2_path, land_uses, np.unique(land_use_shp['nut_code']))
-        print(land_use_shp)
-        sys.stdout.flush()
-        exit()
+        land_use_shp.drop(columns=['land_use'], inplace=True)
+
+        land_use_shp['fraction'] = land_use_shp.apply(
+            lambda row: row['area'] / land_use_by_nut2.xs(row['nut_code'], level='nuts2_id').sum(), axis=1)
+        land_use_shp.drop(columns='area', inplace=True)
+        
         # 5th Calculate percent by dest_cell
         self.logger.write_log("\t\tCalculating land use percentage on destiny resolution", message_level=3)
 
+        land_use_shp.to_crs(self.grid.shapefile.crs, inplace=True)
+        land_use_shp['src_inter_fraction'] = land_use_shp.geometry.area
+        land_use_shp = self.spatial_overlays(land_use_shp.reset_index(), self.grid.shapefile.reset_index())
+        land_use_shp.drop(columns=['idx1', 'idx2', 'index'], inplace=True)
+        land_use_shp['src_inter_fraction'] = land_use_shp.geometry.area / land_use_shp['src_inter_fraction']
+        land_use_shp['fraction'] = land_use_shp['fraction'] * land_use_shp['src_inter_fraction']
+        land_use_shp.drop(columns=['src_inter_fraction'], inplace=True)
+
+        land_use_dist = land_use_shp.groupby(['FID', 'nut_code']).sum()
+        land_use_dist.rename(columns={'fraction': 'lu_{0}'.format('_'.join([str(x) for x in land_uses]))}, inplace=True)
+
         self.logger.write_time_log('SolventsSector', 'get_land_use_proxy', timeit.default_timer() - spent_time)
-        return True
+        return land_use_dist
 
     def get_proxy_shapefile(self, population_raster_path, population_nuts2_path, land_uses_raster_path,
                             land_uses_nuts2_path, nut2_shapefile_path):
         spent_time = timeit.default_timer()
         self.logger.write_log("Getting proxies shapefile")
         # proxy_names_list = np.unique(self.proxies_map['proxy_name'])
-        proxy_names_list = np.unique(['lu_3'])
+        proxy_names_list = np.unique(['lu_3_8'])
         proxy_shp_name = os.path.join(self.auxiliary_dir, 'solvents', 'proxy_distributions.shp')
         if not os.path.exists(proxy_shp_name):
             for proxy_name in proxy_names_list:
@@ -242,6 +262,7 @@ class SolventsSector(Sector):
 
                     land_use_proxy = self.get_land_use_proxy(land_uses_raster_path, land_uses_nuts2_path, land_uses,
                                                              nut2_shapefile_path)
+                    print(land_use_proxy)
         else:
             pass
 

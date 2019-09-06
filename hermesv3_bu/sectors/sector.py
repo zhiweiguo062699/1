@@ -564,3 +564,46 @@ class Sector(object):
         return_value = [outs for outs, ints in self.speciation_map.items() if ints == input_pollutant]
         self.logger.write_time_log('Sector', 'get_output_pollutants', timeit.default_timer() - spent_time)
         return return_value
+
+    def calculate_land_use_by_nut(self, land_use_raster_path, nut_shapefile_path, out_land_use_by_nut_path):
+        from hermesv3_bu.io_server.io_raster import IoRaster
+        from hermesv3_bu.io_server.io_shapefile import IoShapefile
+
+        # 1st Clip the raster
+        lu_raster_path = os.path.join(self.auxiliary_dir, 'clipped_land_use.tif')
+
+        if self.comm.Get_rank() == 0:
+            if not os.path.exists(lu_raster_path):
+                lu_raster_path = IoRaster(self.comm).clip_raster_with_shapefile_poly(
+                    land_use_raster_path, self.clip.shapefile, lu_raster_path)
+
+        # 2nd Raster to shapefile
+        land_use_shp = IoRaster(self.comm).to_shapefile_parallel(lu_raster_path, gather=False, bcast=False)
+
+        # 3rd Add NUT code
+        land_use_shp.drop(columns='CELL_ID', inplace=True)
+        land_use_shp.rename(columns={'data': 'land_use'}, inplace=True)
+        land_use_shp = self.add_nut_code(land_use_shp, nut_shapefile_path, nut_value='nuts2_id')
+        land_use_shp = land_use_shp[land_use_shp['nut_code'] != -999]
+        land_use_shp = IoShapefile(self.comm).balance(land_use_shp)
+
+        # 4th Calculate land_use percent
+        land_use_shp['area'] = land_use_shp.geometry.area
+
+        land_use_by_nut = GeoDataFrame(index=pd.MultiIndex.from_product(
+            [np.unique(land_use_shp['nut_code']), np.unique(land_use_shp['land_use'])], names=['nuts2_id', 'land_use']))
+
+        for nut_code in np.unique(land_use_shp['nut_code']):
+            for land_use in np.unique(land_use_shp['land_use']):
+                land_use_by_nut.loc[(nut_code, land_use), 'area'] = land_use_shp.loc[
+                    (land_use_shp['land_use'] == land_use) & (land_use_shp['nut_code'] == nut_code),  'area'].sum()
+
+        land_use_by_nut.reset_index(inplace=True)
+        land_use_by_nut = IoShapefile(self.comm).gather_shapefile(land_use_by_nut, rank=0)
+
+        if self.comm.Get_rank() == 0:
+            land_use_by_nut = land_use_by_nut.groupby(['nuts2_id', 'land_use']).sum()
+            land_use_by_nut.to_csv(out_land_use_by_nut_path)
+            print('DONE -> {0}'.format(out_land_use_by_nut_path))
+        self.comm.Barrier()
+
