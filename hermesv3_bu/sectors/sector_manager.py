@@ -213,9 +213,9 @@ class SectorManager(object):
                     arguments.solvents_speciation_profiles, arguments.solvents_monthly_profile,
                     arguments.solvents_weekly_profile, arguments.solvents_hourly_profile,
                     arguments.solvents_proxies_path, arguments.solvents_yearly_emissions_by_nut2_path,
-                    arguments.solvents_point_sources_shapefile, arguments.population_density_map,
-                    arguments.population_nuts2, arguments.land_uses_path, arguments.land_use_by_nuts2_path,
-                    arguments.nuts2_shapefile)
+                    arguments.solvents_point_sources_shapefile, arguments.solvents_point_sources_weight_by_nut2_path,
+                    arguments.population_density_map, arguments.population_nuts2, arguments.land_uses_path,
+                    arguments.land_use_by_nuts2_path, arguments.nuts2_shapefile)
 
             color += 1
 

@@ -354,6 +354,7 @@ class Config(ArgParser):
         p.add_argument('--solvents_proxies_path', required=False, help='...')
         p.add_argument('--solvents_yearly_emissions_by_nut2_path', required=False, help='...')
         p.add_argument('--solvents_point_sources_shapefile', required=False, help='...')
+        p.add_argument('--solvents_point_sources_weight_by_nut2_path', required=False, help='...')
         p.add_argument('--solvents_monthly_profile', required=False, help='...')
         p.add_argument('--solvents_weekly_profile', required=False, help='...')
         p.add_argument('--solvents_hourly_profile', required=False, help='...')

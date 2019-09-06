@@ -14,7 +14,7 @@ from hermesv3_bu.tools.checker import check_files, error_exit
 PROXY_NAMES = {'boat_building': 'boat',
                'automobile_manufacturing': 'automobile',
                'car_repairing': 'car_repair',
-               'dry_cleaning': 'gry_clean',
+               'dry_cleaning': 'dry_clean',
                'rubber_processing': 'rubber',
                'paints_manufacturing': 'paints',
                'inks_manufacturing': 'ink',
@@ -29,16 +29,16 @@ class SolventsSector(Sector):
     def __init__(self, comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
                  speciation_map_path, molecular_weights_path, speciation_profiles_path, monthly_profile_path,
                  weekly_profile_path, hourly_profile_path, proxies_map_path, yearly_emissions_by_nut2_path,
-                 point_sources_shapefile_path, population_raster_path, population_nuts2_path, land_uses_raster_path,
-                 land_uses_nuts2_path, nut2_shapefile_path):
+                 point_sources_shapefile_path, point_sources_weight_by_nut2_path, population_raster_path,
+                 population_nuts2_path, land_uses_raster_path, land_uses_nuts2_path, nut2_shapefile_path):
 
         spent_time = timeit.default_timer()
         logger.write_log('===== SOLVENTS SECTOR =====')
 
         check_files([speciation_map_path, molecular_weights_path, speciation_profiles_path, monthly_profile_path,
                      weekly_profile_path, hourly_profile_path, proxies_map_path, yearly_emissions_by_nut2_path,
-                     point_sources_shapefile_path, population_raster_path,population_nuts2_path,
-                     land_uses_raster_path, land_uses_nuts2_path, nut2_shapefile_path])
+                     point_sources_shapefile_path, point_sources_weight_by_nut2_path, population_raster_path,
+                     population_nuts2_path, land_uses_raster_path, land_uses_nuts2_path, nut2_shapefile_path])
 
         super(SolventsSector, self).__init__(
             comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
@@ -51,11 +51,10 @@ class SolventsSector(Sector):
         self.proxies_map = self.read_proxies(proxies_map_path)
         self.check_profiles()
 
-        self.proxy = self.get_proxy_shapefile(population_raster_path, population_nuts2_path, land_uses_raster_path,
-                                              land_uses_nuts2_path, nut2_shapefile_path)
-
+        self.proxy = self.get_proxy_shapefile(
+            population_raster_path, population_nuts2_path, land_uses_raster_path, land_uses_nuts2_path,
+            nut2_shapefile_path, point_sources_shapefile_path, point_sources_weight_by_nut2_path)
         self.yearly_emissions = self.read_yearly_emissions(yearly_emissions_by_nut2_path)
-        exit()
         self.logger.write_time_log('SolventsSector', '__init__', timeit.default_timer() - spent_time)
 
     def read_proxies(self, path):
@@ -128,6 +127,20 @@ class SolventsSector(Sector):
 
         self.logger.write_time_log('SolventsSector', 'get_pop_by_nut2', timeit.default_timer() - spent_time)
         return pop_by_nut2
+
+    def get_point_sources_weights_by_nut2(self, path, proxy_name):
+        spent_time = timeit.default_timer()
+
+        weights_by_nut2 = pd.read_csv(path)
+        weights_by_nut2['nuts2_id'] = weights_by_nut2['nuts2_id'].astype(int)
+        weights_by_nut2 = weights_by_nut2[weights_by_nut2['industry_c'] == proxy_name]
+        weights_by_nut2.drop(columns=['industry_c'], inplace=True)
+        weights_by_nut2.set_index("nuts2_id", inplace=True)
+        weights_by_nut2 = weights_by_nut2.to_dict()['weight']
+
+        self.logger.write_time_log('SolventsSector', 'get_point_sources_weights_by_nut2',
+                                   timeit.default_timer() - spent_time)
+        return weights_by_nut2
 
     def get_land_use_by_nut2(self, path, land_uses, nut_codes):
         spent_time = timeit.default_timer()
@@ -242,29 +255,77 @@ class SolventsSector(Sector):
         self.logger.write_time_log('SolventsSector', 'get_land_use_proxy', timeit.default_timer() - spent_time)
         return land_use_dist
 
+    def get_point_shapefile_proxy(self, proxy_name, point_shapefile_path, point_sources_weight_by_nut2_path,
+                                  nut2_shapefile_path):
+        spent_time = timeit.default_timer()
+
+        point_shapefile = IoShapefile(self.comm).read_shapefile_parallel(point_shapefile_path)
+        point_shapefile.drop(columns=['Empresa', 'Empleados', 'Ingresos', 'Consumos', 'LON', 'LAT'], inplace=True)
+        point_shapefile = point_shapefile[point_shapefile['industry_c'] ==
+                                          [key for key, value in PROXY_NAMES.items() if value == proxy_name][0]]
+        point_shapefile = IoShapefile(self.comm).balance(point_shapefile)
+        point_shapefile.drop(columns=['industry_c'], inplace=True)
+        point_shapefile = self.add_nut_code(point_shapefile, nut2_shapefile_path, nut_value='nuts2_id')
+        point_shapefile = point_shapefile[point_shapefile['nut_code'] != -999]
+
+        point_shapefile = IoShapefile(self.comm).gather_shapefile(point_shapefile, rank=0)
+        if self.comm.Get_rank() == 0:
+            weight_by_nut2 = self.get_point_sources_weights_by_nut2(
+                point_sources_weight_by_nut2_path,
+                [key for key, value in PROXY_NAMES.items() if value == proxy_name][0])
+            point_shapefile[proxy_name] = point_shapefile.apply(
+                lambda row: row['weight'] / weight_by_nut2[row['nut_code']], axis=1)
+            point_shapefile.drop(columns=['weight'], inplace=True)
+            # print(point_shapefile.groupby('nut_code')['weight'].sum())
+
+        point_shapefile = IoShapefile(self.comm).split_shapefile(point_shapefile)
+        point_shapefile = gpd.sjoin(point_shapefile.to_crs(self.grid.shapefile.crs), self.grid.shapefile.reset_index())
+        point_shapefile.drop(columns=['geometry', 'index_right'], inplace=True)
+        point_shapefile = point_shapefile.groupby(['FID', 'nut_code']).sum()
+
+        self.logger.write_time_log('SolventsSector', 'get_point_shapefile_proxy', timeit.default_timer() - spent_time)
+        return point_shapefile
+
     def get_proxy_shapefile(self, population_raster_path, population_nuts2_path, land_uses_raster_path,
-                            land_uses_nuts2_path, nut2_shapefile_path):
+                            land_uses_nuts2_path, nut2_shapefile_path, point_sources_shapefile_path,
+                            point_sources_weight_by_nut2_path):
         spent_time = timeit.default_timer()
         self.logger.write_log("Getting proxies shapefile")
-        # proxy_names_list = np.unique(self.proxies_map['proxy_name'])
-        proxy_names_list = np.unique(['lu_3_8'])
-        proxy_shp_name = os.path.join(self.auxiliary_dir, 'solvents', 'proxy_distributions.shp')
-        if not os.path.exists(proxy_shp_name):
+        proxy_names_list = np.unique(self.proxies_map['proxy_name'])
+        proxy_path = os.path.join(self.auxiliary_dir, 'solvents', 'proxy_distributions.csv')
+        if not os.path.exists(proxy_path):
+            proxy_list = []
             for proxy_name in proxy_names_list:
                 self.logger.write_log("\tGetting proxy for {0}".format(proxy_name), message_level=2)
-                proxies_list = []
                 if proxy_name == 'population':
-                    pop_proxy = self.get_population_proxy(population_raster_path, population_nuts2_path,
+                    proxy = self.get_population_proxy(population_raster_path, population_nuts2_path,
                                                           nut2_shapefile_path)
-                    proxies_list.append(pop_proxy)
-                if proxy_name[:3] == 'lu_':
+                elif proxy_name[:3] == 'lu_':
                     land_uses = [int(x) for x in proxy_name[3:].split('_')]
 
-                    land_use_proxy = self.get_land_use_proxy(land_uses_raster_path, land_uses_nuts2_path, land_uses,
+                    proxy = self.get_land_use_proxy(land_uses_raster_path, land_uses_nuts2_path, land_uses,
                                                              nut2_shapefile_path)
-                    print(land_use_proxy)
+                else:
+                    proxy = self.get_point_shapefile_proxy(proxy_name, point_sources_shapefile_path,
+                                                           point_sources_weight_by_nut2_path, nut2_shapefile_path)
+                proxy = IoShapefile(self.comm).gather_shapefile(proxy.reset_index())
+                if self.comm.Get_rank() == 0:
+                    proxy_list.append(proxy)
+            if self.comm.Get_rank() == 0:
+                proxies = pd.concat(proxy_list, sort=False)
+                proxies['FID'] = proxies['FID'].astype(int)
+                proxies['nut_code'] = proxies['nut_code'].astype(int)
+                proxies = proxies.groupby(['FID', 'nut_code']).sum()
+                proxies.to_csv(proxy_path)
+            else:
+                proxies = None
+            proxies = self.comm.bcast(proxies, root=0)
         else:
-            pass
+            proxies = pd.read_csv(proxy_path, index_col=['FID', 'nut_code'])
 
         self.logger.write_time_log('SolventsSector', 'get_proxy_shapefile', timeit.default_timer() - spent_time)
-        return True
+        return proxies
+
+    def calculate_emissions(self):
+        print('HOLAAA')
+        exit()
