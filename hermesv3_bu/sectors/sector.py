@@ -606,4 +606,3 @@ class Sector(object):
             land_use_by_nut.to_csv(out_land_use_by_nut_path)
             print('DONE -> {0}'.format(out_land_use_by_nut_path))
         self.comm.Barrier()
-

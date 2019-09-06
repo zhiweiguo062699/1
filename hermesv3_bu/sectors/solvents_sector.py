@@ -241,7 +241,7 @@ class SolventsSector(Sector):
         land_use_shp['fraction'] = land_use_shp.apply(
             lambda row: row['area'] / land_use_by_nut2.xs(row['nut_code'], level='nuts2_id').sum(), axis=1)
         land_use_shp.drop(columns='area', inplace=True)
-        
+
         # 5th Calculate percent by dest_cell
         self.logger.write_log("\t\tCalculating land use percentage on destiny resolution", message_level=3)
 
