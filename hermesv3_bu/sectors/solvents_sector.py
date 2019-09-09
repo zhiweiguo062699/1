@@ -6,6 +6,7 @@ import timeit
 import geopandas as gpd
 import pandas as pd
 import numpy as np
+from warnings import warn
 from hermesv3_bu.sectors.sector import Sector
 from hermesv3_bu.io_server.io_shapefile import IoShapefile
 from hermesv3_bu.io_server.io_raster import IoRaster
@@ -347,19 +348,113 @@ class SolventsSector(Sector):
                 proxies.set_index(['FID', 'nut_code'], inplace=True)
             else:
                 proxies = None
-        proxies = self.comm.bcast(proxies, root=0)
+        proxies = IoShapefile(self.comm).split_shapefile(proxies)
 
         self.logger.write_time_log('SolventsSector', 'get_proxy_shapefile', timeit.default_timer() - spent_time)
         return proxies
 
     def calculate_hourly_emissions(self, yearly_emissions):
-        print(self.add_dates(yearly_emissions))
-        exit()
+        def get_mf(df):
+            month_factor = self.monthly_profiles.loc[df.name[1], df.name[0]]
+
+            df['MF'] = month_factor
+            return df.loc[:, ['MF']]
+
+        def get_wf(df):
+            weekly_profile = self.calculate_rebalanced_weekly_profile(self.weekly_profiles.loc[df.name[1], :].to_dict(),
+                                                                      df.name[0])
+            df['WF'] = weekly_profile[df.name[0].weekday()]
+            return df.loc[:, ['WF']]
+
+        def get_hf(df):
+            hourly_profile = self.hourly_profiles.loc[df.name[1], :].to_dict()
+            hour_factor = hourly_profile[df.name[0]]
+
+            df['HF'] = hour_factor
+            return df.loc[:, ['HF']]
+
+        emissions = self.add_dates(yearly_emissions, drop_utc=True)
+        
+        emissions['month'] = emissions['date'].dt.month
+        emissions['weekday'] = emissions['date'].dt.weekday
+        emissions['hour'] = emissions['date'].dt.hour
+        emissions['date_as_date'] = emissions['date'].dt.date
+
+        emissions['MF'] = emissions.groupby(['month', 'P_month']).apply(get_mf)
+        emissions['WF'] = emissions.groupby(['date_as_date', 'P_week']).apply(get_wf)
+        emissions['HF'] = emissions.groupby(['hour', 'P_hour']).apply(get_hf)
+
+        emissions['temp_factor'] = emissions['MF'] * emissions['WF'] * emissions['HF']
+        emissions.drop(columns=['MF', 'P_month', 'month', 'WF', 'P_week', 'weekday', 'HF', 'P_hour', 'hour', 'date',
+                                'date_as_date'], inplace=True)
+        emissions['nmvoc'] = emissions['nmvoc'] * emissions['temp_factor']
+        emissions.drop(columns=['temp_factor'], inplace=True)
+        emissions.set_index(['FID', 'snap', 'tstep'], inplace=True)
+
+        # emissions = IoShapefile(self.comm).balance(emissions)
+        
+        return emissions
+
+    def distribute_yearly_emissions(self):
+        yearly_emis = self.read_yearly_emissions(
+            self.yearly_emissions_path, np.unique(self.proxy.index.get_level_values('nut_code')))
+        year_nuts = np.unique(yearly_emis.index.get_level_values('nuts2_id'))
+        proxy_nuts = np.unique(self.proxy.index.get_level_values('nut_code'))
+        unknow_nuts = list(set(proxy_nuts) - set(year_nuts))
+        if len(unknow_nuts) > 0:
+            warn("*WARNING* The {0} nuts2_id have no emissions in the solvents_yearly_emissions_by_nut2_path.".format(
+                str(unknow_nuts)))
+            self.proxy.drop(unknow_nuts, level='nut_code', inplace=True)
+        emis_list = []
+        for snap, snap_df in self.proxies_map.iterrows():
+            emis = self.proxy.reset_index()
+            emis['snap'] = snap
+            emis['P_month'] = snap_df['P_month']
+            emis['P_week'] = snap_df['P_week']
+            emis['P_hour'] = snap_df['P_hour']
+            emis['P_spec'] = snap_df['P_spec']
+            # print(yearly_emis.index)
+            # print(yearly_emis.loc[(9, '060408'), 'nmvoc'])
+            # exit()
+            emis['nmvoc'] = emis.apply(lambda row: yearly_emis.loc[(row['nut_code'], snap), 'nmvoc'] * row[
+                self.proxies_map.loc[snap, 'proxy_name']], axis=1)
+
+            emis.set_index(['FID', 'snap'], inplace=True)
+            emis_list.append(emis[['P_month', 'P_week', 'P_hour', 'P_spec', 'nmvoc', 'geometry']])
+        emis = pd.concat(emis_list).sort_index()
+        emis = emis[emis['nmvoc'] > 0]
+        # emis = IoShapefile(self.comm).balance(emis)
+        return emis
+
+    def speciate(self, dataframe, code='default'):
+
+        def calculate_new_pollutant(x, out_p):
+            sys.stdout.flush()
+            profile = self.speciation_profile.loc[x.name, ['VOCtoTOG', out_p]]
+            x[out_p] = x['nmvoc'] * (profile['VOCtoTOG'] * profile[out_p])
+            return x[[out_p]]
+
+        new_dataframe = gpd.GeoDataFrame(index=dataframe.index, data=None, crs=dataframe.crs,
+                                         geometry=dataframe.geometry)
+        for out_pollutant in self.output_pollutants:
+            new_dataframe[out_pollutant] = dataframe.groupby('P_spec').apply(
+                lambda x: calculate_new_pollutant(x, out_pollutant))
+        new_dataframe.reset_index(inplace=True)
+
+        new_dataframe.drop(columns=['snap', 'geometry'], inplace=True)
+        new_dataframe.set_index(['FID', 'tstep'], inplace=True)
+        return new_dataframe
 
     def calculate_emissions(self):
         # Distribute emissions first.
-        # yearly_emissions = IoShapefile(self.comm).split_shapefile(
-        #     self.read_yearly_emissions(self.yearly_emissions_path,
-        #                                np.unique(self.proxy.index.get_level_values('nut_code'))))
-        # hourly_emissions = self.calculate_hourly_emissions(yearly_emissions)
-        exit()
+        emissions = self.distribute_yearly_emissions()
+        emissions = self.calculate_hourly_emissions(emissions)
+        emissions.to_csv('/gpfs/projects/bsc32/bsc32538/DATA/HERMESv3_BU_OUT/logs/solvents1_rank{0}.csv'.format(self.comm.Get_rank()))
+        emissions = self.speciate(emissions)
+        emissions.to_csv('/gpfs/projects/bsc32/bsc32538/DATA/HERMESv3_BU_OUT/logs/solvents2_rank{0}.csv'.format(self.comm.Get_rank()))
+
+        emissions.reset_index(inplace=True)
+        emissions['layer'] = 0
+        emissions = emissions.groupby(['FID', 'layer', 'tstep']).sum()
+        emissions.to_csv('/gpfs/projects/bsc32/bsc32538/DATA/HERMESv3_BU_OUT/logs/solvents3_rank{0}.csv'.format(self.comm.Get_rank()))
+        return emissions
