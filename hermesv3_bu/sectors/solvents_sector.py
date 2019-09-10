@@ -13,6 +13,9 @@ from hermesv3_bu.io_server.io_raster import IoRaster
 from hermesv3_bu.tools.checker import check_files, error_exit
 from pandas import DataFrame
 from geopandas import GeoDataFrame
+from hermesv3_bu.grids.grid import Grid
+from hermesv3_bu.logger.log import Log
+from hermesv3_bu.clipping.clip import Clip
 
 PROXY_NAMES = {'boat_building': 'boat',
                'automobile_manufacturing': 'automobile',
@@ -29,12 +32,104 @@ PROXY_NAMES = {'boat_building': 'boat',
 
 
 class SolventsSector(Sector):
+    """
+    Solvents sector allows to calculate the solvents emissions.
+
+    It first calculates the horizontal distribution for the different sources and store them in an auxiliary file
+    during the initialization part.
+
+    Once the initialization is finished it distribute the emissions of the different sub sectors ont he grid to start
+    the temporal disaggregation.
+    """
     def __init__(self, comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
                  speciation_map_path, molecular_weights_path, speciation_profiles_path, monthly_profile_path,
                  weekly_profile_path, hourly_profile_path, proxies_map_path, yearly_emissions_by_nut2_path,
                  point_sources_shapefile_path, point_sources_weight_by_nut2_path, population_raster_path,
                  population_nuts2_path, land_uses_raster_path, land_uses_nuts2_path, nut2_shapefile_path):
+        """
+        :param comm: Communicator for the sector calculation.
+        :type comm: MPI.COMM
 
+        :param logger: Logger
+        :type logger: Log
+
+        :param auxiliary_dir: Path to the directory where the necessary auxiliary files will be created if them are not
+            created yet.
+        :type auxiliary_dir: str
+
+        :param grid: Grid object.
+        :type grid: Grid
+
+        :param clip: Clip object
+        :type clip: Clip
+
+        :param date_array: List of datetimes.
+        :type date_array: list(datetime.datetime, ...)
+
+        :param source_pollutants: List of input pollutants to take into account.
+        :type source_pollutants: list
+
+        :param vertical_levels: List of top level of each vertical layer.
+        :type vertical_levels: list
+
+        :param speciation_map_path: Path to the CSV file that contains the speciation map. The CSV file must contain
+            the following columns [dst, src, description]
+            The 'dst' column will be used as output pollutant list and the 'src' column as their onw input pollutant
+            to be used as a fraction in the speciation profiles.
+        :type speciation_map_path: str
+
+        :param molecular_weights_path: Path to the CSV file that contains all the molecular weights needed. The CSV
+            file must contain the 'Specie' and 'MW' columns.
+        :type molecular_weights_path: str
+
+        :param speciation_profiles_path: Path to the file that contains all the speciation profiles. The CSV file
+            must contain the "Code" column with the value of each animal of the animal_list. The rest of columns
+            have to be the sames as the column 'dst' of the 'speciation_map_path' file.
+        :type speciation_profiles_path: str
+
+        :param hourly_profile_path: Path to the CSV file that contains all the monthly profiles. The CSV file must
+            contain the following columns [P_month, January, February, ..., November, December]
+            The P_month code have to match with the proxies_map_path file.
+        :type hourly_profile_path: str
+
+        :param weekly_profile_path: Path to the CSV file that contains all the weekly profiles. The CSV file must
+            contain the following columns [P_week, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday]
+            The P_week code have to match with the proxies_map_path file.
+        :type weekly_profile_path: str
+
+        :param hourly_profile_path: Path to the CSV file that contains all the hourly profiles. The CSV file must
+            contain the following columns [P_hour, 0, 1, 2, 3, ..., 22, 23]
+            The P_week code have to match with the proxies_map_path file.
+        :type hourly_profile_path: str
+
+        :param proxies_map_path: Path to the CSV file that contains the proxies map.
+        :type proxies_map_path: str
+
+        :param yearly_emissions_by_nut2_path: Path to the CSV file that contains the yearly emissions by subsecotr and
+            nuts2 level.
+        :type yearly_emissions_by_nut2_path: str
+
+        :param point_sources_shapefile_path: Path to the shapefile that contains the point sources for solvents.
+        :type point_sources_shapefile_path: str
+
+        :param point_sources_weight_by_nut2_path: Path to the CSV file that contains the weight for each proxy and nut2.
+        :type point_sources_weight_by_nut2_path: str
+
+        :param population_raster_path: Path to the population raster.
+        :type population_raster_path: str
+
+        :param population_nuts2_path: Path to the CSV file that contains the amount of population for each nut2.
+        :type population_nuts2_path: str
+
+        :param land_uses_raster_path: Path to the land use raster.
+        :type land_uses_raster_path: str
+
+        :param land_uses_nuts2_path: Path to the CSV file that contains the amount of land use for each nut2.
+        :type land_uses_nuts2_path: str
+
+        :param nut2_shapefile_path: Path to the shapefile that contains the nut2.
+        :type nut2_shapefile_path: str
+        """
         spent_time = timeit.default_timer()
         logger.write_log('===== SOLVENTS SECTOR =====')
 
@@ -48,9 +143,6 @@ class SolventsSector(Sector):
             monthly_profile_path, weekly_profile_path, hourly_profile_path, speciation_map_path,
             speciation_profiles_path, molecular_weights_path)
 
-        # self.calculate_land_use_by_nut(land_uses_raster_path, nut2_shapefile_path, land_uses_nuts2_path)
-        # exit()
-
         self.proxies_map = self.read_proxies(proxies_map_path)
         self.check_profiles()
 
@@ -62,6 +154,18 @@ class SolventsSector(Sector):
         self.logger.write_time_log('SolventsSector', '__init__', timeit.default_timer() - spent_time)
 
     def read_proxies(self, path):
+        """
+        Read the proxy map.
+
+        It will filter the CONS == '1' snaps and add the 'spatial_proxy' column that the content will match with some
+        column of the proxy shapefile.
+
+        :param path: path to the CSV file that have the proxy map.
+        :type path: str
+
+        :return: Proxy map.
+        :rtype: DataFrame
+        """
         spent_time = timeit.default_timer()
         proxies_df = pd.read_csv(path, dtype=str)
 
@@ -79,6 +183,20 @@ class SolventsSector(Sector):
         return proxies_df
 
     def check_profiles(self):
+        """
+        Check that the profiles appear on the profile files.
+
+        It will check the content of the proxies map.
+        Check that the 'P_month' content appears on the monthly profiles.
+        Check that the 'P_week' content appears on the weekly profiles.
+        Check that the 'P_hour' content appears on the hourly profiles.
+        Check that the 'P_spec' content appears on the speciation profiles.
+
+        It will stop teh execution if the requirements are not satisfied.
+
+        :return: True when everything is OK.
+        :rtype: bool
+        """
         spent_time = timeit.default_timer()
         # Checking monthly profiles IDs
         links_month = set(np.unique(self.proxies_map['P_month'].dropna().values))
@@ -113,6 +231,20 @@ class SolventsSector(Sector):
         return True
 
     def read_yearly_emissions(self, path, nut_list):
+        """
+        Read the yearly emission by snap and nuts2.
+
+        Select only the nuts2 IDs that appear in the selected domain.
+
+        :param path: Path to the CSV file that contains the yearly emissions by snap and nuts2.
+        :type path: str
+
+        :param nut_list: List of nut codes
+        :type nut_list: list
+
+        :return: Dataframe with thew amount of NMVOC for each snap and nut2
+        :rtype: DataFrame
+        """
         spent_time = timeit.default_timer()
 
         year_emis = pd.read_csv(path, dtype={'nuts2_id': int, 'snap': str, 'nmvoc': np.float64})
@@ -124,6 +256,15 @@ class SolventsSector(Sector):
         return year_emis
 
     def get_population_by_nut2(self, path):
+        """
+        Read the CSV file that contains the amount of population by nut2.
+
+        :param path: Path to the CSV file that contains the amount of population by nut2.
+        :type path: str
+
+        :return: Dataframe with the amount of population by nut2.
+        :rtype: DataFrame
+        """
         spent_time = timeit.default_timer()
 
         pop_by_nut2 = pd.read_csv(path)
@@ -134,6 +275,18 @@ class SolventsSector(Sector):
         return pop_by_nut2
 
     def get_point_sources_weights_by_nut2(self, path, proxy_name):
+        """
+        Read the CSV file that contains the amount of weight by industry and nut2.
+        
+        :param path: Path to the CSV file that contains the amount of weight by industry and nut2.
+        :type path: str
+        
+        :param proxy_name: Proxy to calculate.
+        :type proxy_name: str
+        
+        :return: Dataframe with the amount of weight by industry and nut2.
+        :rtype: DataFrame
+        """
         spent_time = timeit.default_timer()
 
         weights_by_nut2 = pd.read_csv(path)
@@ -148,6 +301,21 @@ class SolventsSector(Sector):
         return weights_by_nut2
 
     def get_land_use_by_nut2(self, path, land_uses, nut_codes):
+        """
+        Read the CSV file that contains the amount of land use by nut2.
+
+        :param path: Path to the CSV file that contains the amount of land use by nut2.
+        :type path: str
+
+        :param land_uses: List of land uses to take into account.
+        :type land_uses: list
+
+        :param nut_codes: List of nut2 codes to take into account.
+        :type nut_codes: list
+
+        :return: DataFrame with the amount of land use by nut2.
+        :rtype: DataFrame
+        """
         spent_time = timeit.default_timer()
 
         land_use_by_nut2 = pd.read_csv(path)
@@ -159,6 +327,21 @@ class SolventsSector(Sector):
         return land_use_by_nut2
 
     def get_population_proxy(self, pop_raster_path, pop_by_nut2_path, nut2_shapefile_path):
+        """
+        Calculate the distribution based on the amount of population.
+
+        :param pop_raster_path: Path to the raster file that contains the population information.
+        :type pop_raster_path: str
+
+        :param pop_by_nut2_path: Path to the CSV file that contains the amount of population by nut2.
+        :type pop_by_nut2_path: str
+
+        :param nut2_shapefile_path: Path to the shapefile that contains the nut2.
+        :type nut2_shapefile_path: str
+
+        :return: GeoDataFrame with the population distribution by destiny cell.
+        :rtype: GeoDataFrame
+        """
         spent_time = timeit.default_timer()
 
         # 1st Clip the raster
@@ -189,7 +372,7 @@ class SolventsSector(Sector):
         pop_shp['pop_percent'] = pop_shp['population'] / pop_shp['tot_pop']
         pop_shp.drop(columns=['tot_pop', 'population'], inplace=True)
 
-        # 5th Calculate percent by dest_cell
+        # 5th Calculate percent by destiny cell
         self.logger.write_log("\t\tCalculating population percentage on destiny resolution", message_level=3)
         pop_shp.to_crs(self.grid.shapefile.crs, inplace=True)
         pop_shp['src_inter_fraction'] = pop_shp.geometry.area
@@ -206,6 +389,24 @@ class SolventsSector(Sector):
         return popu_dist
 
     def get_land_use_proxy(self, land_use_raster, land_use_by_nut2_path, land_uses, nut2_shapefile_path):
+        """
+        Calculate the distribution based on the amount of land use.
+
+        :param land_use_raster: Path to the raster file that contains the land use information.
+        :type land_use_raster: str
+
+        :param land_use_by_nut2_path: Path to the CSV file that contains the amount of land use by nut2.
+        :type land_use_by_nut2_path: str
+
+        :param land_uses: List of land uses to take into account on the distribution.
+        :type land_uses: list
+
+        :param nut2_shapefile_path: Path to the shapefile that contains the nut2.
+        :type nut2_shapefile_path: str
+
+        :return: GeoDataFrame with the land use distribution for the selected land uses by destiny cell.
+        :rtype: GeoDataFrame
+        """
         spent_time = timeit.default_timer()
         # 1st Clip the raster
         self.logger.write_log("\t\tCreating clipped land use raster", message_level=3)
@@ -262,6 +463,25 @@ class SolventsSector(Sector):
 
     def get_point_shapefile_proxy(self, proxy_name, point_shapefile_path, point_sources_weight_by_nut2_path,
                                   nut2_shapefile_path):
+        """
+        Calculate the distribution for the solvent sub sector in the destiny grid cell.
+
+        :param proxy_name: Name of the proxy to be calculated.
+        :type proxy_name: str
+
+        :param point_shapefile_path: Path to the shapefile that contains all the point sources ant their weights.
+        :type point_shapefile_path: str
+
+        :param point_sources_weight_by_nut2_path: Path to the CSV file that contains the amount of weight by industry
+        and nut2.
+        :type point_sources_weight_by_nut2_path: str
+
+        :param nut2_shapefile_path: Path to the shapefile that contains the nut2.
+        :type nut2_shapefile_path: str
+
+        :return: GeoDataFrame with the distribution of the selected proxy on the destiny grid cells.
+        :rtype: GeoDataFrame
+        """
         spent_time = timeit.default_timer()
 
         point_shapefile = IoShapefile(self.comm).read_shapefile_parallel(point_shapefile_path)
@@ -295,19 +515,39 @@ class SolventsSector(Sector):
                             land_uses_nuts2_path, nut2_shapefile_path, point_sources_shapefile_path,
                             point_sources_weight_by_nut2_path):
         """
+        Calcualte (or read) the proxy shapefile.
 
-        :param population_raster_path:
-        :param population_nuts2_path:
-        :param land_uses_raster_path:
-        :param land_uses_nuts2_path:
-        :param nut2_shapefile_path:
-        :param point_sources_shapefile_path:
-        :param point_sources_weight_by_nut2_path:
-        :return:
-        :rtype: DataFrame
+        It will split the entire shapoefile into as many processors as selected to split the calculation part.
+
+        :param population_raster_path: Path to the raster file that contains the population information.
+        :type population_raster_path: str
+
+        :param population_nuts2_path: Path to the CSV file that contains the amount of population by nut2.
+        :type population_nuts2_path: str
+
+        :param land_uses_raster_path: Path to the raster file that contains the land use information.
+        :type land_uses_raster_path: str
+
+        :param land_uses_nuts2_path: Path to the CSV file that contains the amount of land use by nut2.
+        :type land_uses_nuts2_path: str
+
+        :param nut2_shapefile_path: Path to the shapefile that contains the nut2.
+        :type nut2_shapefile_path: str
+
+        :param point_sources_shapefile_path: Path to the shapefile that contains all the point sources ant their
+        weights.
+        :type point_sources_shapefile_path: str
+
+        :param point_sources_weight_by_nut2_path: Path to the CSV file that contains the amount of weight by industry
+        and nut2.
+        :type point_sources_weight_by_nut2_path: str
+
+        :return: GeoDataFrame with all the proxies
+        :rtype: GeoDataFrame
         """
         spent_time = timeit.default_timer()
-        self.logger.write_log("Getting proxies shapefile")
+
+        self.logger.write_log("Getting proxies shapefile", message_level=1)
         proxy_names_list = np.unique(self.proxies_map['proxy_name'])
         proxy_path = os.path.join(self.auxiliary_dir, 'solvents', 'proxy_distributions.shp')
         if not os.path.exists(proxy_path):
@@ -354,6 +594,15 @@ class SolventsSector(Sector):
         return proxies
 
     def calculate_hourly_emissions(self, yearly_emissions):
+        """
+        Disaggrate to hourly level the yearly emissions.
+
+        :param yearly_emissions: GeoDataFrame with the yearly emissions by destiny cell ID and snap code.
+        :type yearly_emissions: GeoDataFrame
+
+        :return: GeoDataFrame with the hourly distribution by FID, snap code and time step.
+        :rtype: GeoDataFrame
+        """
         def get_mf(df):
             month_factor = self.monthly_profiles.loc[df.name[1], df.name[0]]
 
@@ -373,6 +622,9 @@ class SolventsSector(Sector):
             df['HF'] = hour_factor
             return df.loc[:, ['HF']]
 
+        spent_time = timeit.default_timer()
+
+        self.logger.write_log('\tHourly disaggregation', message_level=2)
         emissions = self.add_dates(yearly_emissions, drop_utc=True)
 
         emissions['month'] = emissions['date'].dt.month
@@ -391,9 +643,19 @@ class SolventsSector(Sector):
         emissions.drop(columns=['temp_factor'], inplace=True)
         emissions.set_index(['FID', 'snap', 'tstep'], inplace=True)
 
+        self.logger.write_time_log('SolventsSector', 'calculate_hourly_emissions', timeit.default_timer() - spent_time)
         return emissions
 
     def distribute_yearly_emissions(self):
+        """
+        Calcualte the yearly emission by destiny grid cell and snap code.
+
+        :return: GeoDataFrame with the yearly emissions by snap code.
+        :rtype: GeoDataFrame
+        """
+        spent_time = timeit.default_timer()
+        self.logger.write_log('\t\tYearly distribution', message_level=2)
+
         yearly_emis = self.read_yearly_emissions(
             self.yearly_emissions_path, np.unique(self.proxy.index.get_level_values('nut_code')))
         year_nuts = np.unique(yearly_emis.index.get_level_values('nuts2_id'))
@@ -411,9 +673,7 @@ class SolventsSector(Sector):
             emis['P_week'] = snap_df['P_week']
             emis['P_hour'] = snap_df['P_hour']
             emis['P_spec'] = snap_df['P_spec']
-            # print(yearly_emis.index)
-            # print(yearly_emis.loc[(9, '060408'), 'nmvoc'])
-            # exit()
+
             emis['nmvoc'] = emis.apply(lambda row: yearly_emis.loc[(row['nut_code'], snap), 'nmvoc'] * row[
                 self.proxies_map.loc[snap, 'proxy_name']], axis=1)
 
@@ -421,10 +681,22 @@ class SolventsSector(Sector):
             emis_list.append(emis[['P_month', 'P_week', 'P_hour', 'P_spec', 'nmvoc', 'geometry']])
         emis = pd.concat(emis_list).sort_index()
         emis = emis[emis['nmvoc'] > 0]
-        # emis = IoShapefile(self.comm).balance(emis)
+
+        self.logger.write_time_log('SolventsSector', 'distribute_yearly_emissions', timeit.default_timer() - spent_time)
         return emis
 
     def speciate(self, dataframe, code='default'):
+        """
+        Spectiate the NMVOC pollutant into as many pollutants as the speciation map indicates.
+
+        :param dataframe: Emissions to be speciated.
+        :type dataframe: DataFrame
+
+        :param code: NOt used.
+
+        :return: Speciated emissions.
+        :rtype: DataFrame
+        """
 
         def calculate_new_pollutant(x, out_p):
             sys.stdout.flush()
@@ -432,19 +704,33 @@ class SolventsSector(Sector):
             x[out_p] = x['nmvoc'] * (profile['VOCtoTOG'] * profile[out_p])
             return x[[out_p]]
 
+        spent_time = timeit.default_timer()
+        self.logger.write_log('\tSpeciation emissions', message_level=2)
+
         new_dataframe = gpd.GeoDataFrame(index=dataframe.index, data=None, crs=dataframe.crs,
                                          geometry=dataframe.geometry)
         for out_pollutant in self.output_pollutants:
+            self.logger.write_log('\t\tSpeciating {0}'.format(out_pollutant), message_level=3)
             new_dataframe[out_pollutant] = dataframe.groupby('P_spec').apply(
                 lambda x: calculate_new_pollutant(x, out_pollutant))
         new_dataframe.reset_index(inplace=True)
 
         new_dataframe.drop(columns=['snap', 'geometry'], inplace=True)
         new_dataframe.set_index(['FID', 'tstep'], inplace=True)
+
+        self.logger.write_time_log('SolventsSector', 'speciate', timeit.default_timer() - spent_time)
         return new_dataframe
 
     def calculate_emissions(self):
-        # Distribute emissions first.
+        """
+        Main function to calculate the emissions.
+
+        :return: Solvent emissions.
+        :rtype: DataFrame
+        """
+        spent_time = timeit.default_timer()
+        self.logger.write_log('\tCalculating emissions')
+
         emissions = self.distribute_yearly_emissions()
         emissions = self.calculate_hourly_emissions(emissions)
         emissions = self.speciate(emissions)
@@ -452,4 +738,6 @@ class SolventsSector(Sector):
         emissions.reset_index(inplace=True)
         emissions['layer'] = 0
         emissions = emissions.groupby(['FID', 'layer', 'tstep']).sum()
+
+        self.logger.write_time_log('SolventsSector', 'calculate_emissions', timeit.default_timer() - spent_time)
         return emissions
