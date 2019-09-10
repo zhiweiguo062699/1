@@ -284,7 +284,7 @@ class SolventsSector(Sector):
         :param proxy_name: Proxy to calculate.
         :type proxy_name: str
 
-        :return: Dataframe with the amount of weight by industry and nut2.
+        :return: DataFrame with the amount of weight by industry and nut2.
         :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
