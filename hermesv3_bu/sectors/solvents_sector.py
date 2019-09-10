@@ -277,13 +277,13 @@ class SolventsSector(Sector):
     def get_point_sources_weights_by_nut2(self, path, proxy_name):
         """
         Read the CSV file that contains the amount of weight by industry and nut2.
-        
+
         :param path: Path to the CSV file that contains the amount of weight by industry and nut2.
         :type path: str
-        
+
         :param proxy_name: Proxy to calculate.
         :type proxy_name: str
-        
+
         :return: Dataframe with the amount of weight by industry and nut2.
         :rtype: DataFrame
         """
