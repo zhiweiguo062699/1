@@ -374,7 +374,7 @@ class SolventsSector(Sector):
             return df.loc[:, ['HF']]
 
         emissions = self.add_dates(yearly_emissions, drop_utc=True)
-        
+
         emissions['month'] = emissions['date'].dt.month
         emissions['weekday'] = emissions['date'].dt.weekday
         emissions['hour'] = emissions['date'].dt.hour
@@ -391,8 +391,6 @@ class SolventsSector(Sector):
         emissions.drop(columns=['temp_factor'], inplace=True)
         emissions.set_index(['FID', 'snap', 'tstep'], inplace=True)
 
-        # emissions = IoShapefile(self.comm).balance(emissions)
-        
         return emissions
 
     def distribute_yearly_emissions(self):
@@ -449,12 +447,9 @@ class SolventsSector(Sector):
         # Distribute emissions first.
         emissions = self.distribute_yearly_emissions()
         emissions = self.calculate_hourly_emissions(emissions)
-        emissions.to_csv('/gpfs/projects/bsc32/bsc32538/DATA/HERMESv3_BU_OUT/logs/solvents1_rank{0}.csv'.format(self.comm.Get_rank()))
         emissions = self.speciate(emissions)
-        emissions.to_csv('/gpfs/projects/bsc32/bsc32538/DATA/HERMESv3_BU_OUT/logs/solvents2_rank{0}.csv'.format(self.comm.Get_rank()))
 
         emissions.reset_index(inplace=True)
         emissions['layer'] = 0
         emissions = emissions.groupby(['FID', 'layer', 'tstep']).sum()
-        emissions.to_csv('/gpfs/projects/bsc32/bsc32538/DATA/HERMESv3_BU_OUT/logs/solvents3_rank{0}.csv'.format(self.comm.Get_rank()))
         return emissions
