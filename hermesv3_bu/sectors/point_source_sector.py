@@ -98,7 +98,7 @@ class PointSourceSector(Sector):
         spec_res = links_spec - spec
         if len(spec_res) > 0:
             error_exit("The following speciation profile IDs reported in the point sources shapefile do not appear " +
-                       "in the speciation profiles file. {0}".format(month_res))
+                       "in the speciation profiles file. {0}".format(spec_res))
 
     def read_catalog_csv(self, catalog_path, sector_list):
         """
