@@ -302,8 +302,8 @@ class Config(ArgParser):
                             "calculation as a function of the Gross Tonnage and the average vessel's ratio of " +
                             "auxiliary engines/main engines.")
         p.add_argument('--shipping_port_monthly_profiles', required=False,
-                       help="Defines the path to the CSV file that contains the monthly temporal profiles per port "
-                            +"and vessel category.")
+                       help="Defines the path to the CSV file that contains the monthly temporal profiles per port " +
+                            "and vessel category.")
         p.add_argument('--shipping_port_weekly_profiles', required=False,
                        help="Defines the path to the CSV file that contains the weekly temporal profiles.")
         p.add_argument('--shipping_port_hourly_profiles', required=False,
