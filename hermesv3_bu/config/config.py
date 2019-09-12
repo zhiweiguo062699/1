@@ -380,7 +380,7 @@ class Config(ArgParser):
                         item, arguments.inc_x, arguments.inc_y))
 
         arguments.emission_summary = self._parse_bool(arguments.emission_summary)
-        arguments.start_date = self._parse_start_date(arguments.start_date)
+        arguments.start_date = self._parse_start_date(arguments.start_date, self.new_date)
         arguments.end_date = self._parse_end_date(arguments.end_date, arguments.start_date)
         arguments.output_name = self.get_output_name(arguments)
 
@@ -540,7 +540,7 @@ class Config(ArgParser):
             print('/t Using False as default')
             return False
 
-    def _parse_start_date(self, str_date):
+    def _parse_start_date(self, str_date, new_date=None):
         """
         Parse the date form string to datetime.
         It accepts several ways to introduce the date:
@@ -555,8 +555,8 @@ class Config(ArgParser):
         """
         from datetime import datetime
 
-        if self.new_date is not None:
-            return self.new_date
+        if new_date is not None:
+            return new_date
 
         format_types = ['%Y%m%d', '%Y%m%d%H', '%Y%m%d.%H', '%Y/%m/%d_%H:%M:%S', '%Y-%m-%d_%H:%M:%S',
                         '%Y/%m/%d %H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y/%m/%d_%H', '%Y-%m-%d_%H', '%Y/%m/%d']
