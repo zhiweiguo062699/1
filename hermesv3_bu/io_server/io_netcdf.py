@@ -122,6 +122,7 @@ class IoNetcdf(IoServer):
         try:
             lat_o = nc.variables['latitude'][:]
             lon_o = nc.variables['longitude'][:]
+            n_lat = len(lat_o)
             time = nc.variables['time']
         except KeyError as e:
             error_exit("{0} variable not found in {1} file.".format(str(e), path))
@@ -143,7 +144,7 @@ class IoNetcdf(IoServer):
         # From 1D to 2D
         lat = np.array([lat_o[:]] * len(lon_o[:])).T.flatten()
         lon = np.array([lon_o[:]] * len(lat_o[:])).flatten()
-        del lat_o, lon_o
+        # del lat_o, lon_o
 
         # Reads the var variable of the xone and the times needed.
         try:
@@ -173,7 +174,7 @@ class IoNetcdf(IoServer):
         var = var.reshape((var.shape[0], var.shape[1] * var.shape[2]))
         df = gpd.GeoDataFrame(var.T, geometry=[Point(xy) for xy in zip(lon, lat)])
         # df.columns = ['t_{0}'.format(x) for x in df.columns.values[:-1]] + ['geometry']
-        df.loc[:, 'REC'] = df.index
+        df.loc[:, 'REC'] = (((df.index // len(lon_o)) + j_min) * n_lat) + ((df.index % len(lon_o)) + i_min)
 
         return df
 
