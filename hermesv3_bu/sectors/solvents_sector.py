@@ -236,6 +236,8 @@ class SolventsSector(Sector):
 
         Select only the nuts2 IDs that appear in the selected domain.
 
+        Emissions are provided in T/year -> g/year
+
         :param path: Path to the CSV file that contains the yearly emissions by snap and nuts2.
         :type path: str
 
@@ -248,6 +250,8 @@ class SolventsSector(Sector):
         spent_time = timeit.default_timer()
 
         year_emis = pd.read_csv(path, dtype={'nuts2_id': int, 'snap': str, 'nmvoc': np.float64})
+        # T/year -> g/year
+        year_emis['nmvoc'] = year_emis['nmvoc'] * 1000000
         year_emis = year_emis[year_emis['nuts2_id'].isin(nut_list)]
         year_emis.set_index(['nuts2_id', 'snap'], inplace=True)
         year_emis.drop(columns=['gnfr_description', 'gnfr', 'snap_description', 'nuts2_na'], inplace=True)
