@@ -205,9 +205,8 @@ class Config(ArgParser):
                             "land use area by NUTS2")
 
         p.add_argument('--clipping', required=False, type=str, default=None,
-                       help='To clip the domain into an specific zone. ' +
-                            'It can be a shapefile path, a list of points to make a polygon or nothing to use ' +
-                            'the default clip: domain extension')
+                       help="To clip the domain into an specific zone. It can be a shapefile path, a list of points " +
+                            "to make a polygon or nothing to use the default clip: domain extension")
 
         # ===== METEO PATHS =====
         p.add_argument('--temperature_hourly_files_path', required=False, type=str, default='True',
@@ -642,16 +641,26 @@ class Config(ArgParser):
                        help="Defines the path to the CSV file that contains the speciation profiles.")
 
         # ***** SOLVENTS SECTOR *****
+        p.add_argument('--solvents_pollutants', required=False,
+                       help="List of pollutants considered for the calculation of the solvents sector. " +
+                            "Only 'nmvoc' is available.")
         # TODO add description for solvents sector
-        p.add_argument('--solvents_pollutants', required=False, help="")
-        p.add_argument('--solvents_proxies_path', required=False, help="")
-        p.add_argument('--solvents_yearly_emissions_by_nut2_path', required=False, help="")
-        p.add_argument('--solvents_point_sources_shapefile', required=False, help="")
-        p.add_argument('--solvents_point_sources_weight_by_nut2_path', required=False, help="")
-        p.add_argument('--solvents_monthly_profile', required=False, help="")
-        p.add_argument('--solvents_weekly_profile', required=False, help="")
-        p.add_argument('--solvents_hourly_profile', required=False, help="")
-        p.add_argument('--solvents_speciation_profiles', required=False, help="")
+        p.add_argument('--solvents_proxies_path', required=False,
+                       help="")
+        p.add_argument('--solvents_yearly_emissions_by_nut2_path', required=False,
+                       help="")
+        p.add_argument('--solvents_point_sources_shapefile', required=False,
+                       help="")
+        p.add_argument('--solvents_point_sources_weight_by_nut2_path', required=False,
+                       help="")
+        p.add_argument('--solvents_monthly_profile', required=False,
+                       help="Defines the path to the CSV file that contains the monthly temporal profiles.")
+        p.add_argument('--solvents_weekly_profile', required=False,
+                       help="Defines the path to the CSV file that contains the weekly temporal profiles.")
+        p.add_argument('--solvents_hourly_profile', required=False,
+                       help="Defines the path to the CSV file that contains the hourly temporal profiles.")
+        p.add_argument('--solvents_speciation_profiles', required=False,
+                       help="Defines the path to the CSV file that contains the speciation profiles.")
 
         arguments = p.parse_args()
 
