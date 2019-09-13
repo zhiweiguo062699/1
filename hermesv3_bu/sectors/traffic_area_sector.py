@@ -7,9 +7,13 @@ import geopandas as gpd
 import pandas as pd
 import numpy as np
 from hermesv3_bu.sectors.sector import Sector
+from hermesv3_bu.io_server.io_raster import IoRaster
 from hermesv3_bu.io_server.io_shapefile import IoShapefile
 from hermesv3_bu.io_server.io_netcdf import IoNetcdf
 from hermesv3_bu.tools.checker import check_files, error_exit
+
+from pandas import DataFrame
+from geopandas import GeoDataFrame
 
 
 pmc_list = ['pmc', 'PMC']
@@ -40,10 +44,13 @@ class TrafficAreaSector(Sector):
         self.temperature_dir = temperature_dir
         self.speciation_profiles_evaporative = self.read_speciation_profiles(speciation_profiles_evaporative)
         self.evaporative_ef_file = evaporative_ef_file
+        if do_evaporative or do_small_cities:
+            self.population_percent = self.get_population_percent(population_tif_path, total_pop_by_prov, nuts_shapefile)
         if do_evaporative:
             logger.write_log('\tInitialising evaporative emissions.', message_level=2)
-            self.evaporative = self.init_evaporative(population_tif_path, nuts_shapefile, gasoline_path,
-                                                     total_pop_by_prov)
+            self.evaporative = self.init_evaporative(gasoline_path)
+            print(self.evaporative)
+            exit()
         else:
             self.evaporative = None
 
@@ -61,33 +68,95 @@ class TrafficAreaSector(Sector):
 
         self.logger.write_time_log('TrafficAreaSector', '__init__', timeit.default_timer() - spent_time)
 
-    def init_evaporative(self, global_path, provinces_shapefile, gasoline_path, total_pop_by_prov):
+    def get_population_by_nut2(self, path):
+        """
+        Read the CSV file that contains the amount of population by nut3.
+
+        :param path: Path to the CSV file that contains the amount of population by nut3.
+        :type path: str
+
+        :return: DataFrame with the amount of population by nut3.
+        :rtype: DataFrame
+        """
         spent_time = timeit.default_timer()
 
-        if self.comm.Get_rank() == 0:
-            if not os.path.exists(os.path.join(self.auxiliary_dir, 'traffic_area', 'vehicle_by_cell.shp')):
-                self.logger.write_log('\t\tCreating population shapefile.', message_level=3)
-                pop = self.get_clipped_population(
-                    global_path, os.path.join(self.auxiliary_dir, 'traffic_area', 'population.shp'), write_file=False)
-                self.logger.write_log('\t\tCreating population shapefile by NUT.', message_level=3)
-                pop = self.make_population_by_nuts(
-                    pop, provinces_shapefile, os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_NUT.shp'),
-                    write_file=False)
-                self.logger.write_log('\t\tCreating population shapefile by NUT and cell.', message_level=3)
-                pop = self.make_population_by_nuts_cell(
-                    pop,  os.path.join(self.auxiliary_dir, 'traffic_area', 'pop_NUT_cell.shp'), write_file=False)
-                self.logger.write_log('\t\tCreating vehicle shapefile by cell.', message_level=3)
-                veh_cell = self.make_vehicles_by_cell(
-                    pop, gasoline_path, pd.read_csv(total_pop_by_prov),
-                    os.path.join(self.auxiliary_dir, 'traffic_area', 'vehicle_by_cell.shp'))
-            else:
-                self.logger.write_log('\t\tReading vehicle shapefile by cell.', message_level=3)
-                veh_cell = IoShapefile(self.comm).read_shapefile_serial(
-                    os.path.join(self.auxiliary_dir, 'traffic_area', 'vehicle_by_cell.shp'))
-        else:
-            veh_cell = None
+        pop_by_nut3 = pd.read_csv(path)
+        pop_by_nut3.set_index('nuts3_id', inplace=True)
+        pop_by_nut3 = pop_by_nut3.to_dict()['population']
 
-        veh_cell = IoShapefile(self.comm).split_shapefile(veh_cell)
+        self.logger.write_time_log('TrafficAreaSector', 'get_pop_by_nut3', timeit.default_timer() - spent_time)
+        return pop_by_nut3
+
+    def get_population_percent(self, pop_raster_path, pop_by_nut_path, nut_shapefile_path):
+        """
+        Calculate the percentage based on the amount of population.
+
+        :param pop_raster_path: Path to the raster file that contains the population information.
+        :type pop_raster_path: str
+
+        :param pop_by_nut_path: Path to the CSV file that contains the amount of population by nut3.
+        :type pop_by_nut_path: str
+
+        :param nut_shapefile_path: Path to the shapefile that contains the nut3.
+        :type nut_shapefile_path: str
+
+        :return: DataFrame with the population distribution by destiny cell.
+        :rtype: DataFrame
+        """
+        spent_time = timeit.default_timer()
+
+        # 1st Clip the raster
+        self.logger.write_log("\t\tCreating clipped population raster", message_level=3)
+        if self.comm.Get_rank() == 0:
+            pop_raster_path = IoRaster(self.comm).clip_raster_with_shapefile_poly(
+                pop_raster_path, self.clip.shapefile, os.path.join(self.auxiliary_dir, 'traffic_area', 'pop.tif'))
+
+        # 2nd Raster to shapefile
+        self.logger.write_log("\t\tRaster to shapefile", message_level=3)
+        pop_shp = IoRaster(self.comm).to_shapefile_parallel(
+            pop_raster_path, gather=False, bcast=False, crs={'init': 'epsg:4326'})
+
+        # 3rd Add NUT code
+        self.logger.write_log("\t\tAdding nut codes to the shapefile", message_level=3)
+        # if self.comm.Get_rank() == 0:
+        pop_shp.drop(columns='CELL_ID', inplace=True)
+        pop_shp.rename(columns={'data': 'population'}, inplace=True)
+        pop_shp = self.add_nut_code(pop_shp, nut_shapefile_path, nut_value='nuts3_id')
+        pop_shp = pop_shp[pop_shp['nut_code'] != -999]
+        pop_shp = IoShapefile(self.comm).balance(pop_shp)
+
+        # 4th Calculate population percent
+        self.logger.write_log("\t\tCalculating population percentage on source resolution", message_level=3)
+        pop_by_nut2 = self.get_population_by_nut2(pop_by_nut_path)
+        pop_shp['tot_pop'] = pop_shp['nut_code'].map(pop_by_nut2)
+        pop_shp['pop_percent'] = pop_shp['population'] / pop_shp['tot_pop']
+        pop_shp.drop(columns=['tot_pop', 'population'], inplace=True)
+
+        # 5th Calculate percent by destiny cell
+        self.logger.write_log("\t\tCalculating population percentage on destiny resolution", message_level=3)
+        pop_shp.to_crs(self.grid.shapefile.crs, inplace=True)
+        pop_shp['src_inter_fraction'] = pop_shp.geometry.area
+        pop_shp = self.spatial_overlays(pop_shp.reset_index(), self.grid.shapefile.reset_index())
+        pop_shp.drop(columns=['idx1', 'idx2', 'index'], inplace=True)
+        pop_shp['src_inter_fraction'] = pop_shp.geometry.area / pop_shp['src_inter_fraction']
+        pop_shp['pop_percent'] = pop_shp['pop_percent'] * pop_shp['src_inter_fraction']
+        pop_shp.drop(columns=['src_inter_fraction'], inplace=True)
+
+        popu_dist = pop_shp.groupby(['FID', 'nut_code']).sum()
+
+        self.logger.write_time_log('TrafficAreaSector', 'get_population_percent', timeit.default_timer() - spent_time)
+        return popu_dist
+
+    def init_evaporative(self, gasoline_path):
+        spent_time = timeit.default_timer()
+        veh_cell_path = os.path.join(self.auxiliary_dir, 'traffic_area', 'vehicle_by_cell.shp')
+        if not os.path.exists(veh_cell_path):
+            veh_cell = self.make_vehicles_by_cell(gasoline_path)
+            IoShapefile(self.comm).write_shapefile_parallel(veh_cell.reset_index(), veh_cell_path)
+        else:
+            self.logger.write_log('\t\tReading vehicle shapefile by cell.', message_level=3)
+            veh_cell = IoShapefile(self.comm).read_shapefile_parallel(veh_cell_path)
+            veh_cell.set_index('FID', inplace=True)
 
         self.logger.write_time_log('TrafficAreaSector', 'init_evaporative', timeit.default_timer() - spent_time)
         return veh_cell
@@ -122,11 +191,11 @@ class TrafficAreaSector(Sector):
         spent_time = timeit.default_timer()
 
         if not os.path.exists(population_shapefile_path):
-            population_density = IoRaster(self.comm).clip_raster_with_shapefile_poly(
-                global_path, self.clip.shapefile,
-                os.path.join(self.auxiliary_dir, 'traffic_area', 'population.tif'))
-            population_density = IoRaster(self.comm).to_shapefile_serie_by_cell(
-                population_density, out_path=population_shapefile_path, write=write_file)
+            population_density = os.path.join(self.auxiliary_dir, 'traffic_area', 'population.tif')
+            if self.comm.Get_rank() == 0:
+                population_density = IoRaster(self.comm).clip_raster_with_shapefile_poly(
+                    global_path, self.clip.shapefile, population_density)
+            population_density = IoRaster(self.comm).to_shapefile_parallel(population_density)
         else:
             population_density = IoShapefile(self.comm).read_shapefile_serial(population_shapefile_path)
 
@@ -151,7 +220,7 @@ class TrafficAreaSector(Sector):
                 df = df.loc[:, ['data', column_id]].groupby(column_id).sum()
                 df.to_csv(csv_path)
         else:
-            df = IoShapefile(self.comm).read_shapefile_serial(pop_by_nut_path)
+            df = IoShapefile(self.comm).read_shapefile_parallel(pop_by_nut_path)
 
         self.logger.write_time_log('TrafficAreaSector', 'make_population_by_nuts', timeit.default_timer() - spent_time)
         return df
@@ -171,51 +240,54 @@ class TrafficAreaSector(Sector):
             df.crs = self.grid.shapefile.crs
             df.loc[:, 'data'] = df['data'] * (df.geometry.area / df['area_in'])
             del pop_by_nut['area_in']
+
             if write_file:
                 IoShapefile(self.comm).write_shapefile_serial(df, pop_nut_cell_path)
         else:
-            df = IoShapefile(self.comm).read_shapefile_serial(pop_nut_cell_path)
+            df = IoShapefile(self.comm).read_shapefile_parallel(pop_nut_cell_path)
 
         self.logger.write_time_log('TrafficAreaSector', 'make_population_by_nuts_cell',
                                    timeit.default_timer() - spent_time)
         return df
 
-    def make_vehicles_by_cell(self, pop_nut_cell, gasoline_path, total_pop_by_nut, veh_by_cell_path,
-                              column_id='nuts3_id'):
+    def read_vehicles_by_nut(self, path):
         spent_time = timeit.default_timer()
 
-        if not os.path.exists(veh_by_cell_path):
+        vehicles_by_nut = pd.read_csv(path, index_col='COPERT_V_name')
+        vehicle_list = vehicles_by_nut.index.values
+        nut_list = vehicles_by_nut.columns.values.astype(np.int32)
+        vehicles_by_nut = pd.DataFrame(vehicles_by_nut.values.T, index=nut_list, columns=vehicle_list)
+        vehicles_by_nut.index.name = 'nuts3_id'
 
-            total_pop_by_nut.loc[:, column_id] = total_pop_by_nut[column_id].astype(np.int16)
-            pop_nut_cell.loc[:, column_id] = pop_nut_cell[column_id].astype(np.int16)
+        self.logger.write_time_log('TrafficAreaSector', 'read_vehicles_by_nut', timeit.default_timer() - spent_time)
+        return vehicles_by_nut
 
-            df = pd.merge(pop_nut_cell, total_pop_by_nut, left_on=column_id, right_on=column_id, how='left')
+    def make_vehicles_by_cell(self, gasoline_path):
+        spent_time = timeit.default_timer()
+        vehicles_by_nut = self.read_vehicles_by_nut(gasoline_path)
 
-            df['pop_percent'] = df['data'] / df['population']
-            df.drop(columns=['data', 'population'], inplace=True)
-
-            gas_df = pd.read_csv(gasoline_path, index_col='COPERT_V_name').transpose()
-            vehicle_type_list = list(gas_df.columns.values)
-            gas_df.loc[:, column_id] = gas_df.index.astype(np.int16)
-
-            df = df.merge(gas_df, left_on=column_id, right_on=column_id, how='left')
-            for vehicle_type in vehicle_type_list:
-                df.loc[:, vehicle_type] = df[vehicle_type] * df['pop_percent']
-
-            del df['pop_percent'], df[column_id]
-
-            aux_df = df.loc[:, ['FID'] + vehicle_type_list].groupby('FID').sum()
-            aux_df.loc[:, 'FID'] = aux_df.index
-
-            geom = self.grid.shapefile.loc[aux_df.index, 'geometry']
-
-            df = gpd.GeoDataFrame(aux_df, geometry=geom, crs=pop_nut_cell.crs)
-            IoShapefile(self.comm).write_shapefile_serial(df, veh_by_cell_path)
+        vehicle_list = vehicles_by_nut.columns.values
+        vehicle_by_cell = pd.merge(self.population_percent.reset_index(), vehicles_by_nut.reset_index(),
+                                   left_on='nut_code', right_on='nuts3_id', how='left')
+        vehicle_by_cell.drop(columns=['nut_code', 'nuts3_id'], inplace=True)
+        vehicle_by_cell[vehicle_list] = vehicle_by_cell[vehicle_list].multiply(
+            vehicle_by_cell['pop_percent'], axis='index')
+        vehicle_by_cell.drop(columns=['pop_percent'], inplace=True)
+        vehicle_by_cell = IoShapefile(self.comm).gather_shapefile(vehicle_by_cell, rank=0)
+        if self.comm.Get_rank() == 0:
+            vehicle_by_cell = vehicle_by_cell.groupby('FID').sum()
+            print(vehicle_by_cell)
         else:
-            df = IoShapefile(self.comm).read_shapefile_serial(veh_by_cell_path)
+            vehicle_by_cell = None
+        vehicle_by_cell = IoShapefile(self.comm).split_shapefile(vehicle_by_cell)
+
+        vehicle_by_cell = GeoDataFrame(
+            vehicle_by_cell,
+            geometry=self.grid.shapefile.loc[vehicle_by_cell.index.get_level_values('FID'), 'geometry'].values,
+            crs=self.grid.shapefile.crs)
 
         self.logger.write_time_log('TrafficAreaSector', 'make_vehicles_by_cell', timeit.default_timer() - spent_time)
-        return df
+        return vehicle_by_cell
 
     def get_profiles_from_temperature(self, temperature, default=False):
         spent_time = timeit.default_timer()
