@@ -427,7 +427,7 @@ class TrafficAreaSector(Sector):
                                                                geom1_col='centroid', src_column='REC', axis=1)
             del self.evaporative['c_lat'], self.evaporative['c_lon'], self.evaporative['centroid']
             IoShapefile(self.comm).write_shapefile_parallel(
-                self.evaporative, os.path.join(self.auxiliary_dir, 'traffic_area', 'vehicle_by_cell.shp'))
+                self.evaporative, os.path.join(self.auxiliary_dir, 'traffic_area', 'vehicle_by_cell'))
         else:
             del self.evaporative['c_lat'], self.evaporative['c_lon'], self.evaporative['centroid']
 
