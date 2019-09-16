@@ -45,6 +45,8 @@ class TrafficAreaSector(Sector):
         self.speciation_profiles_evaporative = self.read_speciation_profiles(speciation_profiles_evaporative)
         self.evaporative_ef_file = evaporative_ef_file
 
+        # self.create_population_by_nut(population_tif_path, nuts_shapefile, population_nuts3, nut_column='nuts3_id')
+
         if do_evaporative:
             logger.write_log('\tInitialising evaporative emissions.', message_level=2)
             self.population_percent = self.get_population_percent(population_tif_path, population_nuts3, nuts_shapefile)

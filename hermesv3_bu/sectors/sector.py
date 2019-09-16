@@ -8,6 +8,8 @@ import pandas as pd
 import geopandas as gpd
 from mpi4py import MPI
 
+from hermesv3_bu.io_server.io_raster import IoRaster
+from hermesv3_bu.io_server.io_shapefile import IoShapefile
 from geopandas import GeoDataFrame
 from hermesv3_bu.logger.log import Log
 from hermesv3_bu.grids.grid import Grid
@@ -567,9 +569,6 @@ class Sector(object):
         return return_value
 
     def calculate_land_use_by_nut(self, land_use_raster_path, nut_shapefile_path, out_land_use_by_nut_path):
-        from hermesv3_bu.io_server.io_raster import IoRaster
-        from hermesv3_bu.io_server.io_shapefile import IoShapefile
-
         # 1st Clip the raster
         lu_raster_path = os.path.join(self.auxiliary_dir, 'clipped_land_use.tif')
 
@@ -607,3 +606,34 @@ class Sector(object):
             land_use_by_nut.to_csv(out_land_use_by_nut_path)
             print('DONE -> {0}'.format(out_land_use_by_nut_path))
         self.comm.Barrier()
+
+    def create_population_by_nut(self, population_raster_path, nut_shapefile_path, output_path, nut_column='nuts3_id'):
+        # 1st Clip the raster
+        self.logger.write_log("\t\tCreating clipped population raster", message_level=3)
+        if self.comm.Get_rank() == 0:
+            clipped_population_path = IoRaster(self.comm).clip_raster_with_shapefile_poly(
+                population_raster_path, self.clip.shapefile, os.path.join(self.auxiliary_dir, 'traffic_area', 'pop.tif'))
+        else:
+            clipped_population_path = None
+
+        # 2nd Raster to shapefile
+        self.logger.write_log("\t\tRaster to shapefile", message_level=3)
+        pop_shp = IoRaster(self.comm).to_shapefile_parallel(
+            clipped_population_path, gather=False, bcast=False, crs={'init': 'epsg:4326'})
+
+        # 3rd Add NUT code
+        self.logger.write_log("\t\tAdding nut codes to the shapefile", message_level=3)
+        # if self.comm.Get_rank() == 0:
+        pop_shp.drop(columns='CELL_ID', inplace=True)
+        pop_shp.rename(columns={'data': 'population'}, inplace=True)
+        pop_shp = self.add_nut_code(pop_shp, nut_shapefile_path, nut_value=nut_column)
+        pop_shp = pop_shp[pop_shp['nut_code'] != -999]
+        pop_shp.rename(columns={'nut_code': nut_column}, inplace=True)
+
+        pop_shp = IoShapefile(self.comm).gather_shapefile(pop_shp)
+        if self.comm.Get_rank() == 0:
+            popu_dist = pop_shp.groupby(nut_column).sum()
+            popu_dist.to_csv(output_path)
+        self.comm.Barrier()
+
+        return True
