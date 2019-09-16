@@ -237,7 +237,7 @@ class TrafficAreaSector(Sector):
         :rtype: GeoDataFrame
         """
         spent_time = timeit.default_timer()
-        veh_cell_path = os.path.join(self.auxiliary_dir, 'traffic_area', 'vehicle_by_cell.shp')
+        veh_cell_path = os.path.join(self.auxiliary_dir, 'traffic_area', 'vehicle_by_cell')
         if not os.path.exists(veh_cell_path):
             veh_cell = self.make_vehicles_by_cell(gasoline_path)
             IoShapefile(self.comm).write_shapefile_parallel(veh_cell.reset_index(), veh_cell_path)
