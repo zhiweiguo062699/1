@@ -11,6 +11,7 @@ from mpi4py import MPI
 from geopandas import GeoDataFrame
 from hermesv3_bu.logger.log import Log
 from hermesv3_bu.grids.grid import Grid
+from geopandas import GeoDataFrame
 
 
 class Sector(object):
@@ -441,7 +442,7 @@ class Sector(object):
         :type nut_value: str
 
         :return: Shapefile with the 'nut_code' column set.
-        :rtype: geopandas.GeoDataframe
+        :rtype: GeoDataFrame
         """
         spent_time = timeit.default_timer()
         nut_shapefile = gpd.read_file(nut_shapefile_path).to_crs(shapefile.crs)
@@ -452,7 +453,7 @@ class Sector(object):
 
         shapefile.rename(columns={nut_value: 'nut_code'}, inplace=True)
         shapefile.loc[shapefile['nut_code'].isna(), 'nut_code'] = -999
-        shapefile['nut_code'] = shapefile['nut_code'].astype(np.int16)
+        shapefile['nut_code'] = shapefile['nut_code'].astype(np.int64)
         self.logger.write_time_log('Sector', 'add_nut_code', timeit.default_timer() - spent_time)
 
         return shapefile
