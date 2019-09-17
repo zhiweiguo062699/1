@@ -350,13 +350,6 @@ class IoRaster(IoServer):
 
             gdf = gpd.GeoDataFrame(ds.read(1).flatten(), columns=['data'], index=range(b_lons.shape[0]), crs=ds.crs)
             gdf['geometry'] = None
-            # nodata_i = gdf['data'] != nodata
-            # print(nodata_i)
-            # print(b_lats)
-            # gdf = gdf[nodata_i]
-            # b_lons = b_lons[nodata_i, :]
-            # b_lats = b_lats[nodata_i, :]
-            # print(gdf)
         else:
             gdf = None
             b_lons = None
