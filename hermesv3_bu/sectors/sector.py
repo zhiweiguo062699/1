@@ -612,7 +612,8 @@ class Sector(object):
         self.logger.write_log("\t\tCreating clipped population raster", message_level=3)
         if self.comm.Get_rank() == 0:
             clipped_population_path = IoRaster(self.comm).clip_raster_with_shapefile_poly(
-                population_raster_path, self.clip.shapefile, os.path.join(self.auxiliary_dir, 'traffic_area', 'pop.tif'))
+                population_raster_path, self.clip.shapefile,
+                os.path.join(self.auxiliary_dir, 'traffic_area', 'pop.tif'))
         else:
             clipped_population_path = None
 
