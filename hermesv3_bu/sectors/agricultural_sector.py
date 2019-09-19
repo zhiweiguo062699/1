@@ -384,7 +384,7 @@ class AgriculturalSector(Sector):
         spent_time = timeit.default_timer()
 
         crop_distribution_src = land_use_distribution_src_nut.loc[:, ['nut_code', 'geometry']]
-        sys.stdout.flush()
+
         for crop, landuse_weight_list in self.crop_from_landuse.items():
             crop_distribution_src[crop] = 0
             for landuse, weight in landuse_weight_list:
@@ -465,19 +465,11 @@ class AgriculturalSector(Sector):
             land_use_by_nut = self.get_land_use_by_nut_csv(land_use_distribution_src_nut, involved_land_uses)
 
             tot_land_use_by_nut = self.get_tot_land_use_by_nut(involved_land_uses)
-            # print('Rank {0}: '.format(self.comm_agr.Get_rank()), 'involved_land_uses', involved_land_uses)
-            # print('Rank {0}: '.format(self.comm_agr.Get_rank()), 'land_use_by_nut', land_use_by_nut)
-            # print('Rank {0}: '.format(self.comm_agr.Get_rank()), 'tot_land_use_by_nut', tot_land_use_by_nut)
-            # sys.stdout.flush()
 
             self.logger.write_log('Creating the crop distribution on the source resolution.', message_level=3)
             crop_by_nut = self.land_use_to_crop_by_nut(land_use_by_nut)
             tot_crop_by_nut = self.land_use_to_crop_by_nut(
                 tot_land_use_by_nut, nuts=list(np.unique(land_use_by_nut.index.get_level_values('nut_code'))))
-            # print('Rank {0}: '.format(self.comm_agr.Get_rank()), 'crop_by_nut', crop_by_nut.sum())
-            # print('Rank {0}: '.format(self.comm_agr.Get_rank()), 'tot_crop_by_nut', tot_crop_by_nut.sum())
-            # sys.stdout.flush()
-            # exit()
             crop_shape_by_nut = self.get_crop_shape_by_nut(crop_by_nut, tot_crop_by_nut)
             crop_area_by_nut = self.get_crop_area_by_nut(crop_shape_by_nut)
             crop_distribution_src = self.calculate_crop_distribution_src(
