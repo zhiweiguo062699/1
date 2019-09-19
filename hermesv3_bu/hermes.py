@@ -57,7 +57,7 @@ class Hermes(object):
         self.writer.write(emis)
         self.comm.Barrier()
 
-        self.logger.write_log('***** HERMES simulation finished succesful *****')
+        self.logger.write_log('***** HERMESv3_BU simulation finished successfully *****')
         self.logger.write_time_log('Hermes', 'TOTAL', timeit.default_timer() - self.initial_time)
         self.logger.finish_logs()
 

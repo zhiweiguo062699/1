@@ -12,6 +12,7 @@ from mpi4py import MPI
 from hermesv3_bu.sectors.sector import Sector
 from hermesv3_bu.io_server.io_shapefile import IoShapefile
 from hermesv3_bu.io_server.io_raster import IoRaster
+from hermesv3_bu.tools.checker import error_exit
 from hermesv3_bu.logger.log import Log
 from geopandas import GeoDataFrame
 from pandas import DataFrame
@@ -227,11 +228,14 @@ class AgriculturalSector(Sector):
             land_uses_clipped = IoRaster(self.comm_agr).clip_raster_with_shapefile_poly(
                 self.land_uses_path, self.clip.shapefile, land_uses_clipped, values=land_uses)
 
-        land_uses_shp = IoRaster(self.comm_agr).to_shapefile_parallel(land_uses_clipped)
-
-        land_use_src_by_nut = self.add_nut_code(land_uses_shp, self.nut_shapefile, nut_value='nuts2_id')
+        land_use_src_by_nut = IoRaster(self.comm_agr).to_shapefile_parallel(land_uses_clipped)
         land_use_src_by_nut.rename(columns={'data': 'land_use'}, inplace=True)
         land_use_src_by_nut['land_use'] = land_use_src_by_nut['land_use'].astype(np.int16)
+
+        land_use_src_by_nut = self.add_nut_code(land_use_src_by_nut, self.nut_shapefile, nut_value='nuts2_id')
+        land_use_src_by_nut = land_use_src_by_nut[land_use_src_by_nut['nut_code'] != -999]
+
+        land_use_src_by_nut = IoShapefile(self.comm_agr).balance(land_use_src_by_nut)
         land_use_src_by_nut.set_index('CELL_ID', inplace=True)
 
         self.logger.write_time_log('AgriculturalSector', 'get_land_use_src_by_nut', timeit.default_timer() - spent_time)
@@ -275,10 +279,11 @@ class AgriculturalSector(Sector):
         spent_time = timeit.default_timer()
 
         land_use_by_nut = pd.DataFrame(index=pd.MultiIndex.from_product(
-            [np.unique(land_use_distribution_src_nut['nut_code']), land_uses], names=['nut_code', 'land_use']))
-
+            [np.unique(land_use_distribution_src_nut['nut_code'].astype(np.int64)),
+             np.unique(land_uses).astype(np.int16)], names=['nut_code', 'land_use']))
+        land_use_by_nut['area'] = 0.0
         land_use_distribution_src_nut['area'] = land_use_distribution_src_nut.area
-        land_use_by_nut['area'] = land_use_distribution_src_nut.groupby(['nut_code', 'land_use']).sum()
+        land_use_by_nut['area'] += land_use_distribution_src_nut.groupby(['nut_code', 'land_use'])['area'].sum()
         land_use_by_nut.fillna(0.0, inplace=True)
 
         self.logger.write_time_log('AgriculturalSector', 'get_land_use_by_nut_csv', timeit.default_timer() - spent_time)
@@ -298,6 +303,7 @@ class AgriculturalSector(Sector):
         :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
+
         if nuts is not None:
             land_use_by_nut = land_use_by_nut.iloc[land_use_by_nut.index.get_level_values('nut_code').isin(nuts)]
 
@@ -351,10 +357,10 @@ class AgriculturalSector(Sector):
 
         crop_by_nut = pd.read_csv(self.crop_by_nut, dtype={'nuts2_id': str})
         crop_by_nut.drop(columns='nuts2_na', inplace=True)
-        crop_by_nut.rename(columns={'nuts2_id': 'code'}, inplace=True)
+        crop_by_nut.rename(columns={'nuts2_id': 'nut_code'}, inplace=True)
 
-        crop_by_nut['code'] = crop_by_nut['code'].astype(np.int32)
-        crop_by_nut.set_index('code', inplace=True)
+        crop_by_nut['nut_code'] = crop_by_nut['nut_code'].astype(np.int64)
+        crop_by_nut.set_index('nut_code', inplace=True)
 
         crop_by_nut = crop_by_nut.loc[crop_share_by_nut.index, :]
         crop_area_by_nut = crop_share_by_nut * crop_by_nut
@@ -378,7 +384,7 @@ class AgriculturalSector(Sector):
         spent_time = timeit.default_timer()
 
         crop_distribution_src = land_use_distribution_src_nut.loc[:, ['nut_code', 'geometry']]
-
+        sys.stdout.flush()
         for crop, landuse_weight_list in self.crop_from_landuse.items():
             crop_distribution_src[crop] = 0
             for landuse, weight in landuse_weight_list:
@@ -396,7 +402,7 @@ class AgriculturalSector(Sector):
                     crop_area_by_nut.loc[nut, crop]
         self.logger.write_time_log('AgriculturalSector', 'calculate_crop_distribution_src',
                                    timeit.default_timer() - spent_time)
-
+        crop_distribution_src = IoShapefile(self.comm_agr).balance(crop_distribution_src)
         return crop_distribution_src
 
     def get_crop_distribution_in_dst_cells(self, crop_distribution):
@@ -414,9 +420,10 @@ class AgriculturalSector(Sector):
 
         crop_distribution = crop_distribution.to_crs(self.grid.shapefile.crs)
         crop_distribution['src_inter_fraction'] = crop_distribution.geometry.area
-
         crop_distribution = self.spatial_overlays(crop_distribution.reset_index(), self.grid.shapefile.reset_index(),
                                                   how='intersection')
+
+        crop_distribution = IoShapefile(self.comm_agr).balance(crop_distribution)
         crop_distribution['src_inter_fraction'] = \
             crop_distribution.geometry.area / crop_distribution['src_inter_fraction']
 
@@ -454,13 +461,23 @@ class AgriculturalSector(Sector):
             self.logger.write_log('Creating land use distribution on the source resolution.', message_level=3)
             involved_land_uses = self.get_involved_land_uses()
             land_use_distribution_src_nut = self.get_land_use_src_by_nut(involved_land_uses)
+
             land_use_by_nut = self.get_land_use_by_nut_csv(land_use_distribution_src_nut, involved_land_uses)
+
             tot_land_use_by_nut = self.get_tot_land_use_by_nut(involved_land_uses)
+            # print('Rank {0}: '.format(self.comm_agr.Get_rank()), 'involved_land_uses', involved_land_uses)
+            # print('Rank {0}: '.format(self.comm_agr.Get_rank()), 'land_use_by_nut', land_use_by_nut)
+            # print('Rank {0}: '.format(self.comm_agr.Get_rank()), 'tot_land_use_by_nut', tot_land_use_by_nut)
+            # sys.stdout.flush()
 
             self.logger.write_log('Creating the crop distribution on the source resolution.', message_level=3)
             crop_by_nut = self.land_use_to_crop_by_nut(land_use_by_nut)
             tot_crop_by_nut = self.land_use_to_crop_by_nut(
                 tot_land_use_by_nut, nuts=list(np.unique(land_use_by_nut.index.get_level_values('nut_code'))))
+            # print('Rank {0}: '.format(self.comm_agr.Get_rank()), 'crop_by_nut', crop_by_nut.sum())
+            # print('Rank {0}: '.format(self.comm_agr.Get_rank()), 'tot_crop_by_nut', tot_crop_by_nut.sum())
+            # sys.stdout.flush()
+            # exit()
             crop_shape_by_nut = self.get_crop_shape_by_nut(crop_by_nut, tot_crop_by_nut)
             crop_area_by_nut = self.get_crop_area_by_nut(crop_shape_by_nut)
             crop_distribution_src = self.calculate_crop_distribution_src(
