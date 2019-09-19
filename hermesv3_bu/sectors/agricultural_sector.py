@@ -125,6 +125,7 @@ class AgriculturalSector(Sector):
         self.crop_from_landuse = self.get_crop_from_land_uses(crop_from_landuse_path)
         self.crop_distribution = self.get_crops_by_dst_cell(
             os.path.join(auxiliary_dir, 'agriculture', 'crops', 'crops.shp'))
+        exit()
         self.logger.write_time_log('AgriculturalSector', '__init__', timeit.default_timer() - spent_time)
 
     def involved_grid_cells(self, src_shp):
@@ -464,10 +465,10 @@ class AgriculturalSector(Sector):
 
             land_use_by_nut = self.get_land_use_by_nut_csv(land_use_distribution_src_nut, involved_land_uses)
 
-            tot_land_use_by_nut = self.get_tot_land_use_by_nut(involved_land_uses)
-
             self.logger.write_log('Creating the crop distribution on the source resolution.', message_level=3)
             crop_by_nut = self.land_use_to_crop_by_nut(land_use_by_nut)
+            tot_land_use_by_nut = self.get_tot_land_use_by_nut(involved_land_uses)
+
             tot_crop_by_nut = self.land_use_to_crop_by_nut(
                 tot_land_use_by_nut, nuts=list(np.unique(land_use_by_nut.index.get_level_values('nut_code'))))
             crop_shape_by_nut = self.get_crop_shape_by_nut(crop_by_nut, tot_crop_by_nut)

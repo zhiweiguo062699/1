@@ -124,19 +124,24 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
         intersection = self.spatial_overlays(src_shapefile.to_crs(self.grid.shapefile.crs).reset_index(),
                                              self.grid.shapefile.reset_index())
         intersection['area'] = intersection.geometry.area
-        dst_shapefile = self.grid.shapefile.reset_index().copy()
-        dst_shapefile['involved_area'] = intersection.groupby('FID')['area'].sum()
-        intersection_with_dst_areas = pd.merge(intersection, dst_shapefile.loc[:, ['FID', 'involved_area']],
-                                               how='left', on='FID')
-        intersection_with_dst_areas['involved_area'] = \
-            intersection_with_dst_areas['area'] / intersection_with_dst_areas['involved_area']
+        intersection = IoShapefile(self.comm).gather_shapefile(intersection)
+        if self.comm.Get_rank() == 0:
+            dst_shapefile = self.grid.shapefile.reset_index().copy()
+            dst_shapefile['involved_area'] = intersection.groupby('FID')['area'].sum()
+            intersection_with_dst_areas = pd.merge(intersection, dst_shapefile.loc[:, ['FID', 'involved_area']],
+                                                   how='left', on='FID')
+            intersection_with_dst_areas['involved_area'] = \
+                intersection_with_dst_areas['area'] / intersection_with_dst_areas['involved_area']
 
-        intersection_with_dst_areas[value] = \
-            intersection_with_dst_areas[value] * intersection_with_dst_areas['involved_area']
-        dst_shapefile[value] = intersection_with_dst_areas.groupby('FID')[value].sum()
-        dst_shapefile.drop('involved_area', axis=1, inplace=True)
-        dst_shapefile.set_index('FID', inplace=True)
-        dst_shapefile.dropna(inplace=True)
+            intersection_with_dst_areas[value] = \
+                intersection_with_dst_areas[value] * intersection_with_dst_areas['involved_area']
+            dst_shapefile.set_index('FID', inplace=True)
+            dst_shapefile[value] = intersection_with_dst_areas.groupby('FID')[value].sum()
+            dst_shapefile.drop('involved_area', axis=1, inplace=True)
+            dst_shapefile.dropna(inplace=True)
+        else:
+            dst_shapefile = None
+        dst_shapefile = IoShapefile(self.comm).split_shapefile(dst_shapefile)
 
         self.logger.write_time_log('AgriculturalCropFertilizersSector', 'to_dst_resolution',
                                    timeit.default_timer() - spent_time)
@@ -174,10 +179,10 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
 
         self.logger.write_log('Getting gridded constants', message_level=2)
 
-        gridded_ph_cec_path = os.path.join(self.auxiliary_dir, 'fertilizers', 'gridded_constants')
+        gridded_ph_cec_path = os.path.join(self.auxiliary_dir, 'agriculture', 'fertilizers', 'gridded_constants')
         if not os.path.exists(gridded_ph_cec_path):
             self.logger.write_log('Getting PH from {0}'.format(ph_path), message_level=2)
-            clipped_ph_path = os.path.join(self.auxiliary_dir, 'fertilizers', 'gridded_PH.tiff')
+            clipped_ph_path = os.path.join(self.auxiliary_dir, 'agriculture', 'fertilizers', 'gridded_PH.tiff')
             if self.comm.Get_rank() == 0:
                 IoRaster(self.comm).clip_raster_with_shapefile_poly(ph_path, self.clip.shapefile, clipped_ph_path,
                                                                     nodata=255)
@@ -195,7 +200,7 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
             self.logger.write_log('PH to destiny resolution done!', message_level=3)
 
             self.logger.write_log('Getting CEC from {0}'.format(cec_path), message_level=2)
-            clipped_cec_path = os.path.join(self.auxiliary_dir, 'fertilizers', 'gridded_CEC.tiff')
+            clipped_cec_path = os.path.join(self.auxiliary_dir, 'agriculture', 'fertilizers', 'gridded_CEC.tiff')
             if self.comm.Get_rank() == 0:
                 IoRaster(self.comm).clip_raster_with_shapefile_poly(cec_path, self.clip.shapefile, clipped_cec_path,
                                                                     nodata=-32768)
@@ -212,10 +217,12 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
             ph_gridded = IoShapefile(self.comm).gather_shapefile(ph_gridded.reset_index())
             cec_gridded = IoShapefile(self.comm).gather_shapefile(cec_gridded.reset_index())
             if self.comm.Get_rank() == 0:
-                gridded_ph_cec = ph_gridded.groupby('FID').mean()
-                cec_gridded = cec_gridded.groupby('FID').mean()
+                gridded_ph_cec = ph_gridded
+                # gridded_ph_cec = ph_gridded.groupby('FID').mean()
+                # cec_gridded = cec_gridded.groupby('FID').mean()
                 # gridded_ph_cec = ph_gridded
                 gridded_ph_cec['cec'] = cec_gridded['cec']
+                gridded_ph_cec.set_index('FID', inplace=True)
                 gridded_ph_cec = GeoDataFrame(
                     gridded_ph_cec,
                     geometry=self.grid.shapefile.loc[gridded_ph_cec.index.get_level_values('FID'), 'geometry'].values,
