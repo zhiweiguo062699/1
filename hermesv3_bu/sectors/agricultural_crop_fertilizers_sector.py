@@ -121,8 +121,15 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
     def to_dst_resolution(self, src_shapefile, value):
         spent_time = timeit.default_timer()
 
+        print('Rank {0}: src len : {1}'.format(self.comm.Get_rank(), len(src_shapefile)))
+        sys.stdout.flush()
         intersection = self.spatial_overlays(src_shapefile.to_crs(self.grid.shapefile.crs).reset_index(),
                                              self.grid.shapefile.reset_index())
+        print('Rank {0}: intersection len: {1}'.format(self.comm.Get_rank(), len(intersection)))
+        sys.stdout.flush()
+        intersection = IoShapefile(self.comm).balance(intersection)
+        print('Rank {0}: intersection len balanced: {1}'.format(self.comm.Get_rank(), len(intersection)))
+        sys.stdout.flush()
         intersection['area'] = intersection.geometry.area
         intersection = IoShapefile(self.comm).gather_shapefile(intersection)
         if self.comm.Get_rank() == 0:
