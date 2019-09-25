@@ -157,7 +157,7 @@ class LivestockSector(Sector):
         """
         spent_time = timeit.default_timer()
         logger.write_log('===== LIVESTOCK SECTOR =====')
-        
+
         check_files(
             [gridded_livestock_path.replace('<animal>', animal) for animal in animal_list] +
             [correction_split_factors_path.replace('<animal>', animal) for animal in animal_list] +
@@ -472,7 +472,8 @@ class LivestockSector(Sector):
             splitting_factors = self.get_splitting_factors(correction_split_factors_path)
 
             # Adding the splitting factors by NUT code
-            animal_distribution = pd.merge(animal_distribution.reset_index(), splitting_factors, how='left', on='nuts3_id')
+            animal_distribution = pd.merge(animal_distribution.reset_index(), splitting_factors, how='left',
+                                           on='nuts3_id')
             animal_distribution.set_index('FID', inplace=True)
             animal_distribution.drop(columns=['nuts3_id'], inplace=True)
 
