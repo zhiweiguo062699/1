@@ -28,6 +28,8 @@ class TrafficAreaSector(Sector):
                  small_cities_monthly_profile, small_cities_weekly_profile, small_cities_hourly_profile):
         spent_time = timeit.default_timer()
         logger.write_log('===== TRAFFIC AREA SECTOR =====')
+        print(do_evaporative, do_small_cities)
+        sys.stdout.flush()
         if do_evaporative:
             check_files([population_tif_path, speciation_map_path, molecular_weights_path,
                          gasoline_path, population_nuts3, nuts_shapefile, speciation_profiles_evaporative,
@@ -554,6 +556,7 @@ class TrafficAreaSector(Sector):
 
     def calculate_emissions(self):
         spent_time = timeit.default_timer()
+        self.logger.write_log('\tCalculating traffic area.', message_level=2)
 
         if self.do_evaporative:
             self.logger.write_log('\tCalculating evaporative emissions.', message_level=2)

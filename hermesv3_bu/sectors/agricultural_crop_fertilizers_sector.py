@@ -121,51 +121,16 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
     def to_dst_resolution(self, src_shapefile, value):
         spent_time = timeit.default_timer()
 
-        print('Rank {0}: src len : {1}'.format(self.comm.Get_rank(), len(src_shapefile)))
-        sys.stdout.flush()
         intersection = self.spatial_overlays(src_shapefile.to_crs(self.grid.shapefile.crs).reset_index(),
                                              self.grid.shapefile.reset_index())
-        print('Rank {0}: intersection len: {1}'.format(self.comm.Get_rank(), len(intersection)))
-        sys.stdout.flush()
-        intersection = IoShapefile(self.comm).balance(intersection)
-        print('Rank {0}: intersection len balanced: {1}'.format(self.comm.Get_rank(), len(intersection)))
-        sys.stdout.flush()
+
+        # intersection = IoShapefile(self.comm).balance(intersection)
+
         intersection['area'] = intersection.geometry.area
-        intersection = IoShapefile(self.comm).gather_shapefile(intersection)
-        if self.comm.Get_rank() == 0:
-            dst_shapefile = self.grid.shapefile.reset_index().copy()
-            dst_shapefile['involved_area'] = intersection.groupby('FID')['area'].sum()
-            intersection_with_dst_areas = pd.merge(intersection, dst_shapefile.loc[:, ['FID', 'involved_area']],
-                                                   how='left', on='FID')
-            intersection_with_dst_areas['involved_area'] = \
-                intersection_with_dst_areas['area'] / intersection_with_dst_areas['involved_area']
-
-            intersection_with_dst_areas[value] = \
-                intersection_with_dst_areas[value] * intersection_with_dst_areas['involved_area']
-            dst_shapefile.set_index('FID', inplace=True)
-            dst_shapefile[value] = intersection_with_dst_areas.groupby('FID')[value].sum()
-            dst_shapefile.drop('involved_area', axis=1, inplace=True)
-            dst_shapefile.dropna(inplace=True)
-        else:
-            dst_shapefile = None
-        dst_shapefile = IoShapefile(self.comm).split_shapefile(dst_shapefile)
-
-        self.logger.write_time_log('AgriculturalCropFertilizersSector', 'to_dst_resolution',
-                                   timeit.default_timer() - spent_time)
-        return dst_shapefile
-
-    def to_dst_resolution_parallel(self, src_shapefile, index, value):
-        spent_time = timeit.default_timer()
-
-        grid_shp = self.grid.shapefile.loc[index, :].copy()
-        src_shapefile = self.comm.bcast(src_shapefile, root=0)
-        src_shapefile = src_shapefile.to_crs(grid_shp.crs)
-        src_shapefile = src_shapefile[src_shapefile.within(grid_shp.unary_union)]
-
-        intersection = self.spatial_overlays(src_shapefile, grid_shp)
-        intersection['area'] = intersection.geometry.area
-        dst_shapefile = grid_shp.copy()
+        dst_shapefile = self.grid.shapefile.reset_index().copy()
+        # dst_shapefile = self.grid.shapefile.loc[np.unique(intersection['FID'])].copy()
         dst_shapefile['involved_area'] = intersection.groupby('FID')['area'].sum()
+        # dst_shapefile.reset_index(inplace=True)
         intersection_with_dst_areas = pd.merge(intersection, dst_shapefile.loc[:, ['FID', 'involved_area']],
                                                how='left', on='FID')
         intersection_with_dst_areas['involved_area'] = \
@@ -173,12 +138,27 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
 
         intersection_with_dst_areas[value] = \
             intersection_with_dst_areas[value] * intersection_with_dst_areas['involved_area']
-        dst_shapefile[value] = intersection_with_dst_areas.groupby('FID')[value].sum()
-        dst_shapefile.drop('involved_area', axis=1, inplace=True)
-        self.logger.write_time_log('AgriculturalCropFertilizersSector', 'to_dst_resolution_parallel',
-                                   timeit.default_timer() - spent_time)
         dst_shapefile.set_index('FID', inplace=True)
+        dst_shapefile[value] = intersection_with_dst_areas.groupby('FID')[value].sum()
+        # dst_shapefile.drop('involved_area', axis=1, inplace=True)
+        dst_shapefile.dropna(inplace=True)
 
+        dst_shapefile = IoShapefile(self.comm).gather_shapefile(dst_shapefile.reset_index())
+        if self.comm.Get_rank() == 0:
+            # dst_shapefile['FID_involved_area'] = dst_shapefile.groupby('FID')['involved_area'].sum()
+            # dst_shapefile['involved_area'] = dst_shapefile['involved_area'] / dst_shapefile['FID_involved_area']
+            # dst_shapefile[value] = dst_shapefile[value] * dst_shapefile['involved_area']
+            # dst_shapefile[value] = dst_shapefile[value].astype(np.float64)
+            # dst_shapefile.drop(columns=['involved_area', 'FID_involved_area'], inplace=True)
+            # dst_shapefile = dst_shapefile.groupby(['FID'])[value].sum()
+            dst_shapefile = dst_shapefile.groupby(['FID'])[value].mean()
+        else:
+            dst_shapefile = None
+        dst_shapefile = IoShapefile(self.comm).split_shapefile(dst_shapefile)
+        # print('Rank {0} -Z {1}: \n{2}\n'.format(self.comm.Get_rank(), value, dst_shapefile))
+        # sys.stdout.flush()
+        self.logger.write_time_log('AgriculturalCropFertilizersSector', 'to_dst_resolution',
+                                   timeit.default_timer() - spent_time)
         return dst_shapefile
 
     def get_gridded_constants(self, ph_path, cec_path):
@@ -194,8 +174,7 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
                 IoRaster(self.comm).clip_raster_with_shapefile_poly(ph_path, self.clip.shapefile, clipped_ph_path,
                                                                     nodata=255)
             self.logger.write_log('PH clipped done!', message_level=3)
-            ph_gridded = IoRaster(self.comm).to_shapefile_parallel(clipped_ph_path, nodata=255,
-                                                                   crs={'init': 'epsg:4326'})
+            ph_gridded = IoRaster(self.comm).to_shapefile_parallel(clipped_ph_path, nodata=255)
             self.logger.write_log('PH to shapefile done!', message_level=3)
             ph_gridded.set_index('CELL_ID', inplace=True)
             ph_gridded.rename(columns={'data': 'ph'}, inplace=True)
@@ -230,14 +209,19 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
                 # gridded_ph_cec = ph_gridded
                 gridded_ph_cec['cec'] = cec_gridded['cec']
                 gridded_ph_cec.set_index('FID', inplace=True)
+                # gridded_ph_cec = gridded_ph_cec.loc[(gridded_ph_cec['ph'] > 0) & (gridded_ph_cec['cec'] > 0)]
                 gridded_ph_cec = GeoDataFrame(
                     gridded_ph_cec,
                     geometry=self.grid.shapefile.loc[gridded_ph_cec.index.get_level_values('FID'), 'geometry'].values,
                     crs=self.grid.shapefile.crs)
             else:
                 gridded_ph_cec = None
-
             gridded_ph_cec = IoShapefile(self.comm).split_shapefile(gridded_ph_cec)
+            # print('Rank {0} -Z PH: \n{1}\n'.format(self.comm.Get_rank(), np.unique(gridded_ph_cec['ph'])))
+            # print('Rank {0} -Z CEC: \n{1}\n'.format(self.comm.Get_rank(), np.unique(gridded_ph_cec['cec'])))
+            # print('Rank {0} -Z FID: \n{1}\n'.format(self.comm.Get_rank(), np.unique(gridded_ph_cec.index)))
+            # sys.stdout.flush()
+            # exit()
             gridded_ph_cec = self.add_nut_code(gridded_ph_cec.reset_index(), self.nut_shapefile)
             gridded_ph_cec = gridded_ph_cec[gridded_ph_cec['nut_code'] != -999]
             gridded_ph_cec.set_index('FID', inplace=True)
@@ -251,6 +235,7 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
 
         # Selecting only PH and CEC cells that have also some crop.
         gridded_ph_cec = gridded_ph_cec.loc[self.crop_distribution.index, :]
+        # gridded_ph_cec = gridded_ph_cec.loc[(gridded_ph_cec['ph'] > 0) & (gridded_ph_cec['cec'] > 0)]
 
         self.logger.write_time_log('AgriculturalCropFertilizersSector', 'get_gridded_constants',
                                    timeit.default_timer() - spent_time)
