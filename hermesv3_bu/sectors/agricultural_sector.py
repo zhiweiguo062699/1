@@ -498,19 +498,12 @@ class AgriculturalSector(Sector):
             land_use_distribution_src_nut = self.get_land_use_src_by_nut(involved_land_uses, write=False)
 
             land_use_by_nut = self.get_land_use_by_nut_csv(land_use_distribution_src_nut, involved_land_uses)
-            print('Rank {0}'.format(self.comm.Get_rank()), 'land_use_by_nut', land_use_by_nut)
-            self.logger.write_log('Rank {0}, {1}, {2}'.format(self.comm.Get_rank(), 'land_use_by_nut 1', land_use_by_nut))
-            sys.stdout.flush()
 
             self.logger.write_log('\tCreating the crop distribution on the source resolution.', message_level=3)
             crop_by_nut = self.land_use_to_crop_by_nut(land_use_by_nut)
             tot_land_use_by_nut = self.get_tot_land_use_by_nut(involved_land_uses)
-            print('Rank {0}'.format(self.comm.Get_rank()), 'tot_land_use_by_nut', tot_land_use_by_nut)
-            self.logger.write_log('Rank {0}, {1}, {2}'.format(self.comm.Get_rank(), 'tot_land_use_by_nut', tot_land_use_by_nut))
-            sys.stdout.flush()
             tot_crop_by_nut = self.land_use_to_crop_by_nut(
                 tot_land_use_by_nut, nuts=list(np.unique(land_use_by_nut.index.get_level_values('nut_code'))))
-            print('Rank {0}'.format(self.comm.Get_rank()), 'tot_land_use_by_nut', tot_land_use_by_nut)
             crop_shape_by_nut = self.get_crop_shape_by_nut(crop_by_nut, tot_crop_by_nut)
             crop_area_by_nut = self.get_crop_area_by_nut(crop_shape_by_nut)
             crop_distribution_src = self.calculate_crop_distribution_src(
