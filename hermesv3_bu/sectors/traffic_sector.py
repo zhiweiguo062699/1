@@ -532,7 +532,7 @@ class TrafficSector(Sector):
         # It is assumed that after 48 h without rain the potential emission is equal to one
         dst[dst >= (1 - np.exp(- RECOVERY_RATIO * 48))] = 1.
         # Creates the GeoDataFrame
-        df = gpd.GeoDataFrame(dst.T, geometry=precipitation.geometry)
+        df = gpd.GeoDataFrame(dst.T, geometry=precipitation['geometry'].values)
         df.columns = ['PR_{0}'.format(x) for x in df.columns.values[:-1]] + ['geometry']
 
         df.loc[:, 'REC'] = df.index
@@ -1099,8 +1099,8 @@ class TrafficSector(Sector):
 
             p_factor = self.calculate_precipitation_factor(link_lons.min(), link_lons.max(), link_lats.min(),
                                                            link_lats.max(), self.precipitation_path)
-
             unary_union = p_factor.unary_union
+
             road_link_aux['REC'] = road_link_aux.apply(self.nearest, geom_union=unary_union, df1=road_link_aux,
                                                        df2=p_factor, geom1_col='centroid', src_column='REC', axis=1)
             road_link_aux.drop(columns=['centroid'], inplace=True)
