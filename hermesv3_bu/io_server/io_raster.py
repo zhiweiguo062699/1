@@ -349,14 +349,10 @@ class IoRaster(IoServer):
             b_lons = b_lons.reshape((b_lons.shape[1], b_lons.shape[2]))
 
             gdf = gpd.GeoDataFrame(ds.read(1).flatten(), columns=['data'], index=range(b_lons.shape[0]), crs=ds.crs)
+            # Error on to_crs function of geopandas that flip lat with lon in the non dict form
+            if gdf.crs == 'EPSG:4326':
+                gdf.crs = {'init': 'epsg:4326'}
             gdf['geometry'] = None
-            # nodata_i = gdf['data'] != nodata
-            # print(nodata_i)
-            # print(b_lats)
-            # gdf = gdf[nodata_i]
-            # b_lons = b_lons[nodata_i, :]
-            # b_lats = b_lats[nodata_i, :]
-            # print(gdf)
         else:
             gdf = None
             b_lons = None
@@ -378,6 +374,7 @@ class IoRaster(IoServer):
 
         gdf['CELL_ID'] = gdf.index
         gdf = gdf[gdf['data'] != nodata]
+
         if crs is not None:
             gdf = gdf.to_crs(crs)
 

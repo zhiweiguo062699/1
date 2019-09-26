@@ -67,7 +67,7 @@ class AgriculturalMachinerySector(AgriculturalSector):
 
         crop_distribution.reset_index(inplace=True)
 
-        crop_distribution_nut_path = os.path.join(self.auxiliary_dir, 'crops', 'crops_nut.shp')
+        crop_distribution_nut_path = os.path.join(self.auxiliary_dir, 'agriculture', 'crops', 'crops_nuts3')
         if not os.path.exists(crop_distribution_nut_path):
             nut_shapefile = gpd.read_file(nut_shapefile)
             if nut_code is not None:
