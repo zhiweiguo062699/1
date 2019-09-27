@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import sys
 import os
 import timeit
 import numpy as np
@@ -715,12 +716,17 @@ class PointSourceSector(Sector):
     def get_plume_rise_top_bot(self, catalog):
         spent_time = timeit.default_timer()
 
-        catalog = self.get_plumerise_meteo(catalog)
+        catalog = self.get_plumerise_meteo(catalog).reset_index()
 
         # Step 1: Bouyancy flux
         catalog.loc[catalog['Temp'] <= catalog['temp_top'], 'Fb'] = 0
-        catalog.loc[catalog['Temp'] > catalog['temp_top'], 'Fb'] = ((catalog['Temp'] - catalog['temp_top']) / catalog[
-            'Temp']) * ((catalog['Speed'] * np.square(catalog['Diameter'])) / 4.) * GRAVITY
+        try:
+            catalog.loc[catalog['Temp'] > catalog['temp_top'], 'Fb'] = ((catalog['Temp'] - catalog['temp_top']) / catalog[
+                'Temp']) * ((catalog['Speed'] * np.square(catalog['Diameter'])) / 4.) * GRAVITY
+        except ValueError as e:
+            print(catalog)
+            sys.stdout.flush()
+            error_exit(str(e))
 
         # Step 2: Stability parameter
         catalog['S'] = np.maximum(
@@ -729,7 +735,7 @@ class PointSourceSector(Sector):
             0.047 / catalog['temp_top'])
 
         # Step 3: Plume thickness
-        catalog.reset_index(inplace=True)
+        # catalog.reset_index(inplace=True)
         neutral_atm = (catalog['obukhov_len'] > 2. * catalog['Height']) | (
                     catalog['obukhov_len'] < -0.25 * catalog['Height'])
         stable_atm = ((catalog['obukhov_len'] > 0) & (catalog['obukhov_len'] < 2 * catalog['Height'])) | (
@@ -891,7 +897,8 @@ class PointSourceSector(Sector):
     def merge_catalogs(self, catalog_list):
         spent_time = timeit.default_timer()
 
-        catalog = pd.concat(catalog_list)
+        catalog = pd.concat(catalog_list).reset_index()
+        catalog.set_index(['Code', 'tstep'], inplace=True)
         self.logger.write_time_log('PointSourceSector', 'merge_catalogs', timeit.default_timer() - spent_time)
         return catalog
 
