@@ -723,7 +723,6 @@ class PointSourceSector(Sector):
         catalog.loc[catalog['Temp'] > catalog['temp_top'], 'Fb'] = ((catalog['Temp'] - catalog['temp_top']) / catalog[
             'Temp']) * ((catalog['Speed'] * np.square(catalog['Diameter'])) / 4.) * GRAVITY
 
-
         # Step 2: Stability parameter
         catalog['S'] = np.maximum(
             (GRAVITY / catalog['temp_top']) * (((catalog['temp_top'] - catalog['temp_sfc']) / catalog['Height']) +
