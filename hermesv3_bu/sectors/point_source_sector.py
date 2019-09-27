@@ -720,13 +720,9 @@ class PointSourceSector(Sector):
 
         # Step 1: Bouyancy flux
         catalog.loc[catalog['Temp'] <= catalog['temp_top'], 'Fb'] = 0
-        try:
-            catalog.loc[catalog['Temp'] > catalog['temp_top'], 'Fb'] = ((catalog['Temp'] - catalog['temp_top']) / catalog[
-                'Temp']) * ((catalog['Speed'] * np.square(catalog['Diameter'])) / 4.) * GRAVITY
-        except ValueError as e:
-            print(catalog)
-            sys.stdout.flush()
-            error_exit(str(e))
+        catalog.loc[catalog['Temp'] > catalog['temp_top'], 'Fb'] = ((catalog['Temp'] - catalog['temp_top']) / catalog[
+            'Temp']) * ((catalog['Speed'] * np.square(catalog['Diameter'])) / 4.) * GRAVITY
+
 
         # Step 2: Stability parameter
         catalog['S'] = np.maximum(
