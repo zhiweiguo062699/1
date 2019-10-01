@@ -166,10 +166,10 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
 
         self.logger.write_log('Getting gridded constants', message_level=2)
 
-        gridded_ph_cec_path = os.path.join(self.auxiliary_dir, 'agriculture', 'fertilizers', 'gridded_constants')
+        gridded_ph_cec_path = os.path.join(self.auxiliary_dir, 'fertilizers', 'gridded_constants')
         if not os.path.exists(gridded_ph_cec_path):
             self.logger.write_log('Getting PH from {0}'.format(ph_path), message_level=2)
-            clipped_ph_path = os.path.join(self.auxiliary_dir, 'agriculture', 'fertilizers', 'gridded_PH.tiff')
+            clipped_ph_path = os.path.join(self.auxiliary_dir, 'fertilizers', 'gridded_PH.tiff')
             if self.comm.Get_rank() == 0:
                 IoRaster(self.comm).clip_raster_with_shapefile_poly(ph_path, self.clip.shapefile, clipped_ph_path,
                                                                     nodata=255)
@@ -186,7 +186,7 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
             self.logger.write_log('PH to destiny resolution done!', message_level=3)
 
             self.logger.write_log('Getting CEC from {0}'.format(cec_path), message_level=2)
-            clipped_cec_path = os.path.join(self.auxiliary_dir, 'agriculture', 'fertilizers', 'gridded_CEC.tiff')
+            clipped_cec_path = os.path.join(self.auxiliary_dir, 'fertilizers', 'gridded_CEC.tiff')
             if self.comm.Get_rank() == 0:
                 IoRaster(self.comm).clip_raster_with_shapefile_poly(cec_path, self.clip.shapefile, clipped_cec_path,
                                                                     nodata=-32768)
