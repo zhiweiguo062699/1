@@ -468,7 +468,7 @@ class LivestockSector(Sector):
             animal_distribution.rename(columns={'nut_code': 'nuts3_id'}, inplace=True)
             animal_distribution = animal_distribution[animal_distribution['nuts3_id'] != -999]
             animal_distribution = IoShapefile(self.comm).balance(animal_distribution)
-            
+
             animal_distribution.set_index('FID', inplace=True)
             splitting_factors = self.get_splitting_factors(correction_split_factors_path)
 
