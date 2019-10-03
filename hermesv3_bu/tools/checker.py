@@ -35,4 +35,4 @@ def error_exit(error_message):
     print(error_message, file=sys.stderr)
     sys.stderr.flush()
     time.sleep(5)
-    MPI.COMM_WORLD.Abort()
+    MPI.COMM_WORLD.Abort(1)
