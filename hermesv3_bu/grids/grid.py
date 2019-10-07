@@ -241,16 +241,7 @@ class Grid(object):
 
     def add_cell_area(self):
         from cdo import Cdo
-        from netCDF4 import Dataset
-        # spent_time = timeit.default_timer()
 
-        # Initialises the CDO
         cdo = Cdo()
-        # cell_area = cdo.gridarea(input=self.netcdf_path, returnArray='cell_area')
-        src = cdo.gridarea(input=self.netcdf_path)
-        netcdf = Dataset(src, mode='r')
-        cell_area = netcdf.variables['cell_area'][:]
-        netcdf.close()
+        cell_area = cdo.gridarea(input=input_file, returnArray='cell_area')
         self.shapefile['cell_area'] = cell_area.flatten()
-
-        # self.logger.write_time_log('Grid', 'add_cell_area', timeit.default_timer() - spent_time)
