@@ -308,15 +308,12 @@ class WrfChemWriter(Writer):
 
         :return:
         """
-        import netCDF4
+        aux_times = np.chararray((len(self.date_array), 19), itemsize=1)
 
-        aux_times_list = []
+        for i, date in enumerate(self.date_array):
+            aux_times[i] = list(date.strftime("%Y-%m-%d_%H:%M:%S"))
 
-        for date in self.date_array:
-            aux_times_list.append(date.strftime("%Y-%m-%d_%H:%M:%S"))
-
-        str_out = netCDF4.stringtochar(np.array(aux_times_list))
-        return str_out
+        return aux_times
 
     def write_netcdf(self, emissions):
         """
