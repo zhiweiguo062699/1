@@ -18,9 +18,11 @@ class Hermes(object):
     """
     Interface class for HERMESv3.
     """
-    def __init__(self, config):
+    def __init__(self, config, comm=None):
         self.initial_time = timeit.default_timer()
-        self.comm = MPI.COMM_WORLD
+        if comm is None:
+            comm = MPI.COMM_WORLD
+        self.comm = comm
 
         self.arguments = config.arguments
         self.logger = Log(self.arguments)
@@ -48,6 +50,10 @@ class Hermes(object):
         """
         from datetime import timedelta
 
+        if self.arguments.fist_time:
+            # Stop run
+            self.comm.Abort(0)
+
         emis = self.sector_manager.run()
         waiting_time = timeit.default_timer()
         self.comm.Barrier()
@@ -67,8 +73,8 @@ class Hermes(object):
         return None
 
 
-def run():
-    date = Hermes(Config()).main()
+def run(comm=None):
+    date = Hermes(Config(comm), comm).main()
     while date is not None:
         date = Hermes(Config(new_date=date)).main()
     sys.exit(0)
