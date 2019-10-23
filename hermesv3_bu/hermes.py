@@ -40,7 +40,7 @@ class Hermes(object):
 
         self.writer = select_writer(self.logger, self.arguments, self.grid, self.date_array)
 
-        self.logger.write_time_log('Hermes', '__init__', timeit.default_timer() - self.initial_time)
+        self.logger.write_time_log('HERMES', '__init__', timeit.default_timer() - self.initial_time)
 
     def main(self):
         """
@@ -52,13 +52,13 @@ class Hermes(object):
         waiting_time = timeit.default_timer()
         self.comm.Barrier()
         self.logger.write_log('All emissions calculated!')
-        self.logger.write_time_log('Hermes', 'Waiting_to_write', timeit.default_timer() - waiting_time)
+        self.logger.write_time_log('HERMES', 'Waiting_to_write', timeit.default_timer() - waiting_time)
 
         self.writer.write(emis)
         self.comm.Barrier()
 
         self.logger.write_log('***** HERMESv3_BU simulation finished successfully *****')
-        self.logger.write_time_log('Hermes', 'TOTAL', timeit.default_timer() - self.initial_time)
+        self.logger.write_time_log('HERMES', 'TOTAL', timeit.default_timer() - self.initial_time)
         self.logger.finish_logs()
 
         if self.arguments.start_date < self.arguments.end_date:
