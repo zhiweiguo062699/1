@@ -273,7 +273,7 @@ class Writer(object):
 
         self.comm_world = comm_world
         self.comm_write = comm_write
-        self.__logger = logger
+        self.logger = logger
         self.netcdf_path = netcdf_path
         self.grid = grid
         self.date_array = date_array
@@ -290,7 +290,7 @@ class Writer(object):
         else:
             self.emission_summary_paths = None
 
-        self.__logger.write_time_log('Writer', '__init__', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('Writer', '__init__', timeit.default_timer() - spent_time)
 
     def gather_emissions(self, emissions):
         """
@@ -307,27 +307,27 @@ class Writer(object):
         """
         spent_time = timeit.default_timer()
         # Sending
-        self.__logger.write_log('Sending emissions to the writing processors.', message_level=2)
+        self.logger.write_log('Sending emissions to the writing processors.', message_level=2)
         requests = []
         for w_rank, info in self.rank_distribution.items():
             partial_emis = emissions.loc[(emissions.index.get_level_values(0) >= info['fid_min']) &
                                          (emissions.index.get_level_values(0) < info['fid_max'])]
 
-            self.__logger.write_log('\tFrom {0} sending {1} to {2}'.format(
+            self.logger.write_log('\tFrom {0} sending {1} to {2}'.format(
                 self.comm_world.Get_rank(),  sys.getsizeof(partial_emis), w_rank), message_level=3)
             # requests.append(self.comm_world.isend(sys.getsizeof(partial_emis), dest=w_rank,
             #                                       tag=self.comm_world.Get_rank() + MPI_TAG_CONSTANT))
             requests.append(self.comm_world.isend(partial_emis, dest=w_rank, tag=self.comm_world.Get_rank()))
 
         # Receiving
-        self.__logger.write_log('Receiving emissions in the writing processors.', message_level=2)
+        self.logger.write_log('Receiving emissions in the writing processors.', message_level=2)
         if self.comm_world.Get_rank() in self.rank_distribution.keys():
-            self.__logger.write_log("I'm a writing processor.", message_level=3)
+            self.logger.write_log("I'm a writing processor.", message_level=3)
             data_list = []
 
-            self.__logger.write_log("Prepared to receive", message_level=3)
+            self.logger.write_log("Prepared to receive", message_level=3)
             for i_rank in range(self.comm_world.Get_size()):
-                self.__logger.write_log(
+                self.logger.write_log(
                     '\tFrom {0} to {1}'.format(i_rank, self.comm_world.Get_rank()), message_level=3)
                 req = self.comm_world.irecv(2**27, source=i_rank, tag=i_rank)
                 dataframe = req.wait()
@@ -341,12 +341,12 @@ class Writer(object):
         else:
             new_emissions = None
         self.comm_world.Barrier()
-        self.__logger.write_log('All emissions received.', message_level=2)
+        self.logger.write_log('All emissions received.', message_level=2)
 
         if self.emission_summary and self.comm_world.Get_rank() in self.rank_distribution.keys():
             self.make_summary(new_emissions)
 
-        self.__logger.write_time_log('Writer', 'gather_emissions', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('Writer', 'gather_emissions', timeit.default_timer() - spent_time)
 
         return new_emissions
 
@@ -369,7 +369,7 @@ class Writer(object):
 
         for (layer, tstep), aux_df in dataframe.groupby(['layer', 'tstep']):
             data[tstep, layer, aux_df['FID']] = aux_df[var_name]
-        self.__logger.write_time_log('Writer', 'dataframe_to_array', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('Writer', 'dataframe_to_array', timeit.default_timer() - spent_time)
 
         return data.reshape(shape)
 
@@ -390,7 +390,7 @@ class Writer(object):
             self.write_netcdf(emissions)
 
         self.comm_world.Barrier()
-        self.__logger.write_time_log('Writer', 'write', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('Writer', 'write', timeit.default_timer() - spent_time)
 
         return True
 
@@ -438,4 +438,4 @@ class Writer(object):
             summary.groupby('tstep').sum().to_csv(self.emission_summary_paths['hourly_summary_path'])
             summary.drop(columns=['tstep'], inplace=True)
             pd.DataFrame(summary.sum()).to_csv(self.emission_summary_paths['total_summary_path'])
-        self.__logger.write_time_log('Writer', 'make_summary', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('Writer', 'make_summary', timeit.default_timer() - spent_time)

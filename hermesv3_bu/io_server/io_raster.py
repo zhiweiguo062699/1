@@ -186,13 +186,13 @@ class IoRaster(IoServer):
         :return:
         """
 
-        if self.__comm.Get_rank() == rank:
+        if self.comm.Get_rank() == rank:
             gdf = self.to_shapefile_serie(raster_path, out_path=out_path, write=write, crs=crs, nodata=nodata)
         else:
             gdf = None
 
-        if self.__comm.Get_size() > 1:
-            gdf = self.__comm.bcast(gdf, root=0)
+        if self.comm.Get_size() > 1:
+            gdf = self.comm.bcast(gdf, root=0)
 
         return gdf
 
@@ -316,7 +316,7 @@ class IoRaster(IoServer):
 
     def to_shapefile_parallel(self, raster_path, gather=False, bcast=False, crs=None, nodata=0):
         spent_time = timeit.default_timer()
-        if self.__comm.Get_rank() == 0:
+        if self.comm.Get_rank() == 0:
             ds = rasterio.open(raster_path)
             grid_info = ds.transform
 
@@ -357,11 +357,11 @@ class IoRaster(IoServer):
             gdf = None
             b_lons = None
             b_lats = None
-        self.__comm.Barrier()
-        gdf = IoShapefile(self.__comm).split_shapefile(gdf)
+        self.comm.Barrier()
+        gdf = IoShapefile(self.comm).split_shapefile(gdf)
 
-        b_lons = IoShapefile(self.__comm).split_shapefile(b_lons)
-        b_lats = IoShapefile(self.__comm).split_shapefile(b_lats)
+        b_lons = IoShapefile(self.comm).split_shapefile(b_lons)
+        b_lats = IoShapefile(self.comm).split_shapefile(b_lats)
 
         i = 0
         for j, df_aux in gdf.iterrows():
@@ -379,7 +379,7 @@ class IoRaster(IoServer):
             gdf = gdf.to_crs(crs)
 
         if gather and not bcast:
-            gdf = IoShapefile(self.__comm).gather_shapefile(gdf)
+            gdf = IoShapefile(self.comm).gather_shapefile(gdf)
         elif gather and bcast:
-            gdf = IoShapefile(self.__comm).gather_bcast_shapefile(gdf)
+            gdf = IoShapefile(self.comm).gather_bcast_shapefile(gdf)
         return gdf

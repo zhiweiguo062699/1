@@ -27,7 +27,7 @@ class CustomClip(Clip):
         super(CustomClip, self).__init__(logger, auxiliary_path)
         self.clip_type = 'Custom clip'
         self.shapefile = self.create_clip(points_str)
-        self.__logger.write_time_log('CustomClip', '__init__', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('CustomClip', '__init__', timeit.default_timer() - spent_time)
 
     def create_clip(self, points_str):
         """
@@ -64,6 +64,6 @@ class CustomClip(Clip):
             clip.to_file(self.shapefile_path)
         else:
             clip = gpd.read_file(self.shapefile_path)
-        self.__logger.write_log("\tClip created at '{0}'".format(self.shapefile_path), 3)
-        self.__logger.write_time_log('CustomClip', 'create_clip', timeit.default_timer() - spent_time)
+        self.logger.write_log("\tClip created at '{0}'".format(self.shapefile_path), 3)
+        self.logger.write_time_log('CustomClip', 'create_clip', timeit.default_timer() - spent_time)
         return clip

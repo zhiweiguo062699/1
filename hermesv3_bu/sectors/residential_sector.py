@@ -55,7 +55,7 @@ class ResidentialSector(Sector):
            prov_shapefile, ccaa_shapefile, population_density_map, population_type_map, create_pop_csv=False)
         self.heating_degree_day_path = heating_degree_day_path
         self.temperature_path = temperature_path
-        self.__logger.write_time_log('ResidentialSector', '__init__', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('ResidentialSector', '__init__', timeit.default_timer() - spent_time)
 
     def read_ef_file(self, path):
         """
@@ -73,7 +73,7 @@ class ResidentialSector(Sector):
         df_ef = pd.read_csv(path)
         df_ef = df_ef.loc[df_ef['fuel_type'].isin(self.fuel_list), ['fuel_type'] + self.source_pollutants]
 
-        self.__logger.write_time_log('ResidentialSector', 'read_ef_file', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('ResidentialSector', 'read_ef_file', timeit.default_timer() - spent_time)
         return df_ef
 
     def calculate_num_days(self):
@@ -86,7 +86,7 @@ class ResidentialSector(Sector):
         for key, value in zip(days, num_days):
             day_dict[key] = value
 
-        self.__logger.write_time_log('ResidentialSector', 'calculate_num_days', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('ResidentialSector', 'calculate_num_days', timeit.default_timer() - spent_time)
         return day_dict
 
     def read_residential_spatial_proxies(self, path):
@@ -95,8 +95,8 @@ class ResidentialSector(Sector):
         spatial_proxies = pd.read_csv(path)
         spatial_proxies = spatial_proxies.loc[spatial_proxies['fuel_type'].isin(self.fuel_list), :]
 
-        self.__logger.write_time_log('ResidentialSector', 'read_residential_spatial_proxies',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('ResidentialSector', 'read_residential_spatial_proxies',
+                                   timeit.default_timer() - spent_time)
         return spatial_proxies
 
     def get_spatial_proxy(self, fuel_type):
@@ -119,7 +119,7 @@ class ResidentialSector(Sector):
         else:
             proxy_type = proxy[1]
 
-        self.__logger.write_time_log('ResidentialSector', 'get_spatial_proxy', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('ResidentialSector', 'get_spatial_proxy', timeit.default_timer() - spent_time)
         return {'nut_level': nut_level, 'proxy_type': proxy_type}
 
     def to_dst_resolution(self, src_distribution):
@@ -144,29 +144,29 @@ class ResidentialSector(Sector):
                                             geometry=self.grid.shapefile.loc[src_distribution.index, 'geometry'])
         src_distribution.reset_index(inplace=True)
 
-        self.__logger.write_time_log('ResidentialSector', 'to_dst_resolution', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('ResidentialSector', 'to_dst_resolution', timeit.default_timer() - spent_time)
         return src_distribution
 
     def get_fuel_distribution(self, prov_shapefile, ccaa_shapefile, population_density_map, population_type_map,
                               create_pop_csv=False):
         spent_time = timeit.default_timer()
-        self.__logger.write_log('Calculating fuel distribution', message_level=2)
+        self.logger.write_log('Calculating fuel distribution', message_level=2)
         fuel_distribution_path = os.path.join(self.auxiliary_dir, 'residential', 'fuel_distribution.shp')
 
         if not os.path.exists(fuel_distribution_path):
             population_density = os.path.join(self.auxiliary_dir, 'residential', 'population_density.tif')
-            if self.__comm.Get_rank() == 0:
-                population_density = IoRaster(self.__comm).clip_raster_with_shapefile_poly(
+            if self.comm.Get_rank() == 0:
+                population_density = IoRaster(self.comm).clip_raster_with_shapefile_poly(
                     population_density_map, self.clip.shapefile, population_density)
-            population_density = IoRaster(self.__comm).to_shapefile_parallel(population_density)
+            population_density = IoRaster(self.comm).to_shapefile_parallel(population_density)
 
             population_density.rename(columns={'data': 'pop'}, inplace=True)
 
             population_type = os.path.join(self.auxiliary_dir, 'residential', 'population_type.tif')
-            if self.__comm.Get_rank() == 0:
-                population_type = IoRaster(self.__comm).clip_raster_with_shapefile_poly(
+            if self.comm.Get_rank() == 0:
+                population_type = IoRaster(self.comm).clip_raster_with_shapefile_poly(
                     population_type_map, self.clip.shapefile, population_type)
-            population_type = IoRaster(self.__comm).to_shapefile_parallel(population_type)
+            population_type = IoRaster(self.comm).to_shapefile_parallel(population_type)
             population_type.rename(columns={'data': 'type'}, inplace=True)
 
             population_type['type'] = population_type['type'].astype(np.int16)
@@ -180,7 +180,7 @@ class ResidentialSector(Sector):
             population_density = self.add_nut_code(population_density, ccaa_shapefile, nut_value='nuts2_id')
             population_density.rename(columns={'nut_code': 'ccaa'}, inplace=True)
             population_density = population_density.loc[population_density['ccaa'] != -999, :]
-            population_density = IoShapefile(self.__comm).balance(population_density)
+            population_density = IoShapefile(self.comm).balance(population_density)
 
             if create_pop_csv:
                 population_density.loc[:, ['prov', 'pop', 'type']].groupby(['prov', 'type']).sum().reset_index().to_csv(
@@ -263,18 +263,18 @@ class ResidentialSector(Sector):
                                                   fuel] = population_density['pop'].multiply(
                                 energy_consumption / total_pop)
             fuel_distribution = self.to_dst_resolution(fuel_distribution)
-            fuel_distribution = IoShapefile(self.__comm).gather_shapefile(fuel_distribution, rank=0)
-            if self.__comm.Get_rank() == 0:
+            fuel_distribution = IoShapefile(self.comm).gather_shapefile(fuel_distribution, rank=0)
+            if self.comm.Get_rank() == 0:
                 fuel_distribution.groupby('FID').sum()
-                IoShapefile(self.__comm).write_shapefile_serial(fuel_distribution, fuel_distribution_path)
+                IoShapefile(self.comm).write_shapefile_serial(fuel_distribution, fuel_distribution_path)
             else:
                 fuel_distribution = None
-            fuel_distribution = IoShapefile(self.__comm).split_shapefile(fuel_distribution)
+            fuel_distribution = IoShapefile(self.comm).split_shapefile(fuel_distribution)
         else:
-            fuel_distribution = IoShapefile(self.__comm).read_shapefile_parallel(fuel_distribution_path)
+            fuel_distribution = IoShapefile(self.comm).read_shapefile_parallel(fuel_distribution_path)
             fuel_distribution.set_index('FID', inplace=True)
 
-        self.__logger.write_time_log('ResidentialSector', 'get_fuel_distribution', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('ResidentialSector', 'get_fuel_distribution', timeit.default_timer() - spent_time)
         return fuel_distribution
 
     def calculate_daily_distribution(self, day):
@@ -292,7 +292,7 @@ class ResidentialSector(Sector):
         geometry_shp['centroid'] = geometry_shp.centroid
         geometry_shp.drop(columns='geometry', inplace=True)
 
-        meteo = IoNetcdf(self.__comm).get_data_from_netcdf(
+        meteo = IoNetcdf(self.comm).get_data_from_netcdf(
             os.path.join(self.temperature_path, 'tas_{0}{1}.nc'.format(day.year, str(day.month).zfill(2))),
             'tas', 'daily', day, geometry_shp)
         # From K to Celsius degrees
@@ -302,7 +302,7 @@ class ResidentialSector(Sector):
         meteo['hdd'] = np.maximum(self.hdd_base_temperature - meteo['tas'], 1)
         meteo.drop('tas', axis=1, inplace=True)
 
-        meteo['hdd_mean'] = IoNetcdf(self.__comm).get_data_from_netcdf(self.heating_degree_day_path.replace(
+        meteo['hdd_mean'] = IoNetcdf(self.comm).get_data_from_netcdf(self.heating_degree_day_path.replace(
             '<year>', str(day.year)), 'HDD', 'yearly', day, geometry_shp).loc[:, 'HDD']
 
         daily_distribution = self.fuel_distribution.copy()
@@ -332,8 +332,8 @@ class ResidentialSector(Sector):
 
         daily_distribution.drop(['hdd', 'hdd_mean'], axis=1, inplace=True)
 
-        self.__logger.write_time_log('ResidentialSector', 'calculate_daily_distribution',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('ResidentialSector', 'calculate_daily_distribution',
+                                   timeit.default_timer() - spent_time)
         return daily_distribution
 
     def get_fuel_distribution_by_day(self):
@@ -343,8 +343,8 @@ class ResidentialSector(Sector):
         for day in self.day_dict.keys():
             daily_distribution[day] = self.calculate_daily_distribution(day)
 
-        self.__logger.write_time_log('ResidentialSector', 'get_fuel_distribution_by_day',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('ResidentialSector', 'get_fuel_distribution_by_day',
+                                   timeit.default_timer() - spent_time)
         return daily_distribution
 
     def calculate_hourly_distribution(self, fuel_distribution):
@@ -362,8 +362,8 @@ class ResidentialSector(Sector):
                 )
         fuel_distribution.drop('hour', axis=1, inplace=True)
 
-        self.__logger.write_time_log('ResidentialSector', 'calculate_hourly_distribution',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('ResidentialSector', 'calculate_hourly_distribution',
+                                   timeit.default_timer() - spent_time)
         return fuel_distribution
 
     def add_dates(self, df_by_day):
@@ -380,7 +380,7 @@ class ResidentialSector(Sector):
         dataframe_by_day = pd.concat(df_list, ignore_index=True)
 
         dataframe_by_day = self.to_timezone(dataframe_by_day)
-        self.__logger.write_time_log('ResidentialSector', 'add_dates', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('ResidentialSector', 'add_dates', timeit.default_timer() - spent_time)
 
         return dataframe_by_day
 
@@ -395,8 +395,8 @@ class ResidentialSector(Sector):
 
         fuel_distribution = self.calculate_hourly_distribution(fuel_distribution_by_day)
 
-        self.__logger.write_time_log('ResidentialSector', 'calculate_fuel_distribution_by_hour',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('ResidentialSector', 'calculate_fuel_distribution_by_hour',
+                                   timeit.default_timer() - spent_time)
         return fuel_distribution
 
     def calculate_emissions_from_fuel_distribution(self, fuel_distribution):
@@ -407,8 +407,8 @@ class ResidentialSector(Sector):
             emissions[in_p] = 0
             for i, fuel_type_ef in self.ef_profiles.iterrows():
                 emissions[in_p] += fuel_distribution.loc[:, fuel_type_ef['fuel_type']].multiply(fuel_type_ef[in_p])
-        self.__logger.write_time_log('ResidentialSector', 'calculate_fuel_distribution_by_hour',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('ResidentialSector', 'calculate_fuel_distribution_by_hour',
+                                   timeit.default_timer() - spent_time)
 
         return emissions
 
@@ -467,13 +467,13 @@ class ResidentialSector(Sector):
                             fuel_type_ef[in_p] * speciation_factor)
                 emissions[out_p] = in_df.divide(self.molecular_weights[in_p])
 
-        self.__logger.write_time_log('ResidentialSector', 'calculate_output_emissions_from_fuel_distribution',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('ResidentialSector', 'calculate_output_emissions_from_fuel_distribution',
+                                   timeit.default_timer() - spent_time)
         return emissions
 
     def calculate_emissions(self):
         spent_time = timeit.default_timer()
-        self.__logger.write_log('\tCalculating emissions')
+        self.logger.write_log('\tCalculating emissions')
 
         fuel_distribution_by_hour = self.calculate_fuel_distribution_by_hour()
         emissions = self.calculate_output_emissions_from_fuel_distribution(fuel_distribution_by_hour)
@@ -481,6 +481,6 @@ class ResidentialSector(Sector):
         emissions['layer'] = 0
         emissions.set_index(['FID', 'layer', 'tstep'], inplace=True)
 
-        self.__logger.write_log('\t\tResidential emissions calculated', message_level=2)
-        self.__logger.write_time_log('ResidentialSector', 'calculate_emissions', timeit.default_timer() - spent_time)
+        self.logger.write_log('\t\tResidential emissions calculated', message_level=2)
+        self.logger.write_time_log('ResidentialSector', 'calculate_emissions', timeit.default_timer() - spent_time)
         return emissions

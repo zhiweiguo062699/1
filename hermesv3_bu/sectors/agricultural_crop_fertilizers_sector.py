@@ -53,7 +53,7 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
         self.temperature_path = temperature_path
         self.wind_speed_path = wind_speed_path
         self.crop_growing_degree_day_path = crop_growing_degree_day_path
-        self.__logger.write_time_log('AgriculturalCropFertilizersSector', '__init__', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('AgriculturalCropFertilizersSector', '__init__', timeit.default_timer() - spent_time)
 
     def get_ftype_fcrop_fmode_by_nut(self, crop, nut_list):
         spent_time = timeit.default_timer()
@@ -71,8 +71,8 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
                               filtered_crop_f_parameter['f_crop'],
                               filtered_crop_f_parameter['f_mode']], axis=1).reset_index()
         f_by_nut.rename(columns={0: 'f_type'}, inplace=True)
-        self.__logger.write_time_log('AgriculturalCropFertilizersSector', 'get_ftype_fcrop_fmode_by_nut',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('AgriculturalCropFertilizersSector', 'get_ftype_fcrop_fmode_by_nut',
+                                   timeit.default_timer() - spent_time)
 
         return f_by_nut
 
@@ -114,8 +114,8 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
 
             total_crop_df['EF_{0}'.format(crop)] = crop_ef['f_sum']
 
-        self.__logger.write_time_log('AgriculturalCropFertilizersSector', 'get_ef_by_crop',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('AgriculturalCropFertilizersSector', 'get_ef_by_crop',
+                                   timeit.default_timer() - spent_time)
         return total_crop_df
 
     def to_dst_resolution(self, src_shapefile, value):
@@ -143,8 +143,8 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
         # dst_shapefile.drop('involved_area', axis=1, inplace=True)
         dst_shapefile.dropna(inplace=True)
 
-        dst_shapefile = IoShapefile(self.__comm).gather_shapefile(dst_shapefile.reset_index())
-        if self.__comm.Get_rank() == 0:
+        dst_shapefile = IoShapefile(self.comm).gather_shapefile(dst_shapefile.reset_index())
+        if self.comm.Get_rank() == 0:
             # dst_shapefile['FID_involved_area'] = dst_shapefile.groupby('FID')['involved_area'].sum()
             # dst_shapefile['involved_area'] = dst_shapefile['involved_area'] / dst_shapefile['FID_involved_area']
             # dst_shapefile[value] = dst_shapefile[value] * dst_shapefile['involved_area']
@@ -154,55 +154,55 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
             dst_shapefile = dst_shapefile.groupby(['FID'])[value].mean()
         else:
             dst_shapefile = None
-        dst_shapefile = IoShapefile(self.__comm).split_shapefile(dst_shapefile)
+        dst_shapefile = IoShapefile(self.comm).split_shapefile(dst_shapefile)
         # print('Rank {0} -Z {1}: \n{2}\n'.format(self.comm.Get_rank(), value, dst_shapefile))
         # sys.stdout.flush()
-        self.__logger.write_time_log('AgriculturalCropFertilizersSector', 'to_dst_resolution',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('AgriculturalCropFertilizersSector', 'to_dst_resolution',
+                                   timeit.default_timer() - spent_time)
         return dst_shapefile
 
     def get_gridded_constants(self, ph_path, cec_path):
         spent_time = timeit.default_timer()
 
-        self.__logger.write_log('Getting gridded constants', message_level=2)
+        self.logger.write_log('Getting gridded constants', message_level=2)
 
         gridded_ph_cec_path = os.path.join(self.auxiliary_dir, 'fertilizers', 'gridded_constants')
         if not os.path.exists(gridded_ph_cec_path):
-            self.__logger.write_log('Getting PH from {0}'.format(ph_path), message_level=2)
+            self.logger.write_log('Getting PH from {0}'.format(ph_path), message_level=2)
             clipped_ph_path = os.path.join(self.auxiliary_dir, 'fertilizers', 'gridded_PH.tiff')
-            if self.__comm.Get_rank() == 0:
-                IoRaster(self.__comm).clip_raster_with_shapefile_poly(ph_path, self.clip.shapefile, clipped_ph_path,
-                                                                      nodata=255)
-            self.__logger.write_log('PH clipped done!', message_level=3)
-            ph_gridded = IoRaster(self.__comm).to_shapefile_parallel(clipped_ph_path, nodata=255)
-            self.__logger.write_log('PH to shapefile done!', message_level=3)
+            if self.comm.Get_rank() == 0:
+                IoRaster(self.comm).clip_raster_with_shapefile_poly(ph_path, self.clip.shapefile, clipped_ph_path,
+                                                                    nodata=255)
+            self.logger.write_log('PH clipped done!', message_level=3)
+            ph_gridded = IoRaster(self.comm).to_shapefile_parallel(clipped_ph_path, nodata=255)
+            self.logger.write_log('PH to shapefile done!', message_level=3)
             ph_gridded.set_index('CELL_ID', inplace=True)
             ph_gridded.rename(columns={'data': 'ph'}, inplace=True)
-            ph_gridded = IoShapefile(self.__comm).balance(ph_gridded)
+            ph_gridded = IoShapefile(self.comm).balance(ph_gridded)
             # To correct input data
             ph_gridded['ph'] = ph_gridded['ph'] / 10
-            self.__logger.write_log('PH to destiny resolution ...', message_level=3)
+            self.logger.write_log('PH to destiny resolution ...', message_level=3)
             ph_gridded = self.to_dst_resolution(ph_gridded, value='ph')
-            self.__logger.write_log('PH to destiny resolution done!', message_level=3)
+            self.logger.write_log('PH to destiny resolution done!', message_level=3)
 
-            self.__logger.write_log('Getting CEC from {0}'.format(cec_path), message_level=2)
+            self.logger.write_log('Getting CEC from {0}'.format(cec_path), message_level=2)
             clipped_cec_path = os.path.join(self.auxiliary_dir, 'fertilizers', 'gridded_CEC.tiff')
-            if self.__comm.Get_rank() == 0:
-                IoRaster(self.__comm).clip_raster_with_shapefile_poly(cec_path, self.clip.shapefile, clipped_cec_path,
-                                                                      nodata=-32768)
-            self.__logger.write_log('CEC clipped done!', message_level=3)
-            cec_gridded = IoRaster(self.__comm).to_shapefile_parallel(clipped_cec_path, nodata=-32768)
-            self.__logger.write_log('CEC to shapefile done!', message_level=3)
+            if self.comm.Get_rank() == 0:
+                IoRaster(self.comm).clip_raster_with_shapefile_poly(cec_path, self.clip.shapefile, clipped_cec_path,
+                                                                    nodata=-32768)
+            self.logger.write_log('CEC clipped done!', message_level=3)
+            cec_gridded = IoRaster(self.comm).to_shapefile_parallel(clipped_cec_path, nodata=-32768)
+            self.logger.write_log('CEC to shapefile done!', message_level=3)
             cec_gridded.rename(columns={'data': 'cec'}, inplace=True)
             cec_gridded.set_index('CELL_ID', inplace=True)
-            cec_gridded = IoShapefile(self.__comm).balance(cec_gridded)
-            self.__logger.write_log('CEC to destiny resolution ...', message_level=3)
+            cec_gridded = IoShapefile(self.comm).balance(cec_gridded)
+            self.logger.write_log('CEC to destiny resolution ...', message_level=3)
             cec_gridded = self.to_dst_resolution(cec_gridded.reset_index(), value='cec')
-            self.__logger.write_log('CEC to destiny resolution done!', message_level=3)
+            self.logger.write_log('CEC to destiny resolution done!', message_level=3)
 
-            ph_gridded = IoShapefile(self.__comm).gather_shapefile(ph_gridded.reset_index())
-            cec_gridded = IoShapefile(self.__comm).gather_shapefile(cec_gridded.reset_index())
-            if self.__comm.Get_rank() == 0:
+            ph_gridded = IoShapefile(self.comm).gather_shapefile(ph_gridded.reset_index())
+            cec_gridded = IoShapefile(self.comm).gather_shapefile(cec_gridded.reset_index())
+            if self.comm.Get_rank() == 0:
                 gridded_ph_cec = ph_gridded
                 # gridded_ph_cec = ph_gridded.groupby('FID').mean()
                 # cec_gridded = cec_gridded.groupby('FID').mean()
@@ -216,7 +216,7 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
                     crs=self.grid.shapefile.crs)
             else:
                 gridded_ph_cec = None
-            gridded_ph_cec = IoShapefile(self.__comm).split_shapefile(gridded_ph_cec)
+            gridded_ph_cec = IoShapefile(self.comm).split_shapefile(gridded_ph_cec)
             # print('Rank {0} -Z PH: \n{1}\n'.format(self.comm.Get_rank(), np.unique(gridded_ph_cec['ph'])))
             # print('Rank {0} -Z CEC: \n{1}\n'.format(self.comm.Get_rank(), np.unique(gridded_ph_cec['cec'])))
             # print('Rank {0} -Z FID: \n{1}\n'.format(self.comm.Get_rank(), np.unique(gridded_ph_cec.index)))
@@ -226,19 +226,19 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
             gridded_ph_cec = gridded_ph_cec[gridded_ph_cec['nut_code'] != -999]
             gridded_ph_cec.set_index('FID', inplace=True)
 
-            IoShapefile(self.__comm).write_shapefile_parallel(gridded_ph_cec.reset_index(), gridded_ph_cec_path)
+            IoShapefile(self.comm).write_shapefile_parallel(gridded_ph_cec.reset_index(), gridded_ph_cec_path)
 
-            gridded_ph_cec = IoShapefile(self.__comm).gather_bcast_shapefile(gridded_ph_cec)
+            gridded_ph_cec = IoShapefile(self.comm).gather_bcast_shapefile(gridded_ph_cec)
         else:
-            gridded_ph_cec = IoShapefile(self.__comm).read_shapefile_serial(gridded_ph_cec_path)
+            gridded_ph_cec = IoShapefile(self.comm).read_shapefile_serial(gridded_ph_cec_path)
             gridded_ph_cec.set_index('FID', inplace=True)
 
         # Selecting only PH and CEC cells that have also some crop.
         gridded_ph_cec = gridded_ph_cec.loc[self.crop_distribution.index, :]
         # gridded_ph_cec = gridded_ph_cec.loc[(gridded_ph_cec['ph'] > 0) & (gridded_ph_cec['cec'] > 0)]
 
-        self.__logger.write_time_log('AgriculturalCropFertilizersSector', 'get_gridded_constants',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('AgriculturalCropFertilizersSector', 'get_gridded_constants',
+                                   timeit.default_timer() - spent_time)
         return gridded_ph_cec
 
     def get_daily_inputs(self, yearly_emissions):
@@ -254,34 +254,34 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
         for day in self.day_dict.keys():
             aux_df = yearly_emissions.copy().reset_index()
 
-            self.__logger.write_log('Getting temperature from {0}'.format(
+            self.logger.write_log('Getting temperature from {0}'.format(
                 os.path.join(self.temperature_path, 'tas_{0}{1}.nc'.format(day.year, str(day.month).zfill(2)))))
-            meteo_df = IoNetcdf(self.__comm).get_data_from_netcdf(
+            meteo_df = IoNetcdf(self.comm).get_data_from_netcdf(
                 os.path.join(self.temperature_path, 'tas_{0}{1}.nc'.format(day.year, str(day.month).zfill(2))),
                 'tas', 'daily', day, geometry_shp)
             meteo_df['tas'] = meteo_df['tas'] - 273.15
 
-            self.__logger.write_log('Getting surface wind speed from {0}'.format(
+            self.logger.write_log('Getting surface wind speed from {0}'.format(
                 os.path.join(self.wind_speed_path, 'sfcWind_{0}{1}.nc'.format(day.year, str(day.month).zfill(2)))))
-            meteo_df['sfcWind'] = IoNetcdf(self.__comm).get_data_from_netcdf(
+            meteo_df['sfcWind'] = IoNetcdf(self.comm).get_data_from_netcdf(
                 os.path.join(self.wind_speed_path, 'sfcWind_{0}{1}.nc'.format(day.year, str(day.month).zfill(2))),
                 'sfcWind', 'daily', day, geometry_shp).loc[:, 'sfcWind']
 
             for crop in self.crop_list:
-                self.__logger.write_log('Getting fertilizer denominator yearly factor from {0}'.format(
+                self.logger.write_log('Getting fertilizer denominator yearly factor from {0}'.format(
                     self.fertilizer_denominator_yearly_factor_path.replace('<crop>', crop).replace(
                         '<year>', str(day.year))))
-                meteo_df['d_{0}'.format(crop)] = IoNetcdf(self.__comm).get_data_from_netcdf(
+                meteo_df['d_{0}'.format(crop)] = IoNetcdf(self.comm).get_data_from_netcdf(
                     self.fertilizer_denominator_yearly_factor_path.replace('<crop>', crop).replace(
                         '<year>', str(day.year)), 'FD', 'yearly', day, geometry_shp).loc[:, 'FD']
-            self.__logger.write_log('Getting growing degree day from {0}'.format(
+            self.logger.write_log('Getting growing degree day from {0}'.format(
                 self.crop_growing_degree_day_path.replace('<season>', 'winter').replace('<year>', str(day.year))))
-            meteo_df['winter'] = IoNetcdf(self.__comm).get_data_from_netcdf(
+            meteo_df['winter'] = IoNetcdf(self.comm).get_data_from_netcdf(
                 self.crop_growing_degree_day_path.replace('<season>', 'winter').replace('<year>', str(day.year)),
                 'Tsum', 'yearly', day, geometry_shp).loc[:, 'Tsum'].astype(np.int16)
-            self.__logger.write_log('Getting growing degree day from {0}'.format(
+            self.logger.write_log('Getting growing degree day from {0}'.format(
                 self.crop_growing_degree_day_path.replace('<season>', 'spring').replace('<year>', str(day.year))))
-            meteo_df['spring'] = IoNetcdf(self.__comm).get_data_from_netcdf(
+            meteo_df['spring'] = IoNetcdf(self.comm).get_data_from_netcdf(
                 self.crop_growing_degree_day_path.replace('<season>', 'spring').replace('<year>', str(day.year)),
                 'Tsum', 'yearly', day, geometry_shp).loc[:, 'Tsum'].astype(np.int16)
 
@@ -297,14 +297,14 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
             aux_df.set_index('FID', inplace=True)
             daily_inputs[day] = aux_df
 
-        self.__logger.write_time_log('AgriculturalCropFertilizersSector', 'get_daily_inputs',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('AgriculturalCropFertilizersSector', 'get_daily_inputs',
+                                   timeit.default_timer() - spent_time)
         return daily_inputs
 
     def calculate_yearly_emissions(self):
         spent_time = timeit.default_timer()
 
-        self.__logger.write_log('Calculating yearly emissions')
+        self.logger.write_log('Calculating yearly emissions')
         self.crop_distribution = pd.merge(self.crop_distribution.reset_index(),
                                           self.ef_by_crop.loc[:, ['nut_code']].reset_index(), how='left', on='FID')
 
@@ -317,8 +317,8 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
                                      self.fertilizer_rate.loc[self.fertilizer_rate['code'] == x.name, crop].values[0]))
             self.crop_distribution[crop] = self.crop_distribution[crop] * self.ef_by_crop['EF_{0}'.format(crop)]
 
-        self.__logger.write_time_log('AgriculturalCropFertilizersSector', 'calculate_yearly_emissions',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('AgriculturalCropFertilizersSector', 'calculate_yearly_emissions',
+                                   timeit.default_timer() - spent_time)
         return self.crop_distribution
 
     def calculate_nh3_emissions(self, day, daily_inputs):
@@ -364,8 +364,8 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
         # From kg NH3-N to g NH3
         daily_emissions['nh3'] = daily_emissions['nh3'].multiply((17. / 14.) * 1000.)
 
-        self.__logger.write_time_log('AgriculturalCropFertilizersSector', 'calculate_nh3_emissions',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('AgriculturalCropFertilizersSector', 'calculate_nh3_emissions',
+                                   timeit.default_timer() - spent_time)
         return daily_emissions
 
     def add_dates(self, df_by_day):
@@ -383,23 +383,23 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
         dataframe_by_day = self.to_timezone(dataframe_by_day)
         dataframe_by_day.set_index(['FID', 'tstep'], inplace=True)
 
-        self.__logger.write_time_log('AgriculturalCropFertilizersSector', 'add_dates',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('AgriculturalCropFertilizersSector', 'add_dates',
+                                   timeit.default_timer() - spent_time)
         return dataframe_by_day
 
     def calculate_daily_emissions(self, emissions):
         spent_time = timeit.default_timer()
-        self.__logger.write_log('Calculating daily emissions')
+        self.logger.write_log('Calculating daily emissions')
         df_by_day = self.get_daily_inputs(emissions)
         for day, daily_inputs in df_by_day.items():
             df_by_day[day] = self.calculate_nh3_emissions(day, daily_inputs)
-        self.__logger.write_time_log('AgriculturalCropFertilizersSector', 'calculate_daily_emissions',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('AgriculturalCropFertilizersSector', 'calculate_daily_emissions',
+                                   timeit.default_timer() - spent_time)
         return df_by_day
 
     def calculate_hourly_emissions(self, emissions):
         spent_time = timeit.default_timer()
-        self.__logger.write_log('Calculating hourly emissions')
+        self.logger.write_log('Calculating hourly emissions')
         emissions['hour'] = emissions['date'].dt.hour
         emissions['nh3'] = emissions.groupby('hour')['nh3'].apply(
             lambda x: x.multiply(self.hourly_profiles.loc['nh3', x.name]))
@@ -407,13 +407,13 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
         emissions['date'] = emissions['date_utc']
         emissions.drop(columns=['hour', 'date_utc'], axis=1, inplace=True)
 
-        self.__logger.write_time_log('AgriculturalCropFertilizersSector', 'calculate_hourly_emissions',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('AgriculturalCropFertilizersSector', 'calculate_hourly_emissions',
+                                   timeit.default_timer() - spent_time)
         return emissions
 
     def calculate_emissions(self):
         spent_time = timeit.default_timer()
-        self.__logger.write_log('\tCalculating emissions')
+        self.logger.write_log('\tCalculating emissions')
 
         emissions = self.calculate_yearly_emissions()
 
@@ -426,7 +426,7 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
         emissions['layer'] = 0
         emissions.set_index(['FID', 'layer', 'tstep'], inplace=True)
 
-        self.__logger.write_log('\t\tCrop fertilizers emissions calculated', message_level=2)
-        self.__logger.write_time_log('AgriculturalCropFertilizersSector', 'calculate_emissions',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_log('\t\tCrop fertilizers emissions calculated', message_level=2)
+        self.logger.write_time_log('AgriculturalCropFertilizersSector', 'calculate_emissions',
+                                   timeit.default_timer() - spent_time)
         return emissions

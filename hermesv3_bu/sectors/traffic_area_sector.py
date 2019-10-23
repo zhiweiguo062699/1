@@ -67,7 +67,7 @@ class TrafficAreaSector(Sector):
         else:
             self.small_cities = None
 
-        self.__logger.write_time_log('TrafficAreaSector', '__init__', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficAreaSector', '__init__', timeit.default_timer() - spent_time)
 
     def get_population_by_nut2(self, path):
         """
@@ -85,7 +85,7 @@ class TrafficAreaSector(Sector):
         pop_by_nut3.set_index('nuts3_id', inplace=True)
         pop_by_nut3 = pop_by_nut3.to_dict()['population']
 
-        self.__logger.write_time_log('TrafficAreaSector', 'get_pop_by_nut3', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficAreaSector', 'get_pop_by_nut3', timeit.default_timer() - spent_time)
         return pop_by_nut3
 
     def get_population_percent(self, pop_raster_path, pop_by_nut_path, nut_shapefile_path):
@@ -109,34 +109,34 @@ class TrafficAreaSector(Sector):
         pop_percent_path = os.path.join(self.auxiliary_dir, 'traffic_area', 'population_percent')
         if not os.path.exists(pop_percent_path):
             # 1st Clip the raster
-            self.__logger.write_log("\t\tCreating clipped population raster", message_level=3)
-            if self.__comm.Get_rank() == 0:
-                pop_raster_path = IoRaster(self.__comm).clip_raster_with_shapefile_poly(
+            self.logger.write_log("\t\tCreating clipped population raster", message_level=3)
+            if self.comm.Get_rank() == 0:
+                pop_raster_path = IoRaster(self.comm).clip_raster_with_shapefile_poly(
                     pop_raster_path, self.clip.shapefile, os.path.join(self.auxiliary_dir, 'traffic_area', 'pop.tif'))
 
             # 2nd Raster to shapefile
-            self.__logger.write_log("\t\tRaster to shapefile", message_level=3)
-            pop_shp = IoRaster(self.__comm).to_shapefile_parallel(
+            self.logger.write_log("\t\tRaster to shapefile", message_level=3)
+            pop_shp = IoRaster(self.comm).to_shapefile_parallel(
                 pop_raster_path, gather=False, bcast=False, crs={'init': 'epsg:4326'})
 
             # 3rd Add NUT code
-            self.__logger.write_log("\t\tAdding nut codes to the shapefile", message_level=3)
+            self.logger.write_log("\t\tAdding nut codes to the shapefile", message_level=3)
             # if self.comm.Get_rank() == 0:
             pop_shp.drop(columns='CELL_ID', inplace=True)
             pop_shp.rename(columns={'data': 'population'}, inplace=True)
             pop_shp = self.add_nut_code(pop_shp, nut_shapefile_path, nut_value='nuts3_id')
             pop_shp = pop_shp[pop_shp['nut_code'] != -999]
-            pop_shp = IoShapefile(self.__comm).balance(pop_shp)
+            pop_shp = IoShapefile(self.comm).balance(pop_shp)
 
             # 4th Calculate population percent
-            self.__logger.write_log("\t\tCalculating population percentage on source resolution", message_level=3)
+            self.logger.write_log("\t\tCalculating population percentage on source resolution", message_level=3)
             pop_by_nut2 = self.get_population_by_nut2(pop_by_nut_path)
             pop_shp['tot_pop'] = pop_shp['nut_code'].map(pop_by_nut2)
             pop_shp['pop_percent'] = pop_shp['population'] / pop_shp['tot_pop']
             pop_shp.drop(columns=['tot_pop', 'population'], inplace=True)
 
             # 5th Calculate percent by destiny cell
-            self.__logger.write_log("\t\tCalculating population percentage on destiny resolution", message_level=3)
+            self.logger.write_log("\t\tCalculating population percentage on destiny resolution", message_level=3)
             pop_shp.to_crs(self.grid.shapefile.crs, inplace=True)
             pop_shp['src_inter_fraction'] = pop_shp.geometry.area
             pop_shp = self.spatial_overlays(pop_shp.reset_index(), self.grid.shapefile.reset_index())
@@ -145,22 +145,22 @@ class TrafficAreaSector(Sector):
             pop_shp['pop_percent'] = pop_shp['pop_percent'] * pop_shp['src_inter_fraction']
             pop_shp.drop(columns=['src_inter_fraction'], inplace=True)
 
-            pop_shp = IoShapefile(self.__comm).gather_shapefile(pop_shp)
-            if self.__comm.Get_rank() == 0:
+            pop_shp = IoShapefile(self.comm).gather_shapefile(pop_shp)
+            if self.comm.Get_rank() == 0:
                 popu_dist = pop_shp.groupby(['FID', 'nut_code']).sum()
                 popu_dist = GeoDataFrame(
                     popu_dist,
                     geometry=self.grid.shapefile.loc[popu_dist.index.get_level_values('FID'), 'geometry'].values,
                     crs=self.grid.shapefile.crs)
-                IoShapefile(self.__comm).write_shapefile_serial(popu_dist.reset_index(), pop_percent_path)
+                IoShapefile(self.comm).write_shapefile_serial(popu_dist.reset_index(), pop_percent_path)
             else:
                 popu_dist = None
-            popu_dist = IoShapefile(self.__comm).split_shapefile(popu_dist)
+            popu_dist = IoShapefile(self.comm).split_shapefile(popu_dist)
         else:
-            popu_dist = IoShapefile(self.__comm).read_shapefile_parallel(pop_percent_path)
+            popu_dist = IoShapefile(self.comm).read_shapefile_parallel(pop_percent_path)
             popu_dist.set_index(['FID', 'nut_code'], inplace=True)
 
-        self.__logger.write_time_log('TrafficAreaSector', 'get_population_percent', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficAreaSector', 'get_population_percent', timeit.default_timer() - spent_time)
         return popu_dist
 
     def get_population(self, pop_raster_path, nut_shapefile_path):
@@ -181,28 +181,28 @@ class TrafficAreaSector(Sector):
         pop_path = os.path.join(self.auxiliary_dir, 'traffic_area', 'population_small')
         if not os.path.exists(pop_path):
             # 1st Clip the raster
-            self.__logger.write_log("\t\tCreating clipped population raster", message_level=3)
-            if self.__comm.Get_rank() == 0:
-                pop_raster_path = IoRaster(self.__comm).clip_raster_with_shapefile_poly(
+            self.logger.write_log("\t\tCreating clipped population raster", message_level=3)
+            if self.comm.Get_rank() == 0:
+                pop_raster_path = IoRaster(self.comm).clip_raster_with_shapefile_poly(
                     pop_raster_path, self.clip.shapefile, os.path.join(self.auxiliary_dir, 'traffic_area', 'pop.tif'))
 
             # 2nd Raster to shapefile
-            self.__logger.write_log("\t\tRaster to shapefile", message_level=3)
-            pop_shp = IoRaster(self.__comm).to_shapefile_parallel(
+            self.logger.write_log("\t\tRaster to shapefile", message_level=3)
+            pop_shp = IoRaster(self.comm).to_shapefile_parallel(
                 pop_raster_path, gather=False, bcast=False, crs={'init': 'epsg:4326'})
 
             # 3rd Add NUT code
-            self.__logger.write_log("\t\tAdding nut codes to the shapefile", message_level=3)
+            self.logger.write_log("\t\tAdding nut codes to the shapefile", message_level=3)
             # if self.comm.Get_rank() == 0:
             pop_shp.drop(columns='CELL_ID', inplace=True)
             pop_shp.rename(columns={'data': 'population'}, inplace=True)
 
             pop_shp = self.add_nut_code(pop_shp, nut_shapefile_path, nut_value='ORDER08')
             pop_shp = pop_shp[pop_shp['nut_code'] != -999]
-            pop_shp = IoShapefile(self.__comm).balance(pop_shp)
+            pop_shp = IoShapefile(self.comm).balance(pop_shp)
 
             # 4th Calculate percent by destiny cell
-            self.__logger.write_log("\t\tCalculating population percentage on destiny resolution", message_level=3)
+            self.logger.write_log("\t\tCalculating population percentage on destiny resolution", message_level=3)
             pop_shp.to_crs(self.grid.shapefile.crs, inplace=True)
             pop_shp['src_inter_fraction'] = pop_shp.geometry.area
             pop_shp = self.spatial_overlays(pop_shp.reset_index(), self.grid.shapefile.reset_index())
@@ -211,22 +211,22 @@ class TrafficAreaSector(Sector):
             pop_shp['population'] = pop_shp['population'] * pop_shp['src_inter_fraction']
             pop_shp.drop(columns=['src_inter_fraction', 'nut_code'], inplace=True)
 
-            pop_shp = IoShapefile(self.__comm).gather_shapefile(pop_shp)
-            if self.__comm.Get_rank() == 0:
+            pop_shp = IoShapefile(self.comm).gather_shapefile(pop_shp)
+            if self.comm.Get_rank() == 0:
                 popu_dist = pop_shp.groupby(['FID']).sum()
                 popu_dist = GeoDataFrame(
                     popu_dist,
                     geometry=self.grid.shapefile.loc[popu_dist.index.get_level_values('FID'), 'geometry'].values,
                     crs=self.grid.shapefile.crs)
-                IoShapefile(self.__comm).write_shapefile_serial(popu_dist.reset_index(), pop_path)
+                IoShapefile(self.comm).write_shapefile_serial(popu_dist.reset_index(), pop_path)
             else:
                 popu_dist = None
-            popu_dist = IoShapefile(self.__comm).split_shapefile(popu_dist)
+            popu_dist = IoShapefile(self.comm).split_shapefile(popu_dist)
         else:
-            popu_dist = IoShapefile(self.__comm).read_shapefile_parallel(pop_path)
+            popu_dist = IoShapefile(self.comm).read_shapefile_parallel(pop_path)
             popu_dist.set_index(['FID'], inplace=True)
 
-        self.__logger.write_time_log('TrafficAreaSector', 'get_population_percent', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficAreaSector', 'get_population_percent', timeit.default_timer() - spent_time)
         return popu_dist
 
     def init_evaporative(self, gasoline_path):
@@ -243,20 +243,20 @@ class TrafficAreaSector(Sector):
         veh_cell_path = os.path.join(self.auxiliary_dir, 'traffic_area', 'vehicle_by_cell')
         if not os.path.exists(veh_cell_path):
             veh_cell = self.make_vehicles_by_cell(gasoline_path)
-            IoShapefile(self.__comm).write_shapefile_parallel(veh_cell.reset_index(), veh_cell_path)
+            IoShapefile(self.comm).write_shapefile_parallel(veh_cell.reset_index(), veh_cell_path)
         else:
-            self.__logger.write_log('\t\tReading vehicle shapefile by cell.', message_level=3)
-            veh_cell = IoShapefile(self.__comm).read_shapefile_parallel(veh_cell_path)
+            self.logger.write_log('\t\tReading vehicle shapefile by cell.', message_level=3)
+            veh_cell = IoShapefile(self.comm).read_shapefile_parallel(veh_cell_path)
             veh_cell.set_index('FID', inplace=True)
 
-        self.__logger.write_time_log('TrafficAreaSector', 'init_evaporative', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficAreaSector', 'init_evaporative', timeit.default_timer() - spent_time)
         return veh_cell
 
     def init_small_cities(self, global_path, small_cities_shapefile):
         spent_time = timeit.default_timer()
         pop = self.get_population(global_path, small_cities_shapefile)
 
-        self.__logger.write_time_log('TrafficAreaSector', 'init_small_cities', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficAreaSector', 'init_small_cities', timeit.default_timer() - spent_time)
         return pop
 
     def read_vehicles_by_nut(self, path):
@@ -268,7 +268,7 @@ class TrafficAreaSector(Sector):
         vehicles_by_nut = pd.DataFrame(vehicles_by_nut.values.T, index=nut_list, columns=vehicle_list)
         vehicles_by_nut.index.name = 'nuts3_id'
 
-        self.__logger.write_time_log('TrafficAreaSector', 'read_vehicles_by_nut', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficAreaSector', 'read_vehicles_by_nut', timeit.default_timer() - spent_time)
         return vehicles_by_nut
 
     def make_vehicles_by_cell(self, gasoline_path):
@@ -282,19 +282,19 @@ class TrafficAreaSector(Sector):
         vehicle_by_cell[vehicle_list] = vehicle_by_cell[vehicle_list].multiply(
             vehicle_by_cell['pop_percent'], axis='index')
         vehicle_by_cell.drop(columns=['pop_percent'], inplace=True)
-        vehicle_by_cell = IoShapefile(self.__comm).gather_shapefile(vehicle_by_cell, rank=0)
-        if self.__comm.Get_rank() == 0:
+        vehicle_by_cell = IoShapefile(self.comm).gather_shapefile(vehicle_by_cell, rank=0)
+        if self.comm.Get_rank() == 0:
             vehicle_by_cell = vehicle_by_cell.groupby('FID').sum()
         else:
             vehicle_by_cell = None
-        vehicle_by_cell = IoShapefile(self.__comm).split_shapefile(vehicle_by_cell)
+        vehicle_by_cell = IoShapefile(self.comm).split_shapefile(vehicle_by_cell)
 
         vehicle_by_cell = GeoDataFrame(
             vehicle_by_cell,
             geometry=self.grid.shapefile.loc[vehicle_by_cell.index.get_level_values('FID'), 'geometry'].values,
             crs=self.grid.shapefile.crs)
 
-        self.__logger.write_time_log('TrafficAreaSector', 'make_vehicles_by_cell', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficAreaSector', 'make_vehicles_by_cell', timeit.default_timer() - spent_time)
         return vehicle_by_cell
 
     def get_profiles_from_temperature(self, temperature, default=False):
@@ -324,8 +324,8 @@ class TrafficAreaSector(Sector):
             temperature.loc[:, temp_list] = temperature[temp_list].add(second_min, axis=0)
             temperature.loc[:, temp_list] = temperature[temp_list].div(temperature[temp_list].sum(axis=1), axis=0)
 
-        self.__logger.write_time_log('TrafficAreaSector', 'get_profiles_from_temperature',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficAreaSector', 'get_profiles_from_temperature',
+                                   timeit.default_timer() - spent_time)
         return temperature
 
     def calculate_evaporative_emissions(self):
@@ -347,7 +347,7 @@ class TrafficAreaSector(Sector):
         self.evaporative['c_lon'] = aux_df.centroid.x
         self.evaporative['centroid'] = aux_df.centroid
 
-        temperature = IoNetcdf(self.__comm).get_hourly_data_from_netcdf(
+        temperature = IoNetcdf(self.comm).get_hourly_data_from_netcdf(
             self.evaporative['c_lon'].min(), self.evaporative['c_lon'].max(), self.evaporative['c_lat'].min(),
             self.evaporative['c_lat'].max(), self.temperature_dir, 'tas', self.date_array)
         temperature.rename(columns={x: 't_{0}'.format(x) for x in range(len(self.date_array))}, inplace=True)
@@ -365,7 +365,7 @@ class TrafficAreaSector(Sector):
                                                                df1=self.evaporative, df2=temperature_mean,
                                                                geom1_col='centroid', src_column='REC', axis=1)
             del self.evaporative['c_lat'], self.evaporative['c_lon'], self.evaporative['centroid']
-            IoShapefile(self.__comm).write_shapefile_parallel(
+            IoShapefile(self.comm).write_shapefile_parallel(
                 self.evaporative, os.path.join(self.auxiliary_dir, 'traffic_area', 'vehicle_by_cell'))
         else:
             del self.evaporative['c_lat'], self.evaporative['c_lon'], self.evaporative['centroid']
@@ -397,8 +397,8 @@ class TrafficAreaSector(Sector):
 
         self.evaporative.set_index(['FID', 'tstep'], inplace=True)
 
-        self.__logger.write_time_log('TrafficAreaSector', 'calculate_evaporative_emissions',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficAreaSector', 'calculate_evaporative_emissions',
+                                   timeit.default_timer() - spent_time)
         return self.evaporative
 
     def evaporative_temporal_distribution(self, temporal_profiles):
@@ -416,8 +416,8 @@ class TrafficAreaSector(Sector):
             temporal_df_list.append(aux_temporal)
         df = pd.concat(temporal_df_list)
 
-        self.__logger.write_time_log('TrafficAreaSector', 'evaporative_temporal_distribution',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficAreaSector', 'evaporative_temporal_distribution',
+                                   timeit.default_timer() - spent_time)
         return df
 
     def speciate_evaporative(self):
@@ -430,7 +430,7 @@ class TrafficAreaSector(Sector):
             # From g/day to mol/day
             speciated_df[p] = self.evaporative['nmvoc'] * self.speciation_profiles_evaporative.loc['default', p]
 
-        self.__logger.write_time_log('TrafficAreaSector', 'speciate_evaporative', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficAreaSector', 'speciate_evaporative', timeit.default_timer() - spent_time)
         return speciated_df
 
     def small_cities_emissions_by_population(self, pop_by_cell):
@@ -442,8 +442,8 @@ class TrafficAreaSector(Sector):
             pop_by_cell[pollutant] = pop_by_cell['population'] * ef_df[pollutant].iloc[0]
         pop_by_cell.drop(columns=['population'], inplace=True)
 
-        self.__logger.write_time_log('TrafficAreaSector', 'small_cities_emissions_by_population',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficAreaSector', 'small_cities_emissions_by_population',
+                                   timeit.default_timer() - spent_time)
         return pop_by_cell
 
     def add_timezones(self, grid, default=False):
@@ -464,7 +464,7 @@ class TrafficAreaSector(Sector):
                     lambda x: tz.closest_timezone_at(lng=x['lons'], lat=x['lats'], delta_degree=inc), axis=1)
                 inc += 1
 
-        self.__logger.write_time_log('TrafficAreaSector', 'add_timezones', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficAreaSector', 'add_timezones', timeit.default_timer() - spent_time)
         return grid
 
     def temporal_distribution_small(self, small_cities):
@@ -509,8 +509,8 @@ class TrafficAreaSector(Sector):
             small_cities['date'] = small_cities['date'] + pd.to_timedelta(1, unit='h')
         df = pd.concat(df_list)
 
-        self.__logger.write_time_log('TrafficAreaSector', 'temporal_distribution_small',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficAreaSector', 'temporal_distribution_small',
+                                   timeit.default_timer() - spent_time)
         return df
 
     def calculate_small_cities_emissions(self):
@@ -530,8 +530,8 @@ class TrafficAreaSector(Sector):
         #                           default=True)
         self.small_cities = self.temporal_distribution_small(self.small_cities)
 
-        self.__logger.write_time_log('TrafficAreaSector', 'calculate_small_cities_emissions',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficAreaSector', 'calculate_small_cities_emissions',
+                                   timeit.default_timer() - spent_time)
 
         return True
 
@@ -550,22 +550,22 @@ class TrafficAreaSector(Sector):
         dataset['layer'] = 0
         dataset = dataset.groupby(['FID', 'layer', 'tstep']).sum()
 
-        self.__logger.write_time_log('TrafficAreaSector', 'to_grid', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficAreaSector', 'to_grid', timeit.default_timer() - spent_time)
         return dataset
 
     def calculate_emissions(self):
         spent_time = timeit.default_timer()
-        self.__logger.write_log('\tCalculating traffic area.', message_level=2)
+        self.logger.write_log('\tCalculating traffic area.', message_level=2)
 
         if self.do_evaporative:
-            self.__logger.write_log('\tCalculating evaporative emissions.', message_level=2)
+            self.logger.write_log('\tCalculating evaporative emissions.', message_level=2)
             self.calculate_evaporative_emissions()
         if self.do_small_cities:
-            self.__logger.write_log('\tCalculating small cities emissions.', message_level=2)
+            self.logger.write_log('\tCalculating small cities emissions.', message_level=2)
             self.calculate_small_cities_emissions()
 
         emissions = self.to_grid()
 
-        self.__logger.write_log('\t\tTraffic area emissions calculated', message_level=2)
-        self.__logger.write_time_log('TrafficAreaSector', 'calculate_emissions', timeit.default_timer() - spent_time)
+        self.logger.write_log('\t\tTraffic area emissions calculated', message_level=2)
+        self.logger.write_time_log('TrafficAreaSector', 'calculate_emissions', timeit.default_timer() - spent_time)
         return emissions

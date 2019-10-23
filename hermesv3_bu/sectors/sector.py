@@ -76,8 +76,8 @@ class Sector(object):
 
         """
         spent_time = timeit.default_timer()
-        self.__comm = comm
-        self.__logger = logger
+        self.comm = comm
+        self.logger = logger
         self.auxiliary_dir = auxiliary_dir
         self.grid = grid
         self.clip = clip
@@ -98,7 +98,7 @@ class Sector(object):
 
         self.output_pollutants = list(self.speciation_map.keys())
 
-        self.__logger.write_time_log('Sector', '__init__', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('Sector', '__init__', timeit.default_timer() - spent_time)
 
     def read_speciation_profiles(self, path):
         """
@@ -124,7 +124,7 @@ class Sector(object):
             dataframe = pd.read_csv(path)
             dataframe.set_index('ID', inplace=True)
 
-        self.__logger.write_time_log('Sector', 'read_speciation_profiles', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('Sector', 'read_speciation_profiles', timeit.default_timer() - spent_time)
         return dataframe
 
     def read_speciation_map(self, path):
@@ -161,7 +161,7 @@ class Sector(object):
             dataframe = dataframe.loc[dataframe['src'].isin(self.source_pollutants), :]
 
         dataframe = dict(zip(dataframe['dst'], dataframe['src']))
-        self.__logger.write_time_log('Sector', 'read_speciation_map', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('Sector', 'read_speciation_map', timeit.default_timer() - spent_time)
 
         return dataframe
 
@@ -189,7 +189,7 @@ class Sector(object):
         # dataframe = dataframe.loc[dataframe['Specie'].isin(self.source_pollutants)]
 
         mol_wei = dict(zip(dataframe['Specie'], dataframe['MW']))
-        self.__logger.write_time_log('Sector', 'read_molecular_weights', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('Sector', 'read_molecular_weights', timeit.default_timer() - spent_time)
 
         return mol_wei
 
@@ -208,7 +208,7 @@ class Sector(object):
         """
         spent_time = timeit.default_timer()
         dataframe = pd.read_csv(path, sep=sep)
-        self.__logger.write_time_log('Sector', 'read_profiles', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('Sector', 'read_profiles', timeit.default_timer() - spent_time)
 
         return dataframe
 
@@ -234,7 +234,7 @@ class Sector(object):
                 inplace=True)
             profiles.set_index('P_month', inplace=True)
 
-        self.__logger.write_time_log('Sector', 'read_monthly_profiles', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('Sector', 'read_monthly_profiles', timeit.default_timer() - spent_time)
         return profiles
 
     def read_weekly_profiles(self, path):
@@ -258,7 +258,7 @@ class Sector(object):
                 columns={'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4, 'Saturday': 5,
                          'Sunday': 6, }, inplace=True)
             profiles.set_index('P_week', inplace=True)
-        self.__logger.write_time_log('Sector', 'read_weekly_profiles', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('Sector', 'read_weekly_profiles', timeit.default_timer() - spent_time)
         return profiles
 
     def read_hourly_profiles(self, path):
@@ -283,7 +283,7 @@ class Sector(object):
             profiles.columns = profiles.columns.astype(int)
             profiles.rename(columns={-1: 'P_hour'}, inplace=True)
             profiles.set_index('P_hour', inplace=True)
-        self.__logger.write_time_log('Sector', 'read_hourly_profiles', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('Sector', 'read_hourly_profiles', timeit.default_timer() - spent_time)
         return profiles
 
     def calculate_rebalanced_weekly_profile(self, profile, date):
@@ -306,7 +306,7 @@ class Sector(object):
         weekdays = self.calculate_weekdays(date)
 
         rebalanced_profile = self.calculate_weekday_factor_full_month(profile, weekdays)
-        self.__logger.write_time_log('Sector', 'calculate_rebalanced_weekly_profile', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('Sector', 'calculate_rebalanced_weekly_profile', timeit.default_timer() - spent_time)
 
         return rebalanced_profile
 
@@ -332,7 +332,7 @@ class Sector(object):
         increment = float(num_days - weekdays_factors) / num_days
         for day in range(7):
             profile[day] = (increment + profile[day]) / num_days
-        self.__logger.write_time_log('Sector', 'calculate_weekday_factor_full_month', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('Sector', 'calculate_weekday_factor_full_month', timeit.default_timer() - spent_time)
 
         return profile
 
@@ -354,7 +354,7 @@ class Sector(object):
         weekdays_dict = {}
         for i, day in enumerate(weekdays):
             weekdays_dict[i] = days.count(day)
-        self.__logger.write_time_log('Sector', 'calculate_weekdays', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('Sector', 'calculate_weekdays', timeit.default_timer() - spent_time)
         return weekdays_dict
 
     def add_dates(self, dataframe, drop_utc=True):
@@ -385,7 +385,7 @@ class Sector(object):
         dataframe = self.to_timezone(dataframe)
         if drop_utc:
             dataframe.drop('date_utc', axis=1, inplace=True)
-        self.__logger.write_time_log('Sector', 'add_dates', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('Sector', 'add_dates', timeit.default_timer() - spent_time)
 
         return dataframe
 
@@ -404,7 +404,7 @@ class Sector(object):
         tzfinder = TimezoneFinder()
         dataframe['timezone'] = dataframe.centroid.apply(lambda x: tzfinder.timezone_at(lng=x.x, lat=x.y))
         dataframe.reset_index(inplace=True)
-        self.__logger.write_time_log('Sector', 'add_timezone', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('Sector', 'add_timezone', timeit.default_timer() - spent_time)
         return dataframe
 
     def to_timezone(self, dataframe):
@@ -422,7 +422,7 @@ class Sector(object):
             lambda x: x.dt.tz_convert(x.name).dt.tz_localize(None))
 
         dataframe.drop('timezone', axis=1, inplace=True)
-        self.__logger.write_time_log('Sector', 'to_timezone', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('Sector', 'to_timezone', timeit.default_timer() - spent_time)
 
         return dataframe
 
@@ -456,7 +456,7 @@ class Sector(object):
         shapefile.rename(columns={nut_value: 'nut_code'}, inplace=True)
         shapefile.loc[shapefile['nut_code'].isna(), 'nut_code'] = -999
         shapefile['nut_code'] = shapefile['nut_code'].astype(np.int64)
-        self.__logger.write_time_log('Sector', 'add_nut_code', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('Sector', 'add_nut_code', timeit.default_timer() - spent_time)
 
         return shapefile
 
@@ -516,7 +516,7 @@ class Sector(object):
             df1 = df1.loc[~df1.geometry.is_empty].copy()
             df1.drop(['bbox', 'histreg', 'new_g'], axis=1, inplace=True)
             return_value = df1
-        self.__logger.write_time_log('Sector', 'spatial_overlays', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('Sector', 'spatial_overlays', timeit.default_timer() - spent_time)
 
         return return_value
 
@@ -530,18 +530,18 @@ class Sector(object):
         nearest = df2[geom2_col] == nearest_points(row[geom1_col], geom_union)[1]
         # Get the corresponding value from df2 (matching is based on the geometry)
         value = df2[nearest][src_column].get_values()[0]
-        self.__logger.write_time_log('Sector', 'nearest', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('Sector', 'nearest', timeit.default_timer() - spent_time)
 
         return value
 
     def speciate(self, dataframe, code='default'):
         spent_time = timeit.default_timer()
-        self.__logger.write_log('\t\tSpeciating {0} emissions'.format(code), message_level=2)
+        self.logger.write_log('\t\tSpeciating {0} emissions'.format(code), message_level=2)
 
         new_dataframe = pd.DataFrame(index=dataframe.index, data=None)
         for out_pollutant in self.output_pollutants:
             if out_pollutant != 'PMC':
-                self.__logger.write_log("\t\t\t{0} = ({1}/{2})*{3}".format(
+                self.logger.write_log("\t\t\t{0} = ({1}/{2})*{3}".format(
                     out_pollutant, self.speciation_map[out_pollutant],
                     self.molecular_weights[self.speciation_map[out_pollutant]],
                     self.speciation_profile.loc[code, out_pollutant]), message_level=3)
@@ -550,7 +550,7 @@ class Sector(object):
                                                     self.molecular_weights[self.speciation_map[out_pollutant]]) * \
                                                    self.speciation_profile.loc[code, out_pollutant]
             else:
-                self.__logger.write_log("\t\t\t{0} = ({1}/{2} - {4}/{5})*{3}".format(
+                self.logger.write_log("\t\t\t{0} = ({1}/{2} - {4}/{5})*{3}".format(
                     out_pollutant, 'pm10', self.molecular_weights['pm10'],
                     self.speciation_profile.loc[code, out_pollutant], 'pm25', self.molecular_weights['pm25']),
                     message_level=3)
@@ -559,33 +559,33 @@ class Sector(object):
                     ((dataframe['pm10'] / self.molecular_weights['pm10']) -
                      (dataframe['pm25'] / self.molecular_weights['pm25'])) * \
                     self.speciation_profile.loc[code, out_pollutant]
-        self.__logger.write_time_log('Sector', 'speciate', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('Sector', 'speciate', timeit.default_timer() - spent_time)
         return new_dataframe
 
     def get_output_pollutants(self, input_pollutant):
         spent_time = timeit.default_timer()
         return_value = [outs for outs, ints in self.speciation_map.items() if ints == input_pollutant]
-        self.__logger.write_time_log('Sector', 'get_output_pollutants', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('Sector', 'get_output_pollutants', timeit.default_timer() - spent_time)
         return return_value
 
     def calculate_land_use_by_nut(self, land_use_raster_path, nut_shapefile_path, out_land_use_by_nut_path):
         # 1st Clip the raster
         lu_raster_path = os.path.join(self.auxiliary_dir, 'clipped_land_use.tif')
 
-        if self.__comm.Get_rank() == 0:
+        if self.comm.Get_rank() == 0:
             if not os.path.exists(lu_raster_path):
-                lu_raster_path = IoRaster(self.__comm).clip_raster_with_shapefile_poly(
+                lu_raster_path = IoRaster(self.comm).clip_raster_with_shapefile_poly(
                     land_use_raster_path, self.clip.shapefile, lu_raster_path)
 
         # 2nd Raster to shapefile
-        land_use_shp = IoRaster(self.__comm).to_shapefile_parallel(lu_raster_path, gather=False, bcast=False)
+        land_use_shp = IoRaster(self.comm).to_shapefile_parallel(lu_raster_path, gather=False, bcast=False)
 
         # 3rd Add NUT code
         land_use_shp.drop(columns='CELL_ID', inplace=True)
         land_use_shp.rename(columns={'data': 'land_use'}, inplace=True)
         land_use_shp = self.add_nut_code(land_use_shp, nut_shapefile_path, nut_value='nuts2_id')
         land_use_shp = land_use_shp[land_use_shp['nut_code'] != -999]
-        land_use_shp = IoShapefile(self.__comm).balance(land_use_shp)
+        land_use_shp = IoShapefile(self.comm).balance(land_use_shp)
 
         # 4th Calculate land_use percent
         land_use_shp['area'] = land_use_shp.geometry.area
@@ -599,31 +599,31 @@ class Sector(object):
                     (land_use_shp['land_use'] == land_use) & (land_use_shp['nut_code'] == nut_code),  'area'].sum()
 
         land_use_by_nut.reset_index(inplace=True)
-        land_use_by_nut = IoShapefile(self.__comm).gather_shapefile(land_use_by_nut, rank=0)
+        land_use_by_nut = IoShapefile(self.comm).gather_shapefile(land_use_by_nut, rank=0)
 
-        if self.__comm.Get_rank() == 0:
+        if self.comm.Get_rank() == 0:
             land_use_by_nut = land_use_by_nut.groupby(['nuts2_id', 'land_use']).sum()
             land_use_by_nut.to_csv(out_land_use_by_nut_path)
             print('DONE -> {0}'.format(out_land_use_by_nut_path))
-        self.__comm.Barrier()
+        self.comm.Barrier()
 
     def create_population_by_nut(self, population_raster_path, nut_shapefile_path, output_path, nut_column='nuts3_id'):
         # 1st Clip the raster
-        self.__logger.write_log("\t\tCreating clipped population raster", message_level=3)
-        if self.__comm.Get_rank() == 0:
-            clipped_population_path = IoRaster(self.__comm).clip_raster_with_shapefile_poly(
+        self.logger.write_log("\t\tCreating clipped population raster", message_level=3)
+        if self.comm.Get_rank() == 0:
+            clipped_population_path = IoRaster(self.comm).clip_raster_with_shapefile_poly(
                 population_raster_path, self.clip.shapefile,
                 os.path.join(self.auxiliary_dir, 'traffic_area', 'pop.tif'))
         else:
             clipped_population_path = None
 
         # 2nd Raster to shapefile
-        self.__logger.write_log("\t\tRaster to shapefile", message_level=3)
-        pop_shp = IoRaster(self.__comm).to_shapefile_parallel(
+        self.logger.write_log("\t\tRaster to shapefile", message_level=3)
+        pop_shp = IoRaster(self.comm).to_shapefile_parallel(
             clipped_population_path, gather=False, bcast=False, crs={'init': 'epsg:4326'})
 
         # 3rd Add NUT code
-        self.__logger.write_log("\t\tAdding nut codes to the shapefile", message_level=3)
+        self.logger.write_log("\t\tAdding nut codes to the shapefile", message_level=3)
         # if self.comm.Get_rank() == 0:
         pop_shp.drop(columns='CELL_ID', inplace=True)
         pop_shp.rename(columns={'data': 'population'}, inplace=True)
@@ -631,10 +631,10 @@ class Sector(object):
         pop_shp = pop_shp[pop_shp['nut_code'] != -999]
         pop_shp.rename(columns={'nut_code': nut_column}, inplace=True)
 
-        pop_shp = IoShapefile(self.__comm).gather_shapefile(pop_shp)
-        if self.__comm.Get_rank() == 0:
+        pop_shp = IoShapefile(self.comm).gather_shapefile(pop_shp)
+        if self.comm.Get_rank() == 0:
             popu_dist = pop_shp.groupby(nut_column).sum()
             popu_dist.to_csv(output_path)
-        self.__comm.Barrier()
+        self.comm.Barrier()
 
         return True

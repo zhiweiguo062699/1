@@ -191,7 +191,7 @@ class LivestockSector(Sector):
         # Creating dst resolution shapefile with the amount of animals
         self.animals_df = self.create_animals_distribution(gridded_livestock_path, nut_shapefile_path,
                                                            correction_split_factors_path)
-        self.__logger.write_time_log('LivestockSector', '__init__', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('LivestockSector', '__init__', timeit.default_timer() - spent_time)
 
     def create_animals_distribution(self, gridded_livestock_path, nut_shapefile_path, correction_split_factors_path):
         """
@@ -224,15 +224,15 @@ class LivestockSector(Sector):
         :rtype: GeoDataFrame
         """
         spent_time = timeit.default_timer()
-        self.__logger.write_log('\tCreating animal distribution', message_level=2)
+        self.logger.write_log('\tCreating animal distribution', message_level=2)
 
         animals_df = self.create_animals_shapefile(gridded_livestock_path)
         animals_df = self.animal_distribution_by_category(animals_df, nut_shapefile_path,
                                                           correction_split_factors_path)
 
-        self.__logger.write_log('Animal distribution done', message_level=2)
-        self.__logger.write_time_log('LivestockSector', 'create_animals_distribution',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_log('Animal distribution done', message_level=2)
+        self.logger.write_time_log('LivestockSector', 'create_animals_distribution',
+                                   timeit.default_timer() - spent_time)
 
         return animals_df
 
@@ -250,7 +250,7 @@ class LivestockSector(Sector):
         day_dict = {}
         for key, value in zip(days, num_days):
             day_dict[key] = value
-        self.__logger.write_time_log('LivestockSector', 'calculate_num_days', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('LivestockSector', 'calculate_num_days', timeit.default_timer() - spent_time)
 
         return day_dict
 
@@ -275,27 +275,27 @@ class LivestockSector(Sector):
         :rtype: GeoDataFrame
         """
         spent_time = timeit.default_timer()
-        self.__logger.write_log('\t\tCreating animal shapefile into source resolution', message_level=3)
+        self.logger.write_log('\t\tCreating animal shapefile into source resolution', message_level=3)
         animal_distribution = None
         # For each one of the animals of the animal list
         for animal in self.animal_list:
-            self.__logger.write_log('\t\t\t {0}'.format(animal), message_level=3)
+            self.logger.write_log('\t\t\t {0}'.format(animal), message_level=3)
             # Each one of the animal distributions will be stored separately
             animal_distribution_path = os.path.join(self.auxiliary_dir, 'livestock', animal, '{0}.shp'.format(animal))
             if not os.path.exists(animal_distribution_path):
                 # Create clipped raster file
                 clipped_raster_path = os.path.join(
                     self.auxiliary_dir, 'livestock', animal, '{0}_clip.tif'.format(animal))
-                if self.__comm.Get_rank() == 0:
-                    clipped_raster_path = IoRaster(self.__comm).clip_raster_with_shapefile_poly(
+                if self.comm.Get_rank() == 0:
+                    clipped_raster_path = IoRaster(self.comm).clip_raster_with_shapefile_poly(
                         gridded_livestock_path.replace('<animal>', animal), self.clip.shapefile, clipped_raster_path)
 
-                animal_df = IoRaster(self.__comm).to_shapefile_parallel(clipped_raster_path)
+                animal_df = IoRaster(self.comm).to_shapefile_parallel(clipped_raster_path)
                 animal_df.rename(columns={'data': animal}, inplace=True)
                 animal_df.set_index('CELL_ID', inplace=True)
-                IoShapefile(self.__comm).write_shapefile_parallel(animal_df.reset_index(), animal_distribution_path)
+                IoShapefile(self.comm).write_shapefile_parallel(animal_df.reset_index(), animal_distribution_path)
             else:
-                animal_df = IoShapefile(self.__comm).read_shapefile_parallel(animal_distribution_path)
+                animal_df = IoShapefile(self.comm).read_shapefile_parallel(animal_distribution_path)
                 animal_df.set_index('CELL_ID', inplace=True)
 
             # Creating full animal shapefile
@@ -311,8 +311,8 @@ class LivestockSector(Sector):
         # Removing empty data
         animal_distribution = animal_distribution.loc[(animal_distribution[self.animal_list] != 0).any(axis=1), :]
 
-        self.__logger.write_time_log('LivestockSector', 'create_animals_shapefile_src_resolution',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('LivestockSector', 'create_animals_shapefile_src_resolution',
+                                   timeit.default_timer() - spent_time)
         return animal_distribution
 
     def animals_shapefile_to_dst_resolution(self, animal_distribution):
@@ -326,10 +326,10 @@ class LivestockSector(Sector):
         :rtype: GeoDataFrame
         """
         spent_time = timeit.default_timer()
-        self.__logger.write_log('\t\tCreating animal shapefile into destiny resolution', message_level=3)
+        self.logger.write_log('\t\tCreating animal shapefile into destiny resolution', message_level=3)
         self.grid.shapefile.reset_index(inplace=True)
 
-        animal_distribution = IoShapefile(self.__comm).balance(animal_distribution)
+        animal_distribution = IoShapefile(self.comm).balance(animal_distribution)
         # Changing coordinates system to the grid one
         animal_distribution.to_crs(self.grid.shapefile.crs, inplace=True)
         # Getting src area
@@ -347,8 +347,8 @@ class LivestockSector(Sector):
         # Sum by destiny cell
         animal_distribution = animal_distribution.loc[:, self.animal_list + ['FID']].groupby('FID').sum()
 
-        animal_distribution = IoShapefile(self.__comm).gather_shapefile(animal_distribution.reset_index())
-        if self.__comm.Get_rank() == 0:
+        animal_distribution = IoShapefile(self.comm).gather_shapefile(animal_distribution.reset_index())
+        if self.comm.Get_rank() == 0:
             animal_distribution = animal_distribution.groupby('FID').sum()
             # Adding geometry and coordinates system from the destiny grid shapefile
             animal_distribution = gpd.GeoDataFrame(
@@ -357,9 +357,9 @@ class LivestockSector(Sector):
         else:
             animal_distribution = None
 
-        animal_distribution = IoShapefile(self.__comm).split_shapefile(animal_distribution)
-        self.__logger.write_time_log('LivestockSector', 'animals_shapefile_to_dst_resolution',
-                                     timeit.default_timer() - spent_time)
+        animal_distribution = IoShapefile(self.comm).split_shapefile(animal_distribution)
+        self.logger.write_time_log('LivestockSector', 'animals_shapefile_to_dst_resolution',
+                                   timeit.default_timer() - spent_time)
 
         return animal_distribution
 
@@ -384,11 +384,11 @@ class LivestockSector(Sector):
         if not os.path.exists(animal_distribution_path):
             dataframe = self.create_animals_shapefile_src_resolution(gridded_livestock_path)
             dataframe = self.animals_shapefile_to_dst_resolution(dataframe)
-            IoShapefile(self.__comm).write_shapefile_parallel(dataframe.reset_index(), animal_distribution_path)
+            IoShapefile(self.comm).write_shapefile_parallel(dataframe.reset_index(), animal_distribution_path)
         else:
-            dataframe = IoShapefile(self.__comm).read_shapefile_parallel(animal_distribution_path)
+            dataframe = IoShapefile(self.comm).read_shapefile_parallel(animal_distribution_path)
             dataframe.set_index('FID', inplace=True)
-        self.__logger.write_time_log('LivestockSector', 'create_animals_shapefile', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('LivestockSector', 'create_animals_shapefile', timeit.default_timer() - spent_time)
 
         return dataframe
 
@@ -428,7 +428,7 @@ class LivestockSector(Sector):
 
         splitting_factors.reset_index(inplace=True)
         splitting_factors['nuts3_id'] = splitting_factors['nuts3_id'].astype(np.int16)
-        self.__logger.write_time_log('LivestockSector', 'get_splitting_factors', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('LivestockSector', 'get_splitting_factors', timeit.default_timer() - spent_time)
 
         return splitting_factors
 
@@ -467,7 +467,7 @@ class LivestockSector(Sector):
                                                     nut_value='nuts3_id')
             animal_distribution.rename(columns={'nut_code': 'nuts3_id'}, inplace=True)
             animal_distribution = animal_distribution[animal_distribution['nuts3_id'] != -999]
-            animal_distribution = IoShapefile(self.__comm).balance(animal_distribution)
+            animal_distribution = IoShapefile(self.comm).balance(animal_distribution)
 
             animal_distribution.set_index('FID', inplace=True)
             splitting_factors = self.get_splitting_factors(correction_split_factors_path)
@@ -487,12 +487,12 @@ class LivestockSector(Sector):
             animal_distribution = self.add_timezone(animal_distribution)
             animal_distribution.set_index('FID', inplace=True)
 
-            IoShapefile(self.__comm).write_shapefile_parallel(animal_distribution.reset_index(), animal_distribution_path)
+            IoShapefile(self.comm).write_shapefile_parallel(animal_distribution.reset_index(), animal_distribution_path)
         else:
-            animal_distribution = IoShapefile(self.__comm).read_shapefile_parallel(animal_distribution_path)
+            animal_distribution = IoShapefile(self.comm).read_shapefile_parallel(animal_distribution_path)
             animal_distribution.set_index('FID', inplace=True)
-        self.__logger.write_time_log('LivestockSector', 'animal_distribution_by_category',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('LivestockSector', 'animal_distribution_by_category',
+                                   timeit.default_timer() - spent_time)
 
         return animal_distribution
 
@@ -532,26 +532,26 @@ class LivestockSector(Sector):
         geometry_shp.drop(columns='geometry', inplace=True)
 
         # Extracting temperature
-        meteo = IoNetcdf(self.__comm).get_data_from_netcdf(
+        meteo = IoNetcdf(self.comm).get_data_from_netcdf(
             os.path.join(self.paths['temperature_dir'], 'tas_{0}{1}.nc'.format(day.year, str(day.month).zfill(2))),
             'tas', 'daily', day, geometry_shp)
         meteo['tas'] = meteo['tas'] - 273.15  # From Celsius to Kelvin degrees
         # Extracting wind speed
-        meteo['sfcWind'] = IoNetcdf(self.__comm).get_data_from_netcdf(
+        meteo['sfcWind'] = IoNetcdf(self.comm).get_data_from_netcdf(
             os.path.join(self.paths['wind_speed_dir'], 'sfcWind_{0}{1}.nc'.format(day.year, str(day.month).zfill(2))),
             'sfcWind', 'daily', day, geometry_shp).loc[:, 'sfcWind']
 
         # Extracting denominators already calculated for all the emission types
-        meteo['D_grassing'] = IoNetcdf(self.__comm).get_data_from_netcdf(
+        meteo['D_grassing'] = IoNetcdf(self.comm).get_data_from_netcdf(
             os.path.join(self.paths['denominator_dir'], 'grassing_{0}.nc'.format(day.year)),
             'FD', 'yearly', day, geometry_shp).loc[:, 'FD']
-        meteo['D_housing_closed'] = IoNetcdf(self.__comm).get_data_from_netcdf(
+        meteo['D_housing_closed'] = IoNetcdf(self.comm).get_data_from_netcdf(
             os.path.join(self.paths['denominator_dir'], 'housing_closed_{0}.nc'.format(day.year)),
             'FD', 'yearly', day, geometry_shp).loc[:, 'FD']
-        meteo['D_housing_open'] = IoNetcdf(self.__comm).get_data_from_netcdf(
+        meteo['D_housing_open'] = IoNetcdf(self.comm).get_data_from_netcdf(
             os.path.join(self.paths['denominator_dir'], 'housing_open_{0}.nc'.format(day.year)),
             'FD', 'yearly', day, geometry_shp).loc[:, 'FD']
-        meteo['D_storage'] = IoNetcdf(self.__comm).get_data_from_netcdf(
+        meteo['D_storage'] = IoNetcdf(self.comm).get_data_from_netcdf(
             os.path.join(self.paths['denominator_dir'], 'storage_{0}.nc'.format(day.year)),
             'FD', 'yearly', day, geometry_shp).loc[:, 'FD']
 
@@ -581,7 +581,7 @@ class LivestockSector(Sector):
             meteo.loc[:, 'FD_grassing'].multiply((1 / (SIGMA * math.sqrt(2 * math.pi))) * math.exp(
                 (float(int(day.strftime('%j')) - TAU) ** 2) / (-2 * (SIGMA ** 2))))
 
-        self.__logger.write_time_log('LivestockSector', 'get_daily_factors', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('LivestockSector', 'get_daily_factors', timeit.default_timer() - spent_time)
 
         return meteo.loc[:, ['REC', 'FD_housing_open', 'FD_housing_closed', 'FD_storage', 'FD_grassing', 'geometry']]
 
@@ -624,7 +624,7 @@ class LivestockSector(Sector):
 
         new_df['EF_storage'] = new_df['Estorage_sd_l'] + new_df['Estorage_sl_l']
         new_df.drop(['Estorage_sd_l', 'Estorage_sl_l'], axis=1, inplace=True)
-        self.__logger.write_time_log('LivestockSector', 'get_nh3_ef', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('LivestockSector', 'get_nh3_ef', timeit.default_timer() - spent_time)
 
         return new_df
 
@@ -661,7 +661,7 @@ class LivestockSector(Sector):
 
         new_df['EF_storage'] = new_df['Estorage_sd_l'] + new_df['Estorage_sl_l']
         new_df.drop(['Estorage_sd_l', 'Estorage_sl_l'], axis=1, inplace=True)
-        self.__logger.write_time_log('LivestockSector', 'get_nox_no_ef', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('LivestockSector', 'get_nox_no_ef', timeit.default_timer() - spent_time)
 
         return new_df
 
@@ -696,8 +696,8 @@ class LivestockSector(Sector):
 
         animals_df.drop(columns=['centroid', 'REC', 'geometry_y'], axis=1, inplace=True)
         animals_df.rename(columns={'geometry_x': 'geometry'}, inplace=True)
-        self.__logger.write_time_log('LivestockSector', 'add_daily_factors_to_animal_distribution',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('LivestockSector', 'add_daily_factors_to_animal_distribution',
+                                   timeit.default_timer() - spent_time)
 
         return animals_df
 
@@ -732,7 +732,7 @@ class LivestockSector(Sector):
             # get_list out_pollutants from speciation map -> NH3
             out_pollutants = self.get_output_pollutants('nh3')
             for out_p in out_pollutants:
-                self.__logger.write_log('\t\t\tCalculating {0} emissions'.format(out_p), message_level=3)
+                self.logger.write_log('\t\t\tCalculating {0} emissions'.format(out_p), message_level=3)
                 out_df[out_p] = 0
                 if out_p not in self.output_pollutants:
                     self.output_pollutants.append(out_p)
@@ -771,7 +771,7 @@ class LivestockSector(Sector):
             # get_list out_pollutants from speciation map -> PAR, OLE, TOL ... (15 species)
             out_pollutants = self.get_output_pollutants('nmvoc')
             for out_p in out_pollutants:
-                self.__logger.write_log('\t\t\tCalculating {0} emissions'.format(out_p), message_level=3)
+                self.logger.write_log('\t\t\tCalculating {0} emissions'.format(out_p), message_level=3)
                 out_df[out_p] = 0
                 if out_p not in self.output_pollutants:
                     self.output_pollutants.append(out_p)
@@ -801,7 +801,7 @@ class LivestockSector(Sector):
         if 'pm10' in [x.lower() for x in self.source_pollutants]:
             out_pollutants = self.get_output_pollutants('pm10')
             for out_p in out_pollutants:
-                self.__logger.write_log('\t\t\tCalculating {0} emissions'.format(out_p), message_level=3)
+                self.logger.write_log('\t\t\tCalculating {0} emissions'.format(out_p), message_level=3)
                 out_df[out_p] = 0
                 if out_p not in self.output_pollutants:
                     self.output_pollutants.append(out_p)
@@ -853,7 +853,7 @@ class LivestockSector(Sector):
         if 'pm25' in [x.lower() for x in self.source_pollutants]:
             out_pollutants = self.get_output_pollutants('pm25')
             for out_p in out_pollutants:
-                self.__logger.write_log('\t\t\tCalculating {0} emissions'.format(out_p), message_level=3)
+                self.logger.write_log('\t\t\tCalculating {0} emissions'.format(out_p), message_level=3)
                 out_df[out_p] = 0
                 if out_p not in self.output_pollutants:
                     self.output_pollutants.append(out_p)
@@ -905,7 +905,7 @@ class LivestockSector(Sector):
         if 'nox_no' in [x.lower() for x in self.source_pollutants]:
             out_pollutants = self.get_output_pollutants('nox_no')
             for out_p in out_pollutants:
-                self.__logger.write_log('\t\t\tCalculating {0} emissions'.format(out_p), message_level=3)
+                self.logger.write_log('\t\t\tCalculating {0} emissions'.format(out_p), message_level=3)
                 out_df[out_p] = 0
                 if out_p not in self.output_pollutants:
                     self.output_pollutants.append(out_p)
@@ -924,7 +924,7 @@ class LivestockSector(Sector):
         # ===== PMC =====
         if 'pmc' in [x.lower() for x in self.speciation_map.keys()]:
             pmc_name = 'PMC'
-            self.__logger.write_log('\t\t\tCalculating {0} emissions'.format(pmc_name), message_level=3)
+            self.logger.write_log('\t\t\tCalculating {0} emissions'.format(pmc_name), message_level=3)
             if all(x in [x.lower() for x in self.source_pollutants] for x in ['pm10', 'pm25']):
                 if pmc_name not in self.output_pollutants:
                     self.output_pollutants.append(pmc_name)
@@ -937,9 +937,9 @@ class LivestockSector(Sector):
         not_pollutants = [poll for poll in self.source_pollutants
                           if poll not in ['nh3', 'nox_no', 'nh3', 'nmvoc', 'pm10', 'pm25']]
         if len(not_pollutants) > 0:
-            if self.__comm.Get_rank() == 0:
+            if self.comm.Get_rank() == 0:
                 warn('The pollutants {0} cannot be calculated on the Livestock sector'.format(not_pollutants))
-        self.__logger.write_time_log('LivestockSector', 'calculate_day_emissions', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('LivestockSector', 'calculate_day_emissions', timeit.default_timer() - spent_time)
 
         return out_df
 
@@ -962,8 +962,8 @@ class LivestockSector(Sector):
         daily_emissions = {}
         for day in self.day_dict.keys():
             daily_emissions[day] = self.calculate_day_emissions(animals_df, day)
-        self.__logger.write_time_log('LivestockSector', 'calculate_daily_emissions_dict',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('LivestockSector', 'calculate_daily_emissions_dict',
+                                   timeit.default_timer() - spent_time)
 
         return daily_emissions
 
@@ -988,7 +988,7 @@ class LivestockSector(Sector):
         dataframe_by_day = pd.concat(df_list, ignore_index=True)
 
         dataframe_by_day = self.to_timezone(dataframe_by_day)
-        self.__logger.write_time_log('LivestockSector', 'add_dates', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('LivestockSector', 'add_dates', timeit.default_timer() - spent_time)
 
         return dataframe_by_day
 
@@ -1020,8 +1020,8 @@ class LivestockSector(Sector):
 
         distribution['hour'] = distribution['date'].dt.hour
         for out_p in self.output_pollutants:
-            self.__logger.write_log('\t\t\tDistributing {0} emissions to hourly resolution'.format(out_p),
-                                    message_level=3)
+            self.logger.write_log('\t\t\tDistributing {0} emissions to hourly resolution'.format(out_p),
+                                  message_level=3)
             if out_p.lower() == 'pmc':
                 in_p = 'pmc'
             else:
@@ -1046,8 +1046,8 @@ class LivestockSector(Sector):
 
         distribution['date'] = distribution['date_utc']
         distribution.drop(columns=['hour', 'date_utc'], axis=1, inplace=True)
-        self.__logger.write_time_log('LivestockSector', 'calculate_hourly_distribution',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('LivestockSector', 'calculate_hourly_distribution',
+                                   timeit.default_timer() - spent_time)
 
         return distribution
 
@@ -1059,18 +1059,18 @@ class LivestockSector(Sector):
         :rtype: GeoDataFrame
         """
         spent_time = timeit.default_timer()
-        self.__logger.write_log('\tCalculating emissions')
+        self.logger.write_log('\tCalculating emissions')
 
-        self.__logger.write_log('\t\tCalculating Daily emissions', message_level=2)
+        self.logger.write_log('\t\tCalculating Daily emissions', message_level=2)
         df_by_day = self.calculate_daily_emissions_dict(self.animals_df)
-        self.__logger.write_log('\t\tCalculating hourly emissions', message_level=2)
+        self.logger.write_log('\t\tCalculating hourly emissions', message_level=2)
         animals_df = self.calculate_hourly_distribution(df_by_day)
 
         animals_df.drop(columns=['geometry'], inplace=True)
         animals_df['layer'] = 0
 
         animals_df = animals_df.groupby(['FID', 'layer', 'tstep']).sum()
-        self.__logger.write_log('\t\tLivestock emissions calculated', message_level=2)
-        self.__logger.write_time_log('LivestockSector', 'calculate_emissions', timeit.default_timer() - spent_time)
+        self.logger.write_log('\t\tLivestock emissions calculated', message_level=2)
+        self.logger.write_time_log('LivestockSector', 'calculate_emissions', timeit.default_timer() - spent_time)
 
         return animals_df

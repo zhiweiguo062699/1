@@ -62,7 +62,7 @@ class DefaultWriter(Writer):
         super(DefaultWriter, self).__init__(comm_world, comm_write, logger, netcdf_path, grid, date_array,
                                             pollutant_info, rank_distribution, emission_summary)
 
-        self.__logger.write_time_log('DefaultWriter', '__init__', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('DefaultWriter', '__init__', timeit.default_timer() - spent_time)
 
     def unit_change(self, emissions):
         """
@@ -74,7 +74,7 @@ class DefaultWriter(Writer):
         :return: Same emissions as input
         :rtype: DataFrame
         """
-        self.__logger.write_time_log('DefaultWriter', 'unit_change', 0.0)
+        self.logger.write_time_log('DefaultWriter', 'unit_change', 0.0)
 
         return emissions
 
@@ -96,7 +96,7 @@ class DefaultWriter(Writer):
             netcdf = Dataset(self.netcdf_path, format="NETCDF4", mode='w')
 
         # ========== DIMENSIONS ==========
-        self.__logger.write_log('\tCreating NetCDF dimensions', message_level=2)
+        self.logger.write_log('\tCreating NetCDF dimensions', message_level=2)
         if self.grid.grid_type == 'Regular Lat-Lon':
             netcdf.createDimension('lat', self.grid.center_latitudes.shape[0])
             netcdf.createDimension('lon', self.grid.center_longitudes.shape[0])
@@ -124,8 +124,8 @@ class DefaultWriter(Writer):
         netcdf.createDimension('time', len(self.date_array))
 
         # ========== VARIABLES ==========
-        self.__logger.write_log('\tCreating NetCDF variables', message_level=2)
-        self.__logger.write_log('\t\tCreating time variable', message_level=3)
+        self.logger.write_log('\tCreating NetCDF variables', message_level=2)
+        self.logger.write_log('\t\tCreating time variable', message_level=3)
 
         time_var = netcdf.createVariable('time', np.float64, ('time',))
         time_var.units = 'hours since {0}'.format(self.date_array[0].strftime("%Y-%m-%d %H:%M:%S"))
@@ -134,13 +134,13 @@ class DefaultWriter(Writer):
         time_var.long_name = "time"
         time_var[:] = date2num(self.date_array, time_var.units, calendar=time_var.calendar)
 
-        self.__logger.write_log('\t\tCreating lev variable', message_level=3)
+        self.logger.write_log('\t\tCreating lev variable', message_level=3)
         lev = netcdf.createVariable('lev', np.float64, ('lev',))
         lev.units = Unit("m").symbol
         lev.positive = 'up'
         lev[:] = self.grid.vertical_desctiption
 
-        self.__logger.write_log('\t\tCreating lat variable', message_level=3)
+        self.logger.write_log('\t\tCreating lat variable', message_level=3)
         lats = netcdf.createVariable('lat', np.float64, lat_dim)
         lats.units = "degrees_north"
         lats.axis = "Y"
@@ -151,7 +151,7 @@ class DefaultWriter(Writer):
         lat_bnds = netcdf.createVariable('lat_bnds', np.float64, lat_dim + ('nv',))
         lat_bnds[:] = self.grid.boundary_latitudes
 
-        self.__logger.write_log('\t\tCreating lon variable', message_level=3)
+        self.logger.write_log('\t\tCreating lon variable', message_level=3)
         lons = netcdf.createVariable('lon', np.float64, lon_dim)
         lons.units = "degrees_east"
         lons.axis = "X"
@@ -163,14 +163,14 @@ class DefaultWriter(Writer):
         lon_bnds[:] = self.grid.boundary_longitudes
 
         if self.grid.grid_type in ['Lambert Conformal Conic', 'Mercator']:
-            self.__logger.write_log('\t\tCreating x variable', message_level=3)
+            self.logger.write_log('\t\tCreating x variable', message_level=3)
             x_var = netcdf.createVariable('x', np.float64, ('x',))
             x_var.units = Unit("km").symbol
             x_var.long_name = "x coordinate of projection"
             x_var.standard_name = "projection_x_coordinate"
             x_var[:] = self.grid.x
 
-            self.__logger.write_log('\t\tCreating y variable', message_level=3)
+            self.logger.write_log('\t\tCreating y variable', message_level=3)
             y_var = netcdf.createVariable('y', np.float64, ('y',))
             y_var.units = Unit("km").symbol
             y_var.long_name = "y coordinate of projection"
@@ -178,7 +178,7 @@ class DefaultWriter(Writer):
             y_var[:] = self.grid.y
 
         elif self.grid.grid_type == 'Rotated':
-            self.__logger.write_log('\t\tCreating rlat variable', message_level=3)
+            self.logger.write_log('\t\tCreating rlat variable', message_level=3)
             rlat = netcdf.createVariable('rlat', np.float64, ('rlat',))
             rlat.long_name = "latitude in rotated pole grid"
             rlat.units = Unit("degrees").symbol
@@ -186,7 +186,7 @@ class DefaultWriter(Writer):
             rlat[:] = self.grid.rlat
 
             # Rotated Longitude
-            self.__logger.write_log('\t\tCreating rlon variable', message_level=3)
+            self.logger.write_log('\t\tCreating rlon variable', message_level=3)
             rlon = netcdf.createVariable('rlon', np.float64, ('rlon',))
             rlon.long_name = "longitude in rotated pole grid"
             rlon.units = Unit("degrees").symbol
@@ -197,7 +197,7 @@ class DefaultWriter(Writer):
         # if 'Unnamed: 0' in emissions.columns.values:
         #     emissions.drop(columns=['Unnamed: 0'], inplace=True)
         for var_name in emissions.columns.values:
-            self.__logger.write_log('\t\tCreating {0} variable'.format(var_name), message_level=3)
+            self.logger.write_log('\t\tCreating {0} variable'.format(var_name), message_level=3)
             if self.comm_write.Get_size() > 1:
                 if CHUNK:
                     var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim,
@@ -230,9 +230,9 @@ class DefaultWriter(Writer):
                 var.grid_mapping = 'mercator'
 
         # ========== METADATA ==========
-        self.__logger.write_log('\tCreating NetCDF metadata', message_level=2)
+        self.logger.write_log('\tCreating NetCDF metadata', message_level=2)
 
-        self.__logger.write_log('\t\tCreating Coordinate Reference System metadata', message_level=3)
+        self.logger.write_log('\t\tCreating Coordinate Reference System metadata', message_level=3)
 
         if self.grid.grid_type == 'Regular Lat-Lon':
             mapping = netcdf.createVariable('Latitude_Longitude', 'i')
@@ -262,7 +262,7 @@ class DefaultWriter(Writer):
         netcdf.setncattr('Conventions', 'CF-1.6')
         self.comm_write.Barrier()
         netcdf.close()
-        self.__logger.write_log('NetCDF write at {0}'.format(self.netcdf_path))
-        self.__logger.write_time_log('DefaultWriter', 'write_netcdf', timeit.default_timer() - spent_time)
+        self.logger.write_log('NetCDF write at {0}'.format(self.netcdf_path))
+        self.logger.write_time_log('DefaultWriter', 'write_netcdf', timeit.default_timer() - spent_time)
 
         return True

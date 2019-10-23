@@ -51,8 +51,8 @@ class Clip(object):
 
     def __init__(self, logger, auxiliary_path):
         spent_time = timeit.default_timer()
-        self.__logger = logger
+        self.logger = logger
         self.shapefile = None
         self.shapefile_path = os.path.join(auxiliary_path, 'clip', 'clip.shp')
 
-        self.__logger.write_time_log('Clip', '__init__', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('Clip', '__init__', timeit.default_timer() - spent_time)

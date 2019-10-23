@@ -44,7 +44,7 @@ class RotatedGrid(Grid):
         super(RotatedGrid, self).__init__(logger, attributes, auxiliary_path, vertical_description_path)
 
         self.shape = (tstep_num, len(self.vertical_desctiption), attributes['n_lat'], attributes['n_lon'])
-        self.__logger.write_time_log('RotatedGrid', '__init__', timeit.default_timer() - spent_time, 3)
+        self.logger.write_time_log('RotatedGrid', '__init__', timeit.default_timer() - spent_time, 3)
 
     def create_regular_rotated(self):
         """
@@ -66,7 +66,7 @@ class RotatedGrid(Grid):
                                               inverse=True)
         corner_longitudes = self.create_bounds(center_longitudes, self.attributes['inc_rlon'], number_vertices=4)
 
-        self.__logger.write_time_log('RotatedGrid', 'create_regular_rotated', timeit.default_timer() - spent_time, 3)
+        self.logger.write_time_log('RotatedGrid', 'create_regular_rotated', timeit.default_timer() - spent_time, 3)
         return center_latitudes, center_longitudes, corner_latitudes, corner_longitudes
 
     def create_coords(self):
@@ -90,7 +90,7 @@ class RotatedGrid(Grid):
         self.boundary_longitudes, self.boundary_latitudes = self.rotated2latlon(b_lons, b_lats)
         self.center_longitudes, self.center_latitudes = self.rotated2latlon(c_lons, c_lats)
 
-        self.__logger.write_time_log('RotatedGrid', 'create_coords', timeit.default_timer() - spent_time, 3)
+        self.logger.write_time_log('RotatedGrid', 'create_coords', timeit.default_timer() - spent_time, 3)
         return True
 
     def rotated2latlon(self, lon_deg, lat_deg, lon_min=-180):
@@ -153,7 +153,7 @@ class RotatedGrid(Grid):
         almd[almd > (lon_min + 360)] -= 360
         almd[almd < lon_min] += 360
 
-        self.__logger.write_time_log('RotatedGrid', 'rotated2latlon', timeit.default_timer() - spent_time, 3)
+        self.logger.write_time_log('RotatedGrid', 'rotated2latlon', timeit.default_timer() - spent_time, 3)
 
         return almd, aphd
 
@@ -174,6 +174,6 @@ class RotatedGrid(Grid):
                                 rotated=True, rotated_lats=self.rlat, rotated_lons=self.rlon,
                                 north_pole_lat=90 - self.attributes['new_pole_latitude_degrees'],
                                 north_pole_lon=self.attributes['new_pole_longitude_degrees'])
-        self.__logger.write_log("\tGrid created at '{0}'".format(self.netcdf_path), 3)
-        self.__logger.write_time_log('RotatedGrid', 'write_netcdf', timeit.default_timer() - spent_time, 3)
+        self.logger.write_log("\tGrid created at '{0}'".format(self.netcdf_path), 3)
+        self.logger.write_time_log('RotatedGrid', 'write_netcdf', timeit.default_timer() - spent_time, 3)
         return True

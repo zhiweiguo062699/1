@@ -106,7 +106,7 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
 
         self.months = self.get_date_array_by_month()
 
-        self.__logger.write_time_log('AgriculturalCropOperationsSector', '__init__', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('AgriculturalCropOperationsSector', '__init__', timeit.default_timer() - spent_time)
 
     def read_monthly_profiles(self, path):
         """
@@ -126,8 +126,8 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
         profiles.reset_index(inplace=True)
         profiles.set_index(['P_month', 'operation'], inplace=True)
 
-        self.__logger.write_time_log('AgriculturalCropOperationsSector', 'read_monthly_profiles',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('AgriculturalCropOperationsSector', 'read_monthly_profiles',
+                                   timeit.default_timer() - spent_time)
         return profiles
 
     def get_date_array_by_month(self):
@@ -140,8 +140,8 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
         for month in month_list:
             month_dict[month] = np.array(self.date_array)[month_array == month]
 
-        self.__logger.write_time_log('AgriculturalCropOperationsSector', 'get_date_array_by_month',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('AgriculturalCropOperationsSector', 'get_date_array_by_month',
+                                   timeit.default_timer() - spent_time)
 
         return month_dict
 
@@ -168,8 +168,8 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
                 # From Kg to g
                 factor *= 1000.0
                 month_distribution[pollutant] += self.crop_distribution[crop].multiply(factor)
-        self.__logger.write_time_log('AgriculturalCropOperationsSector', 'calculate_distribution_by_month',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('AgriculturalCropOperationsSector', 'calculate_distribution_by_month',
+                                   timeit.default_timer() - spent_time)
 
         return month_distribution
 
@@ -187,7 +187,7 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
         dataframe_by_day.set_index(['FID', 'tstep'], inplace=True)
         dataframe_by_day = self.to_timezone(dataframe_by_day)
 
-        self.__logger.write_time_log('AgriculturalCropOperationsSector', 'add_dates', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('AgriculturalCropOperationsSector', 'add_dates', timeit.default_timer() - spent_time)
 
         return dataframe_by_day
 
@@ -239,14 +239,14 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
 
         self.crop_distribution.drop(columns=['month', 'weekday', 'hour', 'WF', 'HF', 'date_as_date'], inplace=True)
 
-        self.__logger.write_time_log('AgriculturalCropOperationsSector', 'calculate_hourly_emissions',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('AgriculturalCropOperationsSector', 'calculate_hourly_emissions',
+                                   timeit.default_timer() - spent_time)
 
         return self.crop_distribution
 
     def calculate_emissions(self):
         spent_time = timeit.default_timer()
-        self.__logger.write_log('\tCalculating emissions')
+        self.logger.write_log('\tCalculating emissions')
 
         distribution_by_month = {}
         for month in self.months.keys():
@@ -259,7 +259,7 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
 
         self.crop_distribution['layer'] = 0
 
-        self.__logger.write_log('\t\tCrop operations emissions calculated', message_level=2)
-        self.__logger.write_time_log('AgriculturalCropOperationsSector', 'calculate_emissions',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_log('\t\tCrop operations emissions calculated', message_level=2)
+        self.logger.write_time_log('AgriculturalCropOperationsSector', 'calculate_emissions',
+                                   timeit.default_timer() - spent_time)
         return self.crop_distribution

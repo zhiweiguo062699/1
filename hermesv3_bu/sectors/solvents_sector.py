@@ -151,7 +151,7 @@ class SolventsSector(Sector):
             nut2_shapefile_path, point_sources_shapefile_path, point_sources_weight_by_nut2_path)
 
         self.yearly_emissions_path = yearly_emissions_by_nut2_path
-        self.__logger.write_time_log('SolventsSector', '__init__', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('SolventsSector', '__init__', timeit.default_timer() - spent_time)
 
     def read_proxies(self, path):
         """
@@ -179,7 +179,7 @@ class SolventsSector(Sector):
         proxies_df.loc[proxies_df['spatial_proxy'] == 'shapefile', 'proxy_name'] = \
             proxies_df['industry_code'].map(PROXY_NAMES)
 
-        self.__logger.write_time_log('SolventsSector', 'read_proxies', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('SolventsSector', 'read_proxies', timeit.default_timer() - spent_time)
         return proxies_df
 
     def check_profiles(self):
@@ -227,7 +227,7 @@ class SolventsSector(Sector):
             error_exit("The following speciation profile IDs reported in the solvent proxies CSV file do not appear " +
                        "in the speciation profiles file. {0}".format(spec_res))
 
-        self.__logger.write_time_log('SolventsSector', 'check_profiles', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('SolventsSector', 'check_profiles', timeit.default_timer() - spent_time)
         return True
 
     def read_yearly_emissions(self, path, nut_list):
@@ -256,7 +256,7 @@ class SolventsSector(Sector):
         year_emis.set_index(['nuts2_id', 'snap'], inplace=True)
         year_emis.drop(columns=['gnfr_description', 'gnfr', 'snap_description', 'nuts2_na'], inplace=True)
 
-        self.__logger.write_time_log('SolventsSector', 'read_yearly_emissions', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('SolventsSector', 'read_yearly_emissions', timeit.default_timer() - spent_time)
         return year_emis
 
     def get_population_by_nut2(self, path):
@@ -275,7 +275,7 @@ class SolventsSector(Sector):
         pop_by_nut2.set_index('nuts2_id', inplace=True)
         pop_by_nut2 = pop_by_nut2.to_dict()['pop']
 
-        self.__logger.write_time_log('SolventsSector', 'get_pop_by_nut2', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('SolventsSector', 'get_pop_by_nut2', timeit.default_timer() - spent_time)
         return pop_by_nut2
 
     def get_point_sources_weights_by_nut2(self, path, proxy_name):
@@ -300,8 +300,8 @@ class SolventsSector(Sector):
         weights_by_nut2.set_index("nuts2_id", inplace=True)
         weights_by_nut2 = weights_by_nut2.to_dict()['weight']
 
-        self.__logger.write_time_log('SolventsSector', 'get_point_sources_weights_by_nut2',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('SolventsSector', 'get_point_sources_weights_by_nut2',
+                                   timeit.default_timer() - spent_time)
         return weights_by_nut2
 
     def get_land_use_by_nut2(self, path, land_uses, nut_codes):
@@ -327,7 +327,7 @@ class SolventsSector(Sector):
         land_use_by_nut2 = land_use_by_nut2[land_use_by_nut2['land_use'].isin(land_uses)]
         land_use_by_nut2.set_index(['nuts2_id', 'land_use'], inplace=True)
 
-        self.__logger.write_time_log('SolventsSector', 'get_land_use_by_nut2', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('SolventsSector', 'get_land_use_by_nut2', timeit.default_timer() - spent_time)
         return land_use_by_nut2
 
     def get_population_proxy(self, pop_raster_path, pop_by_nut2_path, nut2_shapefile_path):
@@ -349,35 +349,35 @@ class SolventsSector(Sector):
         spent_time = timeit.default_timer()
 
         # 1st Clip the raster
-        self.__logger.write_log("\t\tCreating clipped population raster", message_level=3)
-        if self.__comm.Get_rank() == 0:
-            pop_raster_path = IoRaster(self.__comm).clip_raster_with_shapefile_poly(
+        self.logger.write_log("\t\tCreating clipped population raster", message_level=3)
+        if self.comm.Get_rank() == 0:
+            pop_raster_path = IoRaster(self.comm).clip_raster_with_shapefile_poly(
                 pop_raster_path, self.clip.shapefile, os.path.join(self.auxiliary_dir, 'solvents', 'pop.tif'))
 
         # 2nd Raster to shapefile
-        self.__logger.write_log("\t\tRaster to shapefile", message_level=3)
-        pop_shp = IoRaster(self.__comm).to_shapefile_parallel(
+        self.logger.write_log("\t\tRaster to shapefile", message_level=3)
+        pop_shp = IoRaster(self.comm).to_shapefile_parallel(
             pop_raster_path, gather=False, bcast=False, crs={'init': 'epsg:4326'})
 
         # 3rd Add NUT code
-        self.__logger.write_log("\t\tAdding nut codes to the shapefile", message_level=3)
+        self.logger.write_log("\t\tAdding nut codes to the shapefile", message_level=3)
         # if self.comm.Get_rank() == 0:
         pop_shp.drop(columns='CELL_ID', inplace=True)
         pop_shp.rename(columns={'data': 'population'}, inplace=True)
         pop_shp = self.add_nut_code(pop_shp, nut2_shapefile_path, nut_value='nuts2_id')
         pop_shp = pop_shp[pop_shp['nut_code'] != -999]
-        pop_shp = IoShapefile(self.__comm).balance(pop_shp)
+        pop_shp = IoShapefile(self.comm).balance(pop_shp)
         # pop_shp = IoShapefile(self.comm).split_shapefile(pop_shp)
 
         # 4th Calculate population percent
-        self.__logger.write_log("\t\tCalculating population percentage on source resolution", message_level=3)
+        self.logger.write_log("\t\tCalculating population percentage on source resolution", message_level=3)
         pop_by_nut2 = self.get_population_by_nut2(pop_by_nut2_path)
         pop_shp['tot_pop'] = pop_shp['nut_code'].map(pop_by_nut2)
         pop_shp['pop_percent'] = pop_shp['population'] / pop_shp['tot_pop']
         pop_shp.drop(columns=['tot_pop', 'population'], inplace=True)
 
         # 5th Calculate percent by destiny cell
-        self.__logger.write_log("\t\tCalculating population percentage on destiny resolution", message_level=3)
+        self.logger.write_log("\t\tCalculating population percentage on destiny resolution", message_level=3)
         pop_shp.to_crs(self.grid.shapefile.crs, inplace=True)
         pop_shp['src_inter_fraction'] = pop_shp.geometry.area
         pop_shp = self.spatial_overlays(pop_shp.reset_index(), self.grid.shapefile.reset_index())
@@ -389,7 +389,7 @@ class SolventsSector(Sector):
         popu_dist = pop_shp.groupby(['FID', 'nut_code']).sum()
         popu_dist.rename(columns={'pop_percent': 'population'}, inplace=True)
 
-        self.__logger.write_time_log('SolventsSector', 'get_population_proxie', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('SolventsSector', 'get_population_proxie', timeit.default_timer() - spent_time)
         return popu_dist
 
     def get_land_use_proxy(self, land_use_raster, land_use_by_nut2_path, land_uses, nut2_shapefile_path):
@@ -413,31 +413,31 @@ class SolventsSector(Sector):
         """
         spent_time = timeit.default_timer()
         # 1st Clip the raster
-        self.__logger.write_log("\t\tCreating clipped land use raster", message_level=3)
+        self.logger.write_log("\t\tCreating clipped land use raster", message_level=3)
         lu_raster_path = os.path.join(self.auxiliary_dir, 'solvents', 'lu_{0}.tif'.format(
             '_'.join([str(x) for x in land_uses])))
 
-        if self.__comm.Get_rank() == 0:
+        if self.comm.Get_rank() == 0:
             if not os.path.exists(lu_raster_path):
-                lu_raster_path = IoRaster(self.__comm).clip_raster_with_shapefile_poly(
+                lu_raster_path = IoRaster(self.comm).clip_raster_with_shapefile_poly(
                     land_use_raster, self.clip.shapefile, lu_raster_path, values=land_uses)
 
         # 2nd Raster to shapefile
-        self.__logger.write_log("\t\tRaster to shapefile", message_level=3)
-        land_use_shp = IoRaster(self.__comm).to_shapefile_parallel(lu_raster_path, gather=False, bcast=False)
+        self.logger.write_log("\t\tRaster to shapefile", message_level=3)
+        land_use_shp = IoRaster(self.comm).to_shapefile_parallel(lu_raster_path, gather=False, bcast=False)
 
         # 3rd Add NUT code
-        self.__logger.write_log("\t\tAdding nut codes to the shapefile", message_level=3)
+        self.logger.write_log("\t\tAdding nut codes to the shapefile", message_level=3)
         # if self.comm.Get_rank() == 0:
         land_use_shp.drop(columns='CELL_ID', inplace=True)
         land_use_shp.rename(columns={'data': 'land_use'}, inplace=True)
         land_use_shp = self.add_nut_code(land_use_shp, nut2_shapefile_path, nut_value='nuts2_id')
         land_use_shp = land_use_shp[land_use_shp['nut_code'] != -999]
-        land_use_shp = IoShapefile(self.__comm).balance(land_use_shp)
+        land_use_shp = IoShapefile(self.comm).balance(land_use_shp)
         # land_use_shp = IoShapefile(self.comm).split_shapefile(land_use_shp)
 
         # 4th Calculate land_use percent
-        self.__logger.write_log("\t\tCalculating land use percentage on source resolution", message_level=3)
+        self.logger.write_log("\t\tCalculating land use percentage on source resolution", message_level=3)
 
         land_use_shp['area'] = land_use_shp.geometry.area
         land_use_by_nut2 = self.get_land_use_by_nut2(
@@ -449,7 +449,7 @@ class SolventsSector(Sector):
         land_use_shp.drop(columns='area', inplace=True)
 
         # 5th Calculate percent by dest_cell
-        self.__logger.write_log("\t\tCalculating land use percentage on destiny resolution", message_level=3)
+        self.logger.write_log("\t\tCalculating land use percentage on destiny resolution", message_level=3)
 
         land_use_shp.to_crs(self.grid.shapefile.crs, inplace=True)
         land_use_shp['src_inter_fraction'] = land_use_shp.geometry.area
@@ -462,7 +462,7 @@ class SolventsSector(Sector):
         land_use_dist = land_use_shp.groupby(['FID', 'nut_code']).sum()
         land_use_dist.rename(columns={'fraction': 'lu_{0}'.format('_'.join([str(x) for x in land_uses]))}, inplace=True)
 
-        self.__logger.write_time_log('SolventsSector', 'get_land_use_proxy', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('SolventsSector', 'get_land_use_proxy', timeit.default_timer() - spent_time)
         return land_use_dist
 
     def get_point_shapefile_proxy(self, proxy_name, point_shapefile_path, point_sources_weight_by_nut2_path,
@@ -488,17 +488,17 @@ class SolventsSector(Sector):
         """
         spent_time = timeit.default_timer()
 
-        point_shapefile = IoShapefile(self.__comm).read_shapefile_parallel(point_shapefile_path)
+        point_shapefile = IoShapefile(self.comm).read_shapefile_parallel(point_shapefile_path)
         point_shapefile.drop(columns=['Empresa', 'Empleados', 'Ingresos', 'Consumos', 'LON', 'LAT'], inplace=True)
         point_shapefile = point_shapefile[point_shapefile['industry_c'] ==
                                           [key for key, value in PROXY_NAMES.items() if value == proxy_name][0]]
-        point_shapefile = IoShapefile(self.__comm).balance(point_shapefile)
+        point_shapefile = IoShapefile(self.comm).balance(point_shapefile)
         point_shapefile.drop(columns=['industry_c'], inplace=True)
         point_shapefile = self.add_nut_code(point_shapefile, nut2_shapefile_path, nut_value='nuts2_id')
         point_shapefile = point_shapefile[point_shapefile['nut_code'] != -999]
 
-        point_shapefile = IoShapefile(self.__comm).gather_shapefile(point_shapefile, rank=0)
-        if self.__comm.Get_rank() == 0:
+        point_shapefile = IoShapefile(self.comm).gather_shapefile(point_shapefile, rank=0)
+        if self.comm.Get_rank() == 0:
             weight_by_nut2 = self.get_point_sources_weights_by_nut2(
                 point_sources_weight_by_nut2_path,
                 [key for key, value in PROXY_NAMES.items() if value == proxy_name][0])
@@ -507,12 +507,12 @@ class SolventsSector(Sector):
             point_shapefile.drop(columns=['weight'], inplace=True)
             # print(point_shapefile.groupby('nut_code')['weight'].sum())
 
-        point_shapefile = IoShapefile(self.__comm).split_shapefile(point_shapefile)
+        point_shapefile = IoShapefile(self.comm).split_shapefile(point_shapefile)
         point_shapefile = gpd.sjoin(point_shapefile.to_crs(self.grid.shapefile.crs), self.grid.shapefile.reset_index())
         point_shapefile.drop(columns=['geometry', 'index_right'], inplace=True)
         point_shapefile = point_shapefile.groupby(['FID', 'nut_code']).sum()
 
-        self.__logger.write_time_log('SolventsSector', 'get_point_shapefile_proxy', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('SolventsSector', 'get_point_shapefile_proxy', timeit.default_timer() - spent_time)
         return point_shapefile
 
     def get_proxy_shapefile(self, population_raster_path, population_nuts2_path, land_uses_raster_path,
@@ -551,13 +551,13 @@ class SolventsSector(Sector):
         """
         spent_time = timeit.default_timer()
 
-        self.__logger.write_log("Getting proxies shapefile", message_level=1)
+        self.logger.write_log("Getting proxies shapefile", message_level=1)
         proxy_names_list = np.unique(self.proxies_map['proxy_name'])
         proxy_path = os.path.join(self.auxiliary_dir, 'solvents', 'proxy_distributions.shp')
         if not os.path.exists(proxy_path):
             proxy_list = []
             for proxy_name in proxy_names_list:
-                self.__logger.write_log("\tGetting proxy for {0}".format(proxy_name), message_level=2)
+                self.logger.write_log("\tGetting proxy for {0}".format(proxy_name), message_level=2)
                 if proxy_name == 'population':
                     proxy = self.get_population_proxy(population_raster_path, population_nuts2_path,
                                                       nut2_shapefile_path)
@@ -569,10 +569,10 @@ class SolventsSector(Sector):
                 else:
                     proxy = self.get_point_shapefile_proxy(proxy_name, point_sources_shapefile_path,
                                                            point_sources_weight_by_nut2_path, nut2_shapefile_path)
-                proxy = IoShapefile(self.__comm).gather_shapefile(proxy.reset_index())
-                if self.__comm.Get_rank() == 0:
+                proxy = IoShapefile(self.comm).gather_shapefile(proxy.reset_index())
+                if self.comm.Get_rank() == 0:
                     proxy_list.append(proxy)
-            if self.__comm.Get_rank() == 0:
+            if self.comm.Get_rank() == 0:
                 proxies = pd.concat(proxy_list, sort=False)
                 proxies['FID'] = proxies['FID'].astype(int)
                 proxies['nut_code'] = proxies['nut_code'].astype(int)
@@ -583,18 +583,18 @@ class SolventsSector(Sector):
                 proxies = GeoDataFrame(
                     proxies, geometry=self.grid.shapefile.loc[proxies.index.get_level_values('FID'), 'geometry'].values,
                     crs=self.grid.shapefile.crs)
-                IoShapefile(self.__comm).write_shapefile_serial(proxies.reset_index(), proxy_path)
+                IoShapefile(self.comm).write_shapefile_serial(proxies.reset_index(), proxy_path)
             else:
                 proxies = None
         else:
-            if self.__comm.Get_rank() == 0:
-                proxies = IoShapefile(self.__comm).read_shapefile_serial(proxy_path)
+            if self.comm.Get_rank() == 0:
+                proxies = IoShapefile(self.comm).read_shapefile_serial(proxy_path)
                 proxies.set_index(['FID', 'nut_code'], inplace=True)
             else:
                 proxies = None
-        proxies = IoShapefile(self.__comm).split_shapefile(proxies)
+        proxies = IoShapefile(self.comm).split_shapefile(proxies)
 
-        self.__logger.write_time_log('SolventsSector', 'get_proxy_shapefile', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('SolventsSector', 'get_proxy_shapefile', timeit.default_timer() - spent_time)
         return proxies
 
     def calculate_hourly_emissions(self, yearly_emissions):
@@ -628,7 +628,7 @@ class SolventsSector(Sector):
 
         spent_time = timeit.default_timer()
 
-        self.__logger.write_log('\tHourly disaggregation', message_level=2)
+        self.logger.write_log('\tHourly disaggregation', message_level=2)
         emissions = self.add_dates(yearly_emissions, drop_utc=True)
 
         emissions['month'] = emissions['date'].dt.month
@@ -647,7 +647,7 @@ class SolventsSector(Sector):
         emissions.drop(columns=['temp_factor'], inplace=True)
         emissions.set_index(['FID', 'snap', 'tstep'], inplace=True)
 
-        self.__logger.write_time_log('SolventsSector', 'calculate_hourly_emissions', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('SolventsSector', 'calculate_hourly_emissions', timeit.default_timer() - spent_time)
         return emissions
 
     def distribute_yearly_emissions(self):
@@ -658,7 +658,7 @@ class SolventsSector(Sector):
         :rtype: GeoDataFrame
         """
         spent_time = timeit.default_timer()
-        self.__logger.write_log('\t\tYearly distribution', message_level=2)
+        self.logger.write_log('\t\tYearly distribution', message_level=2)
 
         yearly_emis = self.read_yearly_emissions(
             self.yearly_emissions_path, np.unique(self.proxy.index.get_level_values('nut_code')))
@@ -686,7 +686,7 @@ class SolventsSector(Sector):
         emis = pd.concat(emis_list).sort_index()
         emis = emis[emis['nmvoc'] > 0]
 
-        self.__logger.write_time_log('SolventsSector', 'distribute_yearly_emissions', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('SolventsSector', 'distribute_yearly_emissions', timeit.default_timer() - spent_time)
         return emis
 
     def speciate(self, dataframe, code='default'):
@@ -709,12 +709,12 @@ class SolventsSector(Sector):
             return x[[out_p]]
 
         spent_time = timeit.default_timer()
-        self.__logger.write_log('\tSpeciation emissions', message_level=2)
+        self.logger.write_log('\tSpeciation emissions', message_level=2)
 
         new_dataframe = gpd.GeoDataFrame(index=dataframe.index, data=None, crs=dataframe.crs,
                                          geometry=dataframe.geometry)
         for out_pollutant in self.output_pollutants:
-            self.__logger.write_log('\t\tSpeciating {0}'.format(out_pollutant), message_level=3)
+            self.logger.write_log('\t\tSpeciating {0}'.format(out_pollutant), message_level=3)
             new_dataframe[out_pollutant] = dataframe.groupby('P_spec').apply(
                 lambda x: calculate_new_pollutant(x, out_pollutant))
         new_dataframe.reset_index(inplace=True)
@@ -722,7 +722,7 @@ class SolventsSector(Sector):
         new_dataframe.drop(columns=['snap', 'geometry'], inplace=True)
         new_dataframe.set_index(['FID', 'tstep'], inplace=True)
 
-        self.__logger.write_time_log('SolventsSector', 'speciate', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('SolventsSector', 'speciate', timeit.default_timer() - spent_time)
         return new_dataframe
 
     def calculate_emissions(self):
@@ -733,7 +733,7 @@ class SolventsSector(Sector):
         :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
-        self.__logger.write_log('\tCalculating emissions')
+        self.logger.write_log('\tCalculating emissions')
 
         emissions = self.distribute_yearly_emissions()
         emissions = self.calculate_hourly_emissions(emissions)
@@ -743,5 +743,5 @@ class SolventsSector(Sector):
         emissions['layer'] = 0
         emissions = emissions.groupby(['FID', 'layer', 'tstep']).sum()
 
-        self.__logger.write_time_log('SolventsSector', 'calculate_emissions', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('SolventsSector', 'calculate_emissions', timeit.default_timer() - spent_time)
         return emissions

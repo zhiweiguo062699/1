@@ -105,10 +105,10 @@ class TrafficSector(Sector):
         self.output_dir = output_dir
 
         self.link_to_grid_csv = os.path.join(auxiliary_dir, 'traffic', 'link_grid.csv')
-        if self.__comm.Get_rank() == 0:
+        if self.comm.Get_rank() == 0:
             if not os.path.exists(os.path.dirname(self.link_to_grid_csv)):
                 os.makedirs(os.path.dirname(self.link_to_grid_csv))
-        self.__comm.Barrier()
+        self.comm.Barrier()
         self.crs = None   # crs is the projection of the road links and it is set on the read_road_links function.
         self.write_rline = write_rline
         self.road_links = self.read_road_links(road_link_path)
@@ -142,7 +142,7 @@ class TrafficSector(Sector):
         self.do_road_wear = do_road_wear
         self.do_resuspension = do_resuspension
 
-        self.__logger.write_time_log('TrafficSector', '__init__', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', '__init__', timeit.default_timer() - spent_time)
 
     def check_profiles(self):
         spent_time = timeit.default_timer()
@@ -193,7 +193,7 @@ class TrafficSector(Sector):
             error_exit("The following hourly profile IDs reported in the road links shapefile do not appear " +
                        "in the hourly profiles file. {0}".format(hour_res))
 
-        self.__logger.write_time_log('TrafficSector', 'check_profiles', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'check_profiles', timeit.default_timer() - spent_time)
 
     def read_all_hourly_profiles(self, hourly_mean_profiles_path, hourly_weekday_profiles_path,
                                  hourly_saturday_profiles_path, hourly_sunday_profiles_path):
@@ -249,7 +249,7 @@ class TrafficSector(Sector):
         #     dataframe['PM10'] = 'pm10'
         # if 'pm' in self.source_pollutants and 'PM25' in speciation_map[['dst']].values:
         #     dataframe['PM25'] = 'pm25'
-        self.__logger.write_time_log('TrafficSector', 'read_speciation_map', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'read_speciation_map', timeit.default_timer() - spent_time)
 
         return dataframe
 
@@ -271,7 +271,7 @@ class TrafficSector(Sector):
         self.road_links.drop(columns=['utc', 'timezone'], inplace=True)
         libc.malloc_trim(0)
 
-        self.__logger.write_time_log('TrafficSector', 'add_local_date', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'add_local_date', timeit.default_timer() - spent_time)
         return True
 
     def add_timezones(self):
@@ -283,7 +283,7 @@ class TrafficSector(Sector):
 
         self.road_links['timezone'] = 'Europe/Madrid'
 
-        self.__logger.write_time_log('TrafficSector', 'add_timezones', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'add_timezones', timeit.default_timer() - spent_time)
         return True
 
     def read_speed_hourly(self, path):
@@ -303,7 +303,7 @@ class TrafficSector(Sector):
         df['P_speed'] = df['P_speed'].astype(int)
         df.set_index('P_speed', inplace=True)
 
-        self.__logger.write_time_log('TrafficSector', 'read_speed_hourly', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'read_speed_hourly', timeit.default_timer() - spent_time)
         return df
 
     def read_fleet_compo(self, path, vehicle_list):
@@ -311,7 +311,7 @@ class TrafficSector(Sector):
         df = pd.read_csv(path, sep=',')
         if vehicle_list is not None:
             df = df.loc[df['Code'].isin(vehicle_list), :]
-        self.__logger.write_time_log('TrafficSector', 'read_fleet_compo', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'read_fleet_compo', timeit.default_timer() - spent_time)
         return df
 
     def read_road_links(self, path):
@@ -342,7 +342,7 @@ class TrafficSector(Sector):
 
         spent_time = timeit.default_timer()
 
-        if self.__comm.Get_rank() == 0:
+        if self.comm.Get_rank() == 0:
             df = gpd.read_file(path)
             try:
                 df.drop(columns=['Adminis', 'CCAA', 'NETWORK_ID', 'Province', 'Road_name', 'aadt_m_sat', 'aadt_m_sun',
@@ -374,12 +374,12 @@ class TrafficSector(Sector):
             df.set_index('Link_ID', inplace=True)
             libc.malloc_trim(0)
 
-            chunks = chunk_road_links(df, self.__comm.Get_size())
+            chunks = chunk_road_links(df, self.comm.Get_size())
         else:
             chunks = None
-        self.__comm.Barrier()
+        self.comm.Barrier()
 
-        df = self.__comm.scatter(chunks, root=0)
+        df = self.comm.scatter(chunks, root=0)
 
         del chunks
         libc.malloc_trim(0)
@@ -409,7 +409,7 @@ class TrafficSector(Sector):
         if self.write_rline:
             self.write_rline_roadlinks(df)
 
-        self.__logger.write_time_log('TrafficSector', 'read_road_links', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'read_road_links', timeit.default_timer() - spent_time)
         libc.malloc_trim(0)
 
         return df
@@ -487,7 +487,7 @@ class TrafficSector(Sector):
 
             return df
 
-        self.__logger.write_time_log('TrafficSector', 'read_ef', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'read_ef', timeit.default_timer() - spent_time)
         return None
 
     def read_mcorr_file(self, pollutant_name):
@@ -499,11 +499,11 @@ class TrafficSector(Sector):
             if 'Copert_V_name' in list(df.columns.values):
                 df.drop(columns=['Copert_V_name'], inplace=True)
         except IOError:
-            self.__logger.write_log('WARNING! No mileage correction applied to {0}'.format(pollutant_name))
+            self.logger.write_log('WARNING! No mileage correction applied to {0}'.format(pollutant_name))
             warnings.warn('No mileage correction applied to {0}'.format(pollutant_name))
             df = None
 
-        self.__logger.write_time_log('TrafficSector', 'read_ef', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'read_ef', timeit.default_timer() - spent_time)
         return df
 
     def calculate_precipitation_factor(self, lon_min, lon_max, lat_min, lat_max, precipitation_dir):
@@ -511,7 +511,7 @@ class TrafficSector(Sector):
 
         dates_to_extract = [self.date_array[0] + timedelta(hours=x - 47) for x in range(47)] + self.date_array
 
-        precipitation = IoNetcdf(self.__comm).get_hourly_data_from_netcdf(
+        precipitation = IoNetcdf(self.comm).get_hourly_data_from_netcdf(
             lon_min, lon_max, lat_min, lat_max, precipitation_dir, 'prlr', dates_to_extract)
 
         precipitation.set_index('REC', inplace=True, drop=True)
@@ -537,8 +537,8 @@ class TrafficSector(Sector):
 
         df.loc[:, 'REC'] = df.index
 
-        self.__logger.write_time_log('TrafficSector', 'calculate_precipitation_factor',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'calculate_precipitation_factor',
+                                   timeit.default_timer() - spent_time)
         return df
 
     def update_fleet_value(self, df):
@@ -562,8 +562,8 @@ class TrafficSector(Sector):
             aadt = round(aux_df['aadt'].min(), 1)
             fleet_value = round(aux_df['Fleet_value'].sum(), 1)
             if aadt != fleet_value:
-                self.__logger.write_log('link_ID: {0} aadt: {1} sum_fleet: {2}'.format(link_id, aadt, fleet_value),
-                                        message_level=2)
+                self.logger.write_log('link_ID: {0} aadt: {1} sum_fleet: {2}'.format(link_id, aadt, fleet_value),
+                                      message_level=2)
 
         # Drop 0 values
         df = df[df['Fleet_value'] > 0]
@@ -575,7 +575,7 @@ class TrafficSector(Sector):
             error_exit(str(e).replace('axis', 'the road links shapefile'))
         libc.malloc_trim(0)
 
-        self.__logger.write_time_log('TrafficSector', 'update_fleet_value', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'update_fleet_value', timeit.default_timer() - spent_time)
         return df
 
     def calculate_time_dependent_values(self, df):
@@ -675,8 +675,8 @@ class TrafficSector(Sector):
             error_exit(str(e).replace('axis', 'the road links shapefile'))
         libc.malloc_trim(0)
 
-        self.__logger.write_time_log('TrafficSector', 'calculate_time_dependent_values',
-                                     timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'calculate_time_dependent_values',
+                                   timeit.default_timer() - spent_time)
         return df
 
     def expand_road_links(self):
@@ -703,7 +703,7 @@ class TrafficSector(Sector):
         df = self.update_fleet_value(df)
         df = self.calculate_time_dependent_values(df)
 
-        self.__logger.write_time_log('TrafficSector', 'expand_road_links', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'expand_road_links', timeit.default_timer() - spent_time)
 
         return df
 
@@ -720,7 +720,7 @@ class TrafficSector(Sector):
 
         fleet['fleet_comp'] = zone
 
-        self.__logger.write_time_log('TrafficSector', 'find_fleet', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'find_fleet', timeit.default_timer() - spent_time)
 
         return fleet
 
@@ -762,7 +762,7 @@ class TrafficSector(Sector):
             resta_2 = [item for item in calculated_ef_profiles if item not in original_ef_profile]  # Error
 
             if len(resta_1) > 0:
-                self.__logger.write_log('WARNING! Exists some fleet codes that not appear on the EF file: {0}'.format(
+                self.logger.write_log('WARNING! Exists some fleet codes that not appear on the EF file: {0}'.format(
                     resta_1))
                 warnings.warn('Exists some fleet codes that not appear on the EF file: {0}'.format(resta_1), Warning)
             if len(resta_2) > 0:
@@ -832,7 +832,7 @@ class TrafficSector(Sector):
 
         libc.malloc_trim(0)
 
-        self.__logger.write_time_log('TrafficSector', 'calculate_hot', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'calculate_hot', timeit.default_timer() - spent_time)
 
         return expanded_aux
 
@@ -850,7 +850,7 @@ class TrafficSector(Sector):
         link_lons = cold_links['geometry'].centroid.x
         link_lats = cold_links['geometry'].centroid.y
 
-        temperature = IoNetcdf(self.__comm).get_hourly_data_from_netcdf(
+        temperature = IoNetcdf(self.comm).get_hourly_data_from_netcdf(
             link_lons.min(), link_lons.max(), link_lats.min(), link_lats.max(), self.temp_common_path, 'tas',
             self.date_array)
         temperature.rename(columns={x: 't_{0}'.format(x) for x in range(len(self.date_array))}, inplace=True)
@@ -949,14 +949,14 @@ class TrafficSector(Sector):
                 cold_df.drop(columns=['voc_{0}'.format(tstep)], inplace=True)
                 libc.malloc_trim(0)
             else:
-                self.__logger.write_log("WARNING! nmvoc emissions cannot be estimated because voc or ch4 are not " +
+                self.logger.write_log("WARNING! nmvoc emissions cannot be estimated because voc or ch4 are not " +
                                       "selected in the pollutant list.")
                 warnings.warn("nmvoc emissions cannot be estimated because voc or ch4 are not selected in the " +
                               "pollutant list.")
 
         cold_df = self.speciate_traffic(cold_df, self.hot_cold_speciation)
         libc.malloc_trim(0)
-        self.__logger.write_time_log('TrafficSector', 'calculate_cold', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'calculate_cold', timeit.default_timer() - spent_time)
         return cold_df
 
     def compact_hot_expanded(self, expanded):
@@ -978,14 +978,14 @@ class TrafficSector(Sector):
                 expanded.loc[expanded['nmvoc_{0}'.format(tstep)] < 0, 'nmvoc_{0}'.format(tstep)] = 0
                 expanded.drop(columns=['voc_{0}'.format(tstep)], inplace=True)
             else:
-                self.__logger.write_log("nmvoc emissions cannot be estimated because voc or ch4 are not selected in " +
+                self.logger.write_log("nmvoc emissions cannot be estimated because voc or ch4 are not selected in " +
                                       "the pollutant list.")
                 warnings.warn(
                     "nmvoc emissions cannot be estimated because voc or ch4 are not selected in the pollutant list.")
 
         compacted = self.speciate_traffic(expanded, self.hot_cold_speciation)
 
-        self.__logger.write_time_log('TrafficSector', 'compact_hot_expanded', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'compact_hot_expanded', timeit.default_timer() - spent_time)
         return compacted
 
     def calculate_tyre_wear(self):
@@ -1019,7 +1019,7 @@ class TrafficSector(Sector):
         df.drop(columns=columns_to_delete, inplace=True)
         df = self.speciate_traffic(df, self.tyre_speciation)
 
-        self.__logger.write_time_log('TrafficSector', 'calculate_tyre_wear', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'calculate_tyre_wear', timeit.default_timer() - spent_time)
         return df
 
     def calculate_brake_wear(self):
@@ -1054,7 +1054,7 @@ class TrafficSector(Sector):
 
         df = self.speciate_traffic(df, self.brake_speciation)
 
-        self.__logger.write_time_log('TrafficSector', 'calculate_brake_wear', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'calculate_brake_wear', timeit.default_timer() - spent_time)
         return df
 
     def calculate_road_wear(self):
@@ -1084,7 +1084,7 @@ class TrafficSector(Sector):
 
         df = self.speciate_traffic(df, self.road_speciation)
 
-        self.__logger.write_time_log('TrafficSector', 'calculate_road_wear', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'calculate_road_wear', timeit.default_timer() - spent_time)
         return df
 
     def calculate_resuspension(self):
@@ -1142,7 +1142,7 @@ class TrafficSector(Sector):
 
         df = self.speciate_traffic(df, self.resuspension_speciation)
 
-        self.__logger.write_time_log('TrafficSector', 'calculate_resuspension', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'calculate_resuspension', timeit.default_timer() - spent_time)
         return df
 
     def transform_df(self, df):
@@ -1164,7 +1164,7 @@ class TrafficSector(Sector):
             df.drop(columns=pollutants_renamed, inplace=True)
 
         df = pd.concat(df_list, ignore_index=True)
-        self.__logger.write_time_log('TrafficSector', 'transform_df', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'transform_df', timeit.default_timer() - spent_time)
         return df
 
     def speciate_traffic(self, df, speciation):
@@ -1238,36 +1238,36 @@ class TrafficSector(Sector):
 
         df_out = pd.concat(df_out_list, axis=1)
 
-        self.__logger.write_time_log('TrafficSector', 'speciate_traffic', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'speciate_traffic', timeit.default_timer() - spent_time)
         return df_out
 
     def calculate_emissions(self):
         spent_time = timeit.default_timer()
         version = 1
-        self.__logger.write_log('\tCalculating Road traffic emissions', message_level=1)
+        self.logger.write_log('\tCalculating Road traffic emissions', message_level=1)
         df_accum = pd.DataFrame()
 
         if version == 2:
             if self.do_hot:
-                self.__logger.write_log('\t\tCalculating Hot emissions.', message_level=2)
+                self.logger.write_log('\t\tCalculating Hot emissions.', message_level=2)
                 df_accum = pd.concat([df_accum, self.compact_hot_expanded(self.calculate_hot())]).groupby(
                     ['tstep', 'Link_ID']).sum()
             if self.do_cold:
-                self.__logger.write_log('\t\tCalculating Cold emissions.', message_level=2)
+                self.logger.write_log('\t\tCalculating Cold emissions.', message_level=2)
                 df_accum = pd.concat([df_accum, self.calculate_cold(self.calculate_hot())]).groupby(
                     ['tstep', 'Link_ID']).sum()
         else:
             if self.do_hot or self.do_cold:
-                self.__logger.write_log('\t\tCalculating Hot emissions.', message_level=2)
+                self.logger.write_log('\t\tCalculating Hot emissions.', message_level=2)
                 hot_emis = self.calculate_hot()
 
             if self.do_hot:
-                self.__logger.write_log('\t\tCompacting Hot emissions.', message_level=2)
+                self.logger.write_log('\t\tCompacting Hot emissions.', message_level=2)
                 df_accum = pd.concat([df_accum, self.compact_hot_expanded(hot_emis.copy())]).groupby(
                     ['tstep', 'Link_ID']).sum()
                 libc.malloc_trim(0)
             if self.do_cold:
-                self.__logger.write_log('\t\tCalculating Cold emissions.', message_level=2)
+                self.logger.write_log('\t\tCalculating Cold emissions.', message_level=2)
                 df_accum = pd.concat([df_accum, self.calculate_cold(hot_emis)]).groupby(
                     ['tstep', 'Link_ID']).sum()
                 libc.malloc_trim(0)
@@ -1276,20 +1276,20 @@ class TrafficSector(Sector):
                 libc.malloc_trim(0)
 
         if self.do_tyre_wear:
-            self.__logger.write_log('\t\tCalculating Tyre wear emissions.', message_level=2)
+            self.logger.write_log('\t\tCalculating Tyre wear emissions.', message_level=2)
             df_accum = pd.concat([df_accum, self.calculate_tyre_wear()], sort=False).groupby(['tstep', 'Link_ID']).sum()
             libc.malloc_trim(0)
         if self.do_brake_wear:
-            self.__logger.write_log('\t\tCalculating Brake wear emissions.', message_level=2)
+            self.logger.write_log('\t\tCalculating Brake wear emissions.', message_level=2)
             df_accum = pd.concat([df_accum, self.calculate_brake_wear()], sort=False).groupby(
                 ['tstep', 'Link_ID']).sum()
             libc.malloc_trim(0)
         if self.do_road_wear:
-            self.__logger.write_log('\t\tCalculating Road wear emissions.', message_level=2)
+            self.logger.write_log('\t\tCalculating Road wear emissions.', message_level=2)
             df_accum = pd.concat([df_accum, self.calculate_road_wear()], sort=False).groupby(['tstep', 'Link_ID']).sum()
             libc.malloc_trim(0)
         if self.do_resuspension:
-            self.__logger.write_log('\t\tCalculating Resuspension emissions.', message_level=2)
+            self.logger.write_log('\t\tCalculating Resuspension emissions.', message_level=2)
             df_accum = pd.concat([df_accum, self.calculate_resuspension()], sort=False).groupby(
                 ['tstep', 'Link_ID']).sum()
             libc.malloc_trim(0)
@@ -1301,12 +1301,12 @@ class TrafficSector(Sector):
 
         if self.write_rline:
             self.write_rline_output(df_accum.copy())
-        self.__logger.write_log('\t\tRoad link emissions to grid.', message_level=2)
+        self.logger.write_log('\t\tRoad link emissions to grid.', message_level=2)
         df_accum = self.links_to_grid(df_accum)
         libc.malloc_trim(0)
 
-        self.__logger.write_log('\tRoad traffic emissions calculated', message_level=2)
-        self.__logger.write_time_log('TrafficSector', 'calculate_emissions', timeit.default_timer() - spent_time)
+        self.logger.write_log('\tRoad traffic emissions calculated', message_level=2)
+        self.logger.write_time_log('TrafficSector', 'calculate_emissions', timeit.default_timer() - spent_time)
         return df_accum
 
     def links_to_grid(self, link_emissions):
@@ -1348,14 +1348,14 @@ class TrafficSector(Sector):
             link_grid = pd.DataFrame({'Link_ID': link_id_list, 'FID': fid_list, 'length': length_list})
 
             # Writing link to grid file
-            data = self.__comm.gather(link_grid, root=0)
-            if self.__comm.Get_rank() == 0:
+            data = self.comm.gather(link_grid, root=0)
+            if self.comm.Get_rank() == 0:
                 if not os.path.exists(os.path.dirname(self.link_to_grid_csv)):
                     os.makedirs(os.path.dirname(self.link_to_grid_csv))
                 data = pd.concat(data)
                 data.to_csv(self.link_to_grid_csv)
 
-            self.__comm.Barrier()
+            self.comm.Barrier()
 
         else:
             link_grid = pd.read_csv(self.link_to_grid_csv)
@@ -1376,7 +1376,7 @@ class TrafficSector(Sector):
         link_grid['layer'] = 0
         link_grid = link_grid.groupby(['FID', 'layer', 'tstep']).sum()
 
-        self.__logger.write_time_log('TrafficSector', 'links_to_grid', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'links_to_grid', timeit.default_timer() - spent_time)
 
         return link_grid
 
@@ -1392,8 +1392,8 @@ class TrafficSector(Sector):
 
         emissions.reset_index(inplace=True)
 
-        emissions_list = self.__comm.gather(emissions, root=0)
-        if self.__comm.Get_rank() == 0:
+        emissions_list = self.comm.gather(emissions, root=0)
+        if self.comm.Get_rank() == 0:
             emissions = pd.concat(emissions_list)
             p_list = list(emissions.columns.values)
             p_list.remove('tstep')
@@ -1413,16 +1413,16 @@ class TrafficSector(Sector):
                 out_df.to_csv(os.path.join(self.output_dir, 'rline_{1}_{0}.csv'.format(
                     p, self.date_array[0].strftime('%Y%m%d'))), index=False)
 
-        self.__comm.Barrier()
+        self.comm.Barrier()
 
-        self.__logger.write_time_log('TrafficSector', 'write_rline_output', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'write_rline_output', timeit.default_timer() - spent_time)
         return True
 
     def write_rline_roadlinks(self, df_in):
         spent_time = timeit.default_timer()
 
-        df_in_list = self.__comm.gather(df_in, root=0)
-        if self.__comm.Get_rank() == 0:
+        df_in_list = self.comm.gather(df_in, root=0)
+        if self.comm.Get_rank() == 0:
             df_in = pd.concat(df_in_list)
 
             df_out = pd.DataFrame(
@@ -1482,7 +1482,7 @@ class TrafficSector(Sector):
             df_out.set_index('Link_ID', inplace=True)
             df_out.sort_index(inplace=True)
             df_out.to_csv(os.path.join(self.output_dir, 'roads.txt'), index=False, sep=' ')
-        self.__comm.Barrier()
-        self.__logger.write_log('\t\tTraffic emissions calculated', message_level=2)
-        self.__logger.write_time_log('TrafficSector', 'write_rline_roadlinks', timeit.default_timer() - spent_time)
+        self.comm.Barrier()
+        self.logger.write_log('\t\tTraffic emissions calculated', message_level=2)
+        self.logger.write_time_log('TrafficSector', 'write_rline_roadlinks', timeit.default_timer() - spent_time)
         return True
