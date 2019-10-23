@@ -69,7 +69,7 @@ class PointSourceSector(Sector):
         self.measured_path = measured_emission_path
         self.plume_rise_pahts = plume_rise_pahts
 
-        self.logger.write_time_log('PointSourceSector', '__init__', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('PointSourceSector', '__init__', timeit.default_timer() - spent_time)
 
     def check_catalog(self):
         # Checking monthly profiles IDs
@@ -116,7 +116,7 @@ class PointSourceSector(Sector):
         """
         spent_time = timeit.default_timer()
 
-        if self.comm.Get_rank() == 0:
+        if self.__comm.Get_rank() == 0:
             if self.plume_rise:
                 columns = {"Code": np.str, "Cons": np.bool, "SNAP": np.str, "Lon": np.float64,
                            "Lat": np.float64, "Height": np.float64, "Diameter": np.float64,
@@ -151,9 +151,9 @@ class PointSourceSector(Sector):
 
         else:
             catalog_df = None
-        self.comm.Barrier()
-        catalog_df = IoShapefile(self.comm).split_shapefile(catalog_df)
-        self.logger.write_time_log('PointSourceSector', 'read_catalog', timeit.default_timer() - spent_time)
+        self.__comm.Barrier()
+        catalog_df = IoShapefile(self.__comm).split_shapefile(catalog_df)
+        self.__logger.write_time_log('PointSourceSector', 'read_catalog', timeit.default_timer() - spent_time)
         return catalog_df
 
     def read_catalog_shapefile(self, catalog_path, sector_list):
@@ -171,7 +171,7 @@ class PointSourceSector(Sector):
         """
         spent_time = timeit.default_timer()
 
-        if self.comm.Get_rank() == 0:
+        if self.__comm.Get_rank() == 0:
             if self.plume_rise:
                 columns = {"Code": np.str, "Cons": np.bool, "SNAP": np.str, "Height": np.float64,
                            "Diameter": np.float64, "Speed": np.float64, "Temp": np.float64, "AF": np.float64,
@@ -208,9 +208,9 @@ class PointSourceSector(Sector):
 
         else:
             catalog_df = None
-        self.comm.Barrier()
-        catalog_df = IoShapefile(self.comm).split_shapefile(catalog_df)
-        self.logger.write_time_log('PointSourceSector', 'read_catalog', timeit.default_timer() - spent_time)
+        self.__comm.Barrier()
+        catalog_df = IoShapefile(self.__comm).split_shapefile(catalog_df)
+        self.__logger.write_time_log('PointSourceSector', 'read_catalog', timeit.default_timer() - spent_time)
         return catalog_df
 
     def read_catalog_for_measured_emissions_csv(self, catalog_path, sector_list):
@@ -252,8 +252,8 @@ class PointSourceSector(Sector):
             catalog_df = catalog_df.loc[catalog_df['SNAP'].str[:2].isin(sector_list)]
         catalog_df.drop('SNAP', axis=1, inplace=True)
 
-        self.logger.write_time_log('PointSourceSector', 'read_catalog_for_measured_emissions',
-                                   timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('PointSourceSector', 'read_catalog_for_measured_emissions',
+                                     timeit.default_timer() - spent_time)
         return catalog_df
 
     def read_catalog_for_measured_emissions(self, catalog_path, sector_list):
@@ -302,8 +302,8 @@ class PointSourceSector(Sector):
             catalog_df = catalog_df.loc[catalog_df['SNAP'].str[:2].isin(sector_list)]
         catalog_df.drop('SNAP', axis=1, inplace=True)
 
-        self.logger.write_time_log('PointSourceSector', 'read_catalog_for_measured_emissions',
-                                   timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('PointSourceSector', 'read_catalog_for_measured_emissions',
+                                     timeit.default_timer() - spent_time)
         return catalog_df
 
     def to_geodataframe(self, catalog):
@@ -323,7 +323,7 @@ class PointSourceSector(Sector):
         catalog.drop(['Lon', 'Lat'], axis=1, inplace=True)
         crs = {'init': 'epsg:4326'}
         catalog = gpd.GeoDataFrame(catalog, crs=crs, geometry=geometry)
-        self.logger.write_time_log('PointSourceSector', 'to_geodataframe', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('PointSourceSector', 'to_geodataframe', timeit.default_timer() - spent_time)
         return catalog
 
     def get_yearly_emissions(self, catalog):
@@ -338,13 +338,13 @@ class PointSourceSector(Sector):
         :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
-        self.logger.write_log('\tCalculating yearly emissions', message_level=2)
+        self.__logger.write_log('\tCalculating yearly emissions', message_level=2)
         for pollutant in self.source_pollutants:
             catalog.rename(columns={u'EF_{0}'.format(pollutant): pollutant}, inplace=True)
             catalog[pollutant] = catalog[pollutant] * catalog['AF']
 
         catalog.drop('AF', axis=1, inplace=True)
-        self.logger.write_time_log('PointSourceSector', 'get_yearly_emissions', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('PointSourceSector', 'get_yearly_emissions', timeit.default_timer() - spent_time)
         return catalog
 
     def get_temporal_factors(self, catalog):
@@ -359,7 +359,7 @@ class PointSourceSector(Sector):
         :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
-        self.logger.write_log('\tCalculating hourly emissions', message_level=2)
+        self.__logger.write_log('\tCalculating hourly emissions', message_level=2)
 
         def get_mf(df):
             month_factor = self.monthly_profiles.loc[df.name[1], df.name[0]]
@@ -396,7 +396,7 @@ class PointSourceSector(Sector):
 
         catalog.drop('temp_factor', axis=1, inplace=True)
 
-        self.logger.write_time_log('PointSourceSector', 'get_temporal_factors', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('PointSourceSector', 'get_temporal_factors', timeit.default_timer() - spent_time)
         return catalog
 
     def calculate_hourly_emissions(self, catalog):
@@ -415,8 +415,8 @@ class PointSourceSector(Sector):
         catalog = self.get_temporal_factors(catalog)
 
         catalog.set_index(['Code', 'tstep'], inplace=True)
-        self.logger.write_time_log('PointSourceSector', 'calculate_hourly_emissions',
-                                   timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('PointSourceSector', 'calculate_hourly_emissions',
+                                     timeit.default_timer() - spent_time)
         return catalog
 
     def get_meteo_xy(self, dataframe, netcdf_path):
@@ -461,7 +461,7 @@ class PointSourceSector(Sector):
         dataframe['X'] = nc_dataframe.loc[dataframe['meteo_index'], 'X'].values
         dataframe['Y'] = nc_dataframe.loc[dataframe['meteo_index'], 'Y'].values
 
-        self.logger.write_time_log('PointSourceSector', 'get_meteo_xy', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('PointSourceSector', 'get_meteo_xy', timeit.default_timer() - spent_time)
         return dataframe[['X', 'Y']]
 
     def get_plumerise_meteo(self, catalog):
@@ -675,42 +675,42 @@ class PointSourceSector(Sector):
 
         # ===== 3D Meteo variables =====
         # Adding stc_temp
-        self.logger.write_log('\t\tGetting temperature from {0}'.format(self.plume_rise_pahts['temperature_sfc_dir']),
-                              message_level=3)
+        self.__logger.write_log('\t\tGetting temperature from {0}'.format(self.plume_rise_pahts['temperature_sfc_dir']),
+                                message_level=3)
         catalog['temp_sfc'] = catalog.groupby('date_utc')['X', 'Y'].apply(
             lambda x: get_sfc_value(x, self.plume_rise_pahts['temperature_sfc_dir'], 't2'))
-        self.logger.write_log('\t\tGetting friction velocity from {0}'.format(
+        self.__logger.write_log('\t\tGetting friction velocity from {0}'.format(
             self.plume_rise_pahts['friction_velocity_dir']),  message_level=3)
         catalog['friction_v'] = catalog.groupby('date_utc')['X', 'Y'].apply(
             lambda x: get_sfc_value(x, self.plume_rise_pahts['friction_velocity_dir'], 'ustar'))
-        self.logger.write_log('\t\tGetting PBL height from {0}'.format(
+        self.__logger.write_log('\t\tGetting PBL height from {0}'.format(
             self.plume_rise_pahts['pblh_dir']), message_level=3)
         catalog['pbl'] = catalog.groupby('date_utc')['X', 'Y'].apply(
             lambda x: get_sfc_value(x, self.plume_rise_pahts['pblh_dir'], 'mixed_layer_height'))
-        self.logger.write_log('\t\tGetting obukhov length from {0}'.format(
+        self.__logger.write_log('\t\tGetting obukhov length from {0}'.format(
             self.plume_rise_pahts['obukhov_length_dir']), message_level=3)
         catalog['obukhov_len'] = catalog.groupby('date_utc')['X', 'Y'].apply(
             lambda x: get_sfc_value(x, self.plume_rise_pahts['obukhov_length_dir'], 'rmol'))
         catalog['obukhov_len'] = 1. / catalog['obukhov_len']
 
-        self.logger.write_log('\t\tGetting layer thickness from {0}'.format(
+        self.__logger.write_log('\t\tGetting layer thickness from {0}'.format(
             self.plume_rise_pahts['layer_thickness_dir']), message_level=3)
         catalog['layers'] = catalog.groupby('date_utc')['X', 'Y'].apply(
             lambda x: get_layers(x, self.plume_rise_pahts['layer_thickness_dir'], 'layer_thickness'))
-        self.logger.write_log('\t\tGetting temperatue at the top from {0}'.format(
+        self.__logger.write_log('\t\tGetting temperatue at the top from {0}'.format(
             self.plume_rise_pahts['temperature_4d_dir']), message_level=3)
         catalog['temp_top'] = catalog.groupby('date_utc')['X', 'Y', 'Height', 'layers', 'temp_sfc'].apply(
             lambda x: get_temp_top(x, self.plume_rise_pahts['temperature_4d_dir'], 't'))
-        self.logger.write_log('\t\tGetting wind speed at 10 m', message_level=3)
+        self.__logger.write_log('\t\tGetting wind speed at 10 m', message_level=3)
         catalog['wSpeed_10'] = catalog.groupby('date_utc')['X', 'Y'].apply(
             lambda x: get_wind_speed_10m(x, self.plume_rise_pahts['u10_wind_speed_dir'],
                                          self.plume_rise_pahts['v10_wind_speed_dir'], 'u10', 'v10'))
-        self.logger.write_log('\t\tGetting wind speed at the top', message_level=3)
+        self.__logger.write_log('\t\tGetting wind speed at the top', message_level=3)
         catalog['wSpeed_top'] = catalog.groupby('date_utc')['X', 'Y', 'Height', 'layers', 'wSpeed_10'].apply(
             lambda x: get_wind_speed_top(x, self.plume_rise_pahts['u_wind_speed_4d_dir'],
                                          self.plume_rise_pahts['v_wind_speed_4d_dir'], 'u', 'v'))
         catalog.drop(columns=['wSpeed_10', 'layers', 'X', 'Y'], inplace=True)
-        self.logger.write_time_log('PointSourceSector', 'get_plumerise_meteo', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('PointSourceSector', 'get_plumerise_meteo', timeit.default_timer() - spent_time)
         return catalog
 
     def get_plume_rise_top_bot(self, catalog):
@@ -755,7 +755,7 @@ class PointSourceSector(Sector):
 
         catalog.drop(columns=['Height', 'Diameter', 'Speed', 'Temp', 'date_utc', 'temp_sfc', 'friction_v', 'pbl',
                               'obukhov_len', 'temp_top', 'wSpeed_top', 'Fb', 'S', 'Ah'], inplace=True)
-        self.logger.write_time_log('PointSourceSector', 'get_plume_rise_top_bot', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('PointSourceSector', 'get_plume_rise_top_bot', timeit.default_timer() - spent_time)
         return catalog
 
     def set_layer(self, catalog):
@@ -809,7 +809,7 @@ class PointSourceSector(Sector):
         new_catalog = catalog_by_layer[~catalog_by_layer.index.duplicated(keep='first')]
         new_catalog[self.source_pollutants] = catalog_by_layer.groupby(['Code', 'tstep', 'layer'])[
             self.source_pollutants].sum()
-        self.logger.write_time_log('PointSourceSector', 'set_layer', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('PointSourceSector', 'set_layer', timeit.default_timer() - spent_time)
         return new_catalog
 
     def calculate_vertical_distribution(self, catalog):
@@ -838,8 +838,8 @@ class PointSourceSector(Sector):
             catalog.reset_index(inplace=True)
             catalog.set_index(['Code', 'tstep', 'layer'], inplace=True)
 
-        self.logger.write_time_log('PointSourceSector', 'calculate_vertical_distribution',
-                                   timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('PointSourceSector', 'calculate_vertical_distribution',
+                                     timeit.default_timer() - spent_time)
         return catalog
 
     def add_measured_emissions(self, catalog):
@@ -871,7 +871,7 @@ class PointSourceSector(Sector):
         for pollutant in self.source_pollutants:
             catalog[pollutant] = catalog.groupby('Code')['date'].apply(lambda x: func(x, pollutant))
 
-        self.logger.write_time_log('PointSourceSector', 'add_measured_emissions', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('PointSourceSector', 'add_measured_emissions', timeit.default_timer() - spent_time)
         return catalog
 
     def calculate_measured_emissions(self, catalog):
@@ -885,8 +885,8 @@ class PointSourceSector(Sector):
             catalog = self.add_measured_emissions(catalog)
 
             catalog.set_index(['Code', 'tstep'], inplace=True)
-        self.logger.write_time_log('PointSourceSector', 'calculate_measured_emissions',
-                                   timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('PointSourceSector', 'calculate_measured_emissions',
+                                     timeit.default_timer() - spent_time)
         return catalog
 
     def merge_catalogs(self, catalog_list):
@@ -894,19 +894,19 @@ class PointSourceSector(Sector):
 
         catalog = pd.concat(catalog_list).reset_index()
         catalog.set_index(['Code', 'tstep'], inplace=True)
-        self.logger.write_time_log('PointSourceSector', 'merge_catalogs', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('PointSourceSector', 'merge_catalogs', timeit.default_timer() - spent_time)
         return catalog
 
     def speciate(self, dataframe, code='default'):
         spent_time = timeit.default_timer()
-        self.logger.write_log('\t\tSpeciating {0} emissions'.format(code), message_level=2)
+        self.__logger.write_log('\t\tSpeciating {0} emissions'.format(code), message_level=2)
 
         new_dataframe = gpd.GeoDataFrame(index=dataframe.index, data=None, crs=dataframe.crs,
                                          geometry=dataframe.geometry)
         for out_pollutant in self.output_pollutants:
             input_pollutant = self.speciation_map[out_pollutant]
             if input_pollutant == 'nmvoc' and input_pollutant in dataframe.columns.values:
-                self.logger.write_log("\t\t\t{0} = {4}*({1}/{2})*{3}".format(
+                self.__logger.write_log("\t\t\t{0} = {4}*({1}/{2})*{3}".format(
                     out_pollutant, input_pollutant, self.molecular_weights[input_pollutant],
                     self.speciation_profile.loc[code, out_pollutant],
                     self.speciation_profile.loc[code, 'VOCtoTOG']), message_level=3)
@@ -916,7 +916,7 @@ class PointSourceSector(Sector):
                             self.molecular_weights[input_pollutant]) * self.speciation_profile.loc[code, out_pollutant]
             else:
                 if out_pollutant != 'PMC':
-                    self.logger.write_log("\t\t\t{0} = ({1}/{2})*{3}".format(
+                    self.__logger.write_log("\t\t\t{0} = ({1}/{2})*{3}".format(
                         out_pollutant, input_pollutant,
                         self.molecular_weights[input_pollutant],
                         self.speciation_profile.loc[code, out_pollutant]), message_level=3)
@@ -925,7 +925,7 @@ class PointSourceSector(Sector):
                                                         self.molecular_weights[input_pollutant]) * \
                                                        self.speciation_profile.loc[code, out_pollutant]
                 else:
-                    self.logger.write_log("\t\t\t{0} = ({1}/{2} - {4}/{5})*{3}".format(
+                    self.__logger.write_log("\t\t\t{0} = ({1}/{2} - {4}/{5})*{3}".format(
                         out_pollutant, 'pm10', self.molecular_weights['pm10'],
                         self.speciation_profile.loc[code, out_pollutant], 'pm25', self.molecular_weights['pm25']),
                         message_level=3)
@@ -934,7 +934,7 @@ class PointSourceSector(Sector):
                         ((dataframe['pm10'] / self.molecular_weights['pm10']) -
                          (dataframe['pm25'] / self.molecular_weights['pm25'])) * \
                         self.speciation_profile.loc[code, out_pollutant]
-        self.logger.write_time_log('Sector', 'speciate', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('Sector', 'speciate', timeit.default_timer() - spent_time)
         return new_dataframe
 
     def point_source_to_fid(self, catalog):
@@ -957,12 +957,12 @@ class PointSourceSector(Sector):
 
     def calculate_emissions(self):
         spent_time = timeit.default_timer()
-        self.logger.write_log('\tCalculating emissions')
+        self.__logger.write_log('\tCalculating emissions')
 
         emissions = self.add_dates(self.catalog, drop_utc=False)
         emissions = self.calculate_hourly_emissions(emissions)
 
-        if self.comm.Get_rank() == 0:
+        if self.__comm.Get_rank() == 0:
             emissions_measured = self.calculate_measured_emissions(self.catalog_measured)
         else:
             emissions_measured = None
@@ -980,7 +980,7 @@ class PointSourceSector(Sector):
         # From kmol/h or kg/h to mol/h or g/h
         emissions = emissions.mul(1000.0)
 
-        self.logger.write_log('\t\tPoint sources emissions calculated', message_level=2)
-        self.logger.write_time_log('PointSourceSector', 'calculate_emissions', timeit.default_timer() - spent_time)
+        self.__logger.write_log('\t\tPoint sources emissions calculated', message_level=2)
+        self.__logger.write_time_log('PointSourceSector', 'calculate_emissions', timeit.default_timer() - spent_time)
 
         return emissions

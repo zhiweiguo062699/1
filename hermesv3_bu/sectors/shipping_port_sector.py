@@ -108,24 +108,24 @@ class ShippingPortSector(Sector):
         self.tonnage.set_index('code', inplace=True)
         self.load_factor = self.read_profiles(load_factor_path)
         self.power_values = self.read_profiles(power_path)
-        self.logger.write_time_log('ShippingPortSector', '__init__', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('ShippingPortSector', '__init__', timeit.default_timer() - spent_time)
 
     def get_port_list(self):
-        if self.comm.Get_rank() == 0:
-            port_shp = IoShapefile(self.comm).read_shapefile_serial(self.maneuvering_shapefile_path)
+        if self.__comm.Get_rank() == 0:
+            port_shp = IoShapefile(self.__comm).read_shapefile_serial(self.maneuvering_shapefile_path)
             port_shp.drop(columns=['Name', 'Weight'], inplace=True)
 
             port_shp = gpd.sjoin(port_shp, self.clip.shapefile.to_crs(port_shp.crs), how='inner', op='intersects')
             port_list = np.unique(port_shp['code'].values)
-            if len(port_list) < self.comm.Get_size():
+            if len(port_list) < self.__comm.Get_size():
                 error_exit("The chosen number of processors {0} exceeds the number of involved ports {1}.".format(
-                    self.comm.Get_size(), len(port_list)) + " Set {0} at shipping_port_processors value.".format(
+                    self.__comm.Get_size(), len(port_list)) + " Set {0} at shipping_port_processors value.".format(
                     len(port_list)))
-            port_list = np.array_split(port_list, self.comm.Get_size())
+            port_list = np.array_split(port_list, self.__comm.Get_size())
         else:
             port_list = None
 
-        port_list = self.comm.scatter(port_list, root=0)
+        port_list = self.__comm.scatter(port_list, root=0)
 
         return list(port_list)
 
@@ -151,7 +151,7 @@ class ShippingPortSector(Sector):
                 columns={'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6, 'July': 7,
                          'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12},
                 inplace=True)
-        self.logger.write_time_log('ShippingPortSector', 'read_monthly_profiles', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('ShippingPortSector', 'read_monthly_profiles', timeit.default_timer() - spent_time)
 
         return profiles
 
@@ -182,7 +182,7 @@ class ShippingPortSector(Sector):
         dataframe.reset_index(inplace=True)
         dataframe = pd.merge(dataframe, shapefile.loc[:, ['code', 'timezone']], on='code')
         dataframe.set_index(['code', 'vessel'], inplace=True)
-        self.logger.write_time_log('ShippingPortSector', 'add_timezone', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('ShippingPortSector', 'add_timezone', timeit.default_timer() - spent_time)
 
         return dataframe
 
@@ -218,7 +218,7 @@ class ShippingPortSector(Sector):
         dataframe.drop('date_utc', axis=1, inplace=True)
         dataframe.set_index(['code', 'vessel', 'tstep'], inplace=True)
         # del dataframe['date_utc']
-        self.logger.write_time_log('ShippingPortSector', 'add_dates', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('ShippingPortSector', 'add_dates', timeit.default_timer() - spent_time)
 
         return dataframe
 
@@ -379,7 +379,7 @@ class ShippingPortSector(Sector):
                 lambda x: get_ef(x, 'main', pollutant))
             dataframe['EF_a_{0}'.format(pollutant)] = dataframe.groupby('vessel').apply(
                 lambda x: get_ef(x, 'aux', pollutant))
-        self.logger.write_time_log('ShippingPortSector', 'get_constants', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('ShippingPortSector', 'get_constants', timeit.default_timer() - spent_time)
 
         return dataframe
 
@@ -407,8 +407,8 @@ class ShippingPortSector(Sector):
             hoteling['{0}'.format(pollutant)] += \
                 constants['P'] * constants['Rae'] * constants['N'] * constants['LF_ha'] * constants['T_h'] * \
                 constants['EF_a_{0}'.format(pollutant)]
-        self.logger.write_time_log('ShippingPortSector', 'calculate_yearly_emissions_by_port_vessel',
-                                   timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('ShippingPortSector', 'calculate_yearly_emissions_by_port_vessel',
+                                     timeit.default_timer() - spent_time)
 
         return manoeuvring, hoteling
 
@@ -426,8 +426,8 @@ class ShippingPortSector(Sector):
         dataframe['month'] = dataframe['date'].dt.month
         dataframe['weekday'] = dataframe['date'].dt.weekday
         dataframe['hour'] = dataframe['date'].dt.hour
-        self.logger.write_time_log('ShippingPortSector', 'dates_to_month_weekday_hour',
-                                   timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('ShippingPortSector', 'dates_to_month_weekday_hour',
+                                     timeit.default_timer() - spent_time)
 
         return dataframe
 
@@ -472,8 +472,8 @@ class ShippingPortSector(Sector):
         operations['hour'] = 'max'
         operations['date'] = 'max'
         dataframe = dataframe.groupby(level=['code', 'tstep']).agg(operations)
-        self.logger.write_time_log('ShippingPortSector', 'calculate_monthly_emissions_by_port',
-                                   timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('ShippingPortSector', 'calculate_monthly_emissions_by_port',
+                                     timeit.default_timer() - spent_time)
 
         return dataframe
 
@@ -529,8 +529,8 @@ class ShippingPortSector(Sector):
         dataframe['HF'] = dataframe.groupby('hour').apply(get_hf)
         dataframe[self.source_pollutants] = dataframe[self.source_pollutants].multiply(dataframe['HF'], axis=0)
         dataframe.drop(columns=['hour', 'HF'], inplace=True)
-        self.logger.write_time_log('ShippingPortSector', 'calculate_hourly_emissions_by_port',
-                                   timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('ShippingPortSector', 'calculate_hourly_emissions_by_port',
+                                     timeit.default_timer() - spent_time)
 
         return dataframe
 
@@ -565,7 +565,7 @@ class ShippingPortSector(Sector):
 
         dataframe[self.source_pollutants] = dataframe[self.source_pollutants].multiply(dataframe['Weight'], axis=0)
         dataframe.drop(columns=['Weight'], inplace=True)
-        self.logger.write_time_log('ShippingPortSector', 'to_port_geometry', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('ShippingPortSector', 'to_port_geometry', timeit.default_timer() - spent_time)
 
         return dataframe
 
@@ -597,7 +597,7 @@ class ShippingPortSector(Sector):
         dataframe['layer'] = 0
         dataframe = dataframe.loc[:, ~dataframe.columns.duplicated()]
         dataframe = dataframe.groupby(['FID', 'layer', 'tstep']).sum()
-        self.logger.write_time_log('ShippingPortSector', 'to_grid_geometry', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('ShippingPortSector', 'to_grid_geometry', timeit.default_timer() - spent_time)
 
         return dataframe
 
@@ -609,9 +609,9 @@ class ShippingPortSector(Sector):
         :rtype: padas.DataFrame
         """
         spent_time = timeit.default_timer()
-        self.logger.write_log('\tCalculating emissions')
+        self.__logger.write_log('\tCalculating emissions')
 
-        self.logger.write_log('\t\tCalculating yearly emissions', message_level=2)
+        self.__logger.write_log('\t\tCalculating yearly emissions', message_level=2)
         manoeuvring, hoteling = self.calculate_yearly_emissions_by_port_vessel()
 
         manoeuvring = self.add_timezone(manoeuvring, self.maneuvering_shapefile_path)
@@ -623,18 +623,18 @@ class ShippingPortSector(Sector):
         manoeuvring = self.dates_to_month_weekday_hour(manoeuvring)
         hoteling = self.dates_to_month_weekday_hour(hoteling)
 
-        self.logger.write_log('\t\tCalculating monthly emissions', message_level=2)
+        self.__logger.write_log('\t\tCalculating monthly emissions', message_level=2)
 
         manoeuvring = self.calculate_monthly_emissions_by_port(manoeuvring)
         hoteling = self.calculate_monthly_emissions_by_port(hoteling)
 
-        self.logger.write_log('\t\tCalculating hourly emissions', message_level=2)
+        self.__logger.write_log('\t\tCalculating hourly emissions', message_level=2)
 
         manoeuvring = self.calculate_hourly_emissions_by_port(manoeuvring)
         hoteling = self.calculate_hourly_emissions_by_port(hoteling)
 
         # TODO pre-calculate distribution during initialization.
-        self.logger.write_log('\t\tDistributing emissions', message_level=2)
+        self.__logger.write_log('\t\tDistributing emissions', message_level=2)
 
         manoeuvring = self.to_port_geometry(manoeuvring, self.maneuvering_shapefile_path)
         hoteling = self.to_port_geometry(hoteling, self.hoteling_shapefile_path)
@@ -647,6 +647,6 @@ class ShippingPortSector(Sector):
 
         dataframe = self.speciate(dataframe, 'default')
 
-        self.logger.write_log('\t\tShipping port emissions calculated', message_level=2)
-        self.logger.write_time_log('ShippingPortSector', 'calculate_emissions', timeit.default_timer() - spent_time)
+        self.__logger.write_log('\t\tShipping port emissions calculated', message_level=2)
+        self.__logger.write_time_log('ShippingPortSector', 'calculate_emissions', timeit.default_timer() - spent_time)
         return dataframe

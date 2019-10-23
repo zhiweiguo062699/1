@@ -26,11 +26,11 @@ class SectorManager(object):
         :type arguments: NameSpace
         """
         spent_time = timeit.default_timer()
-        self.logger = logger
+        self.__logger = logger
         self.sector_list = self.make_sector_list(arguments, comm_world.Get_size())
-        self.logger.write_log('Sector process distribution:')
+        self.__logger.write_log('Sector process distribution:')
         for sect, procs in self.sector_list.items():
-            self.logger.write_log('\t{0}: {1}'.format(sect, procs))
+            self.__logger.write_log('\t{0}: {1}'.format(sect, procs))
 
         color = 10
         agg_color = 99
@@ -38,7 +38,7 @@ class SectorManager(object):
             if sector == 'aviation' and comm_world.Get_rank() in sector_procs:
                 from hermesv3_bu.sectors.aviation_sector import AviationSector
                 self.sector = AviationSector(
-                    comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.logger,
+                    comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.__logger,
                     arguments.auxiliary_files_path, grid, clip, date_array,
                     arguments.aviation_source_pollutants, grid.vertical_desctiption, arguments.airport_list,
                     arguments.plane_list, arguments.airport_shapefile_path, arguments.airport_runways_shapefile_path,
@@ -50,7 +50,7 @@ class SectorManager(object):
             elif sector == 'shipping_port' and comm_world.Get_rank() in sector_procs:
                 from hermesv3_bu.sectors.shipping_port_sector import ShippingPortSector
                 self.sector = ShippingPortSector(
-                    comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.logger,
+                    comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.__logger,
                     arguments.auxiliary_files_path, grid, clip, date_array,
                     arguments.shipping_port_source_pollutants, grid.vertical_desctiption, arguments.vessel_list,
                     arguments.port_list, arguments.hoteling_shapefile_path, arguments.maneuvering_shapefile_path,
@@ -63,7 +63,7 @@ class SectorManager(object):
             elif sector == 'livestock' and comm_world.Get_rank() in sector_procs:
                 from hermesv3_bu.sectors.livestock_sector import LivestockSector
                 self.sector = LivestockSector(
-                    comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.logger,
+                    comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.__logger,
                     arguments.auxiliary_files_path, grid, clip, date_array,
                     arguments.livestock_source_pollutants, grid.vertical_desctiption, arguments.animal_list,
                     arguments.gridded_livestock, arguments.correction_split_factors,
@@ -128,7 +128,7 @@ class SectorManager(object):
             elif sector == 'residential' and comm_world.Get_rank() in sector_procs:
                 from hermesv3_bu.sectors.residential_sector import ResidentialSector
                 self.sector = ResidentialSector(
-                    comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.logger,
+                    comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.__logger,
                     arguments.auxiliary_files_path, grid, clip, date_array,
                     arguments.residential_source_pollutants, grid.vertical_desctiption, arguments.fuel_list,
                     arguments.nuts3_shapefile, arguments.nuts2_shapefile, arguments.population_density_map,
@@ -142,7 +142,7 @@ class SectorManager(object):
             elif sector == 'recreational_boats' and comm_world.Get_rank() in sector_procs:
                 from hermesv3_bu.sectors.recreational_boats_sector import RecreationalBoatsSector
                 self.sector = RecreationalBoatsSector(
-                    comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.logger,
+                    comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.__logger,
                     arguments.auxiliary_files_path, grid, clip, date_array,
                     arguments.recreational_boats_source_pollutants, grid.vertical_desctiption,
                     arguments.recreational_boats_list, arguments.recreational_boats_density_map,
@@ -154,7 +154,7 @@ class SectorManager(object):
             elif sector == 'point_sources' and comm_world.Get_rank() in sector_procs:
                 from hermesv3_bu.sectors.point_source_sector import PointSourceSector
                 self.sector = PointSourceSector(
-                    comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.logger,
+                    comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.__logger,
                     arguments.auxiliary_files_path, grid, clip, date_array,
                     arguments.point_source_pollutants, grid.vertical_desctiption,
                     arguments.point_source_catalog, arguments.point_source_monthly_profiles,
@@ -175,7 +175,7 @@ class SectorManager(object):
             elif sector == 'traffic' and comm_world.Get_rank() in sector_procs:
                 from hermesv3_bu.sectors.traffic_sector import TrafficSector
                 self.sector = TrafficSector(
-                    comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.logger,
+                    comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.__logger,
                     arguments.auxiliary_files_path, grid, clip, date_array, arguments.traffic_pollutants,
                     grid.vertical_desctiption, arguments.road_link_path, arguments.fleet_compo_path,
                     arguments.traffic_speed_hourly_path, arguments.traffic_monthly_profiles,
@@ -193,7 +193,7 @@ class SectorManager(object):
             elif sector == 'traffic_area' and comm_world.Get_rank() in sector_procs:
                 from hermesv3_bu.sectors.traffic_area_sector import TrafficAreaSector
                 self.sector = TrafficAreaSector(
-                    comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.logger,
+                    comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.__logger,
                     arguments.auxiliary_files_path, grid, clip, date_array, arguments.traffic_area_pollutants,
                     grid.vertical_desctiption, arguments.population_density_map, arguments.speciation_map,
                     arguments.molecular_weights, arguments.do_evaporative, arguments.traffic_area_gas_path,
@@ -207,7 +207,7 @@ class SectorManager(object):
             elif sector == 'solvents' and comm_world.Get_rank() in sector_procs:
                 from hermesv3_bu.sectors.solvents_sector import SolventsSector
                 self.sector = SolventsSector(
-                    comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.logger,
+                    comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.__logger,
                     arguments.auxiliary_files_path, grid, clip, date_array, arguments.solvents_pollutants,
                     grid.vertical_desctiption, arguments.speciation_map, arguments.molecular_weights,
                     arguments.solvents_speciation_profiles, arguments.solvents_monthly_profile,
@@ -219,12 +219,12 @@ class SectorManager(object):
 
             color += 1
 
-        self.logger.write_time_log('SectorManager', '__init__', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('SectorManager', '__init__', timeit.default_timer() - spent_time)
 
     def run(self):
         spent_time = timeit.default_timer()
         emis = self.sector.calculate_emissions()
-        self.logger.write_time_log('SectorManager', 'run', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('SectorManager', 'run', timeit.default_timer() - spent_time)
         return emis
 
     def make_sector_list(self, arguments, max_procs):
@@ -242,5 +242,5 @@ class SectorManager(object):
                        "'{0}': {1}".format(
                            accum, {sector: len(sector_procs) for sector, sector_procs in sector_dict.items()}))
 
-        self.logger.write_time_log('SectorManager', 'make_sector_list', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('SectorManager', 'make_sector_list', timeit.default_timer() - spent_time)
         return sector_dict

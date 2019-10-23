@@ -71,7 +71,7 @@ class MonarchWriter(Writer):
                 error_exit("'{0}' unit is not supported for CMAQ emission ".format(variable.get('units')) +
                            "input file. Set mol.s-1.m-2 or kg.s-1.m-2 in the speciation_map file.")
 
-        self.logger.write_time_log('MonarchWriter', '__init__', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('MonarchWriter', '__init__', timeit.default_timer() - spent_time)
 
     def unit_change(self, emissions):
         """
@@ -100,7 +100,7 @@ class MonarchWriter(Writer):
             if info.get('units') == "kg.s-1.m-2":
                 # From g.s-1.m-2 to kg.s-1.m-2
                 emissions[[pollutant]] = emissions[[pollutant]].div(10**3)
-        self.logger.write_time_log('MonarchWriter', '__init__', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('MonarchWriter', '__init__', timeit.default_timer() - spent_time)
 
         return emissions
 
@@ -121,7 +121,7 @@ class MonarchWriter(Writer):
             netcdf = Dataset(self.netcdf_path, format="NETCDF4", mode='w')
 
         # ========== DIMENSIONS ==========
-        self.logger.write_log('\tCreating NetCDF dimensions', message_level=2)
+        self.__logger.write_log('\tCreating NetCDF dimensions', message_level=2)
 
         netcdf.createDimension('rlat', len(self.grid.rlat))
         netcdf.createDimension('rlon', len(self.grid.rlon))
@@ -134,8 +134,8 @@ class MonarchWriter(Writer):
         netcdf.createDimension('time', len(self.date_array))
 
         # ========== VARIABLES ==========
-        self.logger.write_log('\tCreating NetCDF variables', message_level=2)
-        self.logger.write_log('\t\tCreating time variable', message_level=3)
+        self.__logger.write_log('\tCreating NetCDF variables', message_level=2)
+        self.__logger.write_log('\t\tCreating time variable', message_level=3)
 
         time = netcdf.createVariable('time', np.float64, ('time',))
         time.units = 'hours since {0}'.format(self.date_array[0].strftime("%Y-%m-%d %H:%M:%S"))
@@ -144,13 +144,13 @@ class MonarchWriter(Writer):
         time.long_name = "time"
         time[:] = date2num(self.date_array, time.units, calendar=time.calendar)
 
-        self.logger.write_log('\t\tCreating lev variable', message_level=3)
+        self.__logger.write_log('\t\tCreating lev variable', message_level=3)
         lev = netcdf.createVariable('lev', np.float64, ('lev',))
         lev.units = Unit("m").symbol
         lev.positive = 'up'
         lev[:] = self.grid.vertical_desctiption
 
-        self.logger.write_log('\t\tCreating lat variable', message_level=3)
+        self.__logger.write_log('\t\tCreating lat variable', message_level=3)
         lats = netcdf.createVariable('lat', np.float64, lat_dim)
         lats.units = "degrees_north"
         lats.axis = "Y"
@@ -161,7 +161,7 @@ class MonarchWriter(Writer):
         lat_bnds = netcdf.createVariable('lat_bnds', np.float64, lat_dim + ('nv',))
         lat_bnds[:] = self.grid.boundary_latitudes
 
-        self.logger.write_log('\t\tCreating lon variable', message_level=3)
+        self.__logger.write_log('\t\tCreating lon variable', message_level=3)
         lons = netcdf.createVariable('lon', np.float64, lon_dim)
         lons.units = "degrees_east"
         lons.axis = "X"
@@ -172,7 +172,7 @@ class MonarchWriter(Writer):
         lon_bnds = netcdf.createVariable('lon_bnds', np.float64, lon_dim + ('nv',))
         lon_bnds[:] = self.grid.boundary_longitudes
 
-        self.logger.write_log('\t\tCreating rlat variable', message_level=3)
+        self.__logger.write_log('\t\tCreating rlat variable', message_level=3)
         rlat = netcdf.createVariable('rlat', np.float64, ('rlat',))
         rlat.long_name = "latitude in rotated pole grid"
         rlat.units = Unit("degrees").symbol
@@ -180,7 +180,7 @@ class MonarchWriter(Writer):
         rlat[:] = self.grid.rlat
 
         # Rotated Longitude
-        self.logger.write_log('\t\tCreating rlon variable', message_level=3)
+        self.__logger.write_log('\t\tCreating rlon variable', message_level=3)
         rlon = netcdf.createVariable('rlon', np.float64, ('rlon',))
         rlon.long_name = "longitude in rotated pole grid"
         rlon.units = Unit("degrees").symbol
@@ -189,7 +189,7 @@ class MonarchWriter(Writer):
 
         # ========== POLLUTANTS ==========
         for var_name in emissions.columns.values:
-            self.logger.write_log('\t\tCreating {0} variable'.format(var_name), message_level=3)
+            self.__logger.write_log('\t\tCreating {0} variable'.format(var_name), message_level=3)
 
             # var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim,
             #                             chunksizes=self.rank_distribution[0]['shape'])
@@ -215,9 +215,9 @@ class MonarchWriter(Writer):
             var.grid_mapping = 'rotated_pole'
 
         # ========== METADATA ==========
-        self.logger.write_log('\tCreating NetCDF metadata', message_level=2)
+        self.__logger.write_log('\tCreating NetCDF metadata', message_level=2)
 
-        self.logger.write_log('\t\tCreating Coordinate Reference System metadata', message_level=3)
+        self.__logger.write_log('\t\tCreating Coordinate Reference System metadata', message_level=3)
 
         mapping = netcdf.createVariable('rotated_pole', 'c')
         mapping.grid_mapping_name = 'rotated_latitude_longitude'
@@ -226,7 +226,7 @@ class MonarchWriter(Writer):
 
         netcdf.setncattr('Conventions', 'CF-1.6')
         netcdf.close()
-        self.logger.write_log('NetCDF write at {0}'.format(self.netcdf_path))
-        self.logger.write_time_log('MonarchWriter', 'write_netcdf', timeit.default_timer() - spent_time)
+        self.__logger.write_log('NetCDF write at {0}'.format(self.netcdf_path))
+        self.__logger.write_time_log('MonarchWriter', 'write_netcdf', timeit.default_timer() - spent_time)
 
         return True

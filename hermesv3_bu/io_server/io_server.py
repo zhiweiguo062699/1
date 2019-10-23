@@ -9,4 +9,4 @@ class IoServer(object):
     :type comm: MPI.Comm
     """
     def __init__(self, comm):
-        self.comm = comm
+        self.__comm = comm

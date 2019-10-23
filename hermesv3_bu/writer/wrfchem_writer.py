@@ -88,7 +88,7 @@ class WrfChemWriter(Writer):
         self.global_attributes = self.create_global_attributes(global_attributes_path)
         self.pollutant_info = self.change_pollutant_attributes()
 
-        self.logger.write_time_log('WrfChemWriter', '__init__', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('WrfChemWriter', '__init__', timeit.default_timer() - spent_time)
 
     def unit_change(self, emissions):
         """
@@ -122,7 +122,7 @@ class WrfChemWriter(Writer):
                 # From mol/m2.h to mol/km2.h
                 emissions[[pollutant]] = emissions[[pollutant]].mul(10**6)
 
-        self.logger.write_time_log('WrfChemWriter', 'unit_change', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('WrfChemWriter', 'unit_change', timeit.default_timer() - spent_time)
         return emissions
 
     def change_pollutant_attributes(self):
@@ -156,7 +156,7 @@ class WrfChemWriter(Writer):
             new_pollutant_info.loc[i, 'coordinates'] = "XLONG XLAT"
 
         new_pollutant_info.set_index('pollutant', inplace=True)
-        self.logger.write_time_log('WrfChemWriter', 'change_pollutant_attributes', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('WrfChemWriter', 'change_pollutant_attributes', timeit.default_timer() - spent_time)
         return new_pollutant_info
 
     def read_global_attributes(self, global_attributes_path):
@@ -239,13 +239,13 @@ class WrfChemWriter(Writer):
                     atts_dict[att] = str(df.loc[df['attribute'] == att, 'value'].item())
 
             except ValueError:
-                self.logger.write_log("WARNING: The global attribute {0} is not defined;".format(att) +
+                self.__logger.write_log("WARNING: The global attribute {0} is not defined;".format(att) +
                                       " Using default value '{0}'".format(atts_dict[att]))
                 if self.comm_write.Get_rank() == 0:
                     warn('WARNING: The global attribute {0} is not defined; Using default value {1}'.format(
                         att, atts_dict[att]))
 
-        self.logger.write_time_log('WrfChemWriter', 'read_global_attributes', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('WrfChemWriter', 'read_global_attributes', timeit.default_timer() - spent_time)
         return atts_dict
 
     def create_global_attributes(self, global_attributes_path):
@@ -299,7 +299,7 @@ class WrfChemWriter(Writer):
                 global_attributes['MOAD_CEN_LAT'] = np.float32(self.grid.attributes['lat_ts'])
                 global_attributes['STAND_LON'] = np.float32(self.grid.attributes['lon_0'])
 
-        self.logger.write_time_log('WrfChemWriter', 'create_global_attributes', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('WrfChemWriter', 'create_global_attributes', timeit.default_timer() - spent_time)
         return global_attributes
 
     def create_times_var(self):
@@ -332,7 +332,7 @@ class WrfChemWriter(Writer):
             netcdf = Dataset(self.netcdf_path, format="NETCDF4", mode='w')
 
         # ===== DIMENSIONS =====
-        self.logger.write_log('\tCreating NetCDF dimensions', message_level=2)
+        self.__logger.write_log('\tCreating NetCDF dimensions', message_level=2)
         netcdf.createDimension('Time', len(self.date_array))
 
         netcdf.createDimension('DateStrLen', 19)
@@ -341,13 +341,13 @@ class WrfChemWriter(Writer):
         netcdf.createDimension('emissions_zdim', len(self.grid.vertical_desctiption))
 
         # ========== VARIABLES ==========
-        self.logger.write_log('\tCreating NetCDF variables', message_level=2)
+        self.__logger.write_log('\tCreating NetCDF variables', message_level=2)
         times = netcdf.createVariable('Times', 'S1', ('Time', 'DateStrLen',))
         times[:] = self.create_times_var()
 
         # ========== POLLUTANTS ==========
         for var_name in emissions.columns.values:
-            self.logger.write_log('\t\tCreating {0} variable'.format(var_name), message_level=3)
+            self.__logger.write_log('\t\tCreating {0} variable'.format(var_name), message_level=3)
 
             if self.comm_write.Get_size() > 1:
                 var = netcdf.createVariable(var_name, np.float64,
@@ -373,13 +373,13 @@ class WrfChemWriter(Writer):
             var.coordinates = self.pollutant_info.loc[var_name, 'coordinates']
 
         # ========== METADATA ==========
-        self.logger.write_log('\tCreating NetCDF metadata', message_level=2)
+        self.__logger.write_log('\tCreating NetCDF metadata', message_level=2)
 
         for attribute in self.global_attributes_order:
             netcdf.setncattr(attribute, self.global_attributes[attribute])
 
         netcdf.close()
-        self.logger.write_log('NetCDF write at {0}'.format(self.netcdf_path))
-        self.logger.write_time_log('WrfChemWriter', 'write_netcdf', timeit.default_timer() - spent_time)
+        self.__logger.write_log('NetCDF write at {0}'.format(self.netcdf_path))
+        self.__logger.write_time_log('WrfChemWriter', 'write_netcdf', timeit.default_timer() - spent_time)
 
         return True

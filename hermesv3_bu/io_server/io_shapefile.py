@@ -49,14 +49,14 @@ class IoShapefile(IoServer):
         :return: True when the writing is finished.
         :rtype: bool
         """
-        data = self.comm.gather(data, root=rank)
-        if self.comm.Get_rank() == rank:
+        data = self.__comm.gather(data, root=rank)
+        if self.__comm.Get_rank() == rank:
             if not os.path.exists(os.path.dirname(path)):
                 os.makedirs(os.path.dirname(path))
             data = pd.concat(data)
             data.to_file(path)
 
-        self.comm.Barrier()
+        self.__comm.Barrier()
 
         return True
 
@@ -67,19 +67,19 @@ class IoShapefile(IoServer):
         return gdf
 
     def read_shapefile(self, path, rank=0):
-        if self.comm.Get_rank() == rank:
+        if self.__comm.Get_rank() == rank:
             check_files(path)
             gdf = gpd.read_file(path)
-            gdf = np.array_split(gdf, self.comm.Get_size())
+            gdf = np.array_split(gdf, self.__comm.Get_size())
         else:
             gdf = None
 
-        gdf = self.comm.scatter(gdf, root=rank)
+        gdf = self.__comm.scatter(gdf, root=rank)
 
         return gdf
 
     def read_shapefile_parallel(self, path, rank=0):
-        if self.comm.Get_rank() == rank:
+        if self.__comm.Get_rank() == rank:
             data = self.read_shapefile_serial(path)
         else:
             data = None
@@ -97,38 +97,38 @@ class IoShapefile(IoServer):
         :rtype: GeoDataFrame
         """
 
-        if self.comm.Get_size() == 1:
+        if self.__comm.Get_size() == 1:
             data = data
         else:
-            if self.comm.Get_rank() == rank:
-                data = np.array_split(data, self.comm.Get_size())
+            if self.__comm.Get_rank() == rank:
+                data = np.array_split(data, self.__comm.Get_size())
             else:
                 data = None
-            data = self.comm.scatter(data, root=rank)
+            data = self.__comm.scatter(data, root=rank)
 
         return data
 
     def gather_bcast_shapefile(self, data, rank=0):
 
-        if self.comm.Get_size() == 1:
+        if self.__comm.Get_size() == 1:
             data = data
         else:
-            data = self.comm.gather(data, root=rank)
-            if self.comm.Get_rank() == rank:
+            data = self.__comm.gather(data, root=rank)
+            if self.__comm.Get_rank() == rank:
                 data = pd.concat(data)
             else:
                 data = None
-            data = self.comm.bcast(data, root=rank)
+            data = self.__comm.bcast(data, root=rank)
 
         return data
 
     def gather_shapefile(self, data, rank=0):
 
-        if self.comm.Get_size() == 1:
+        if self.__comm.Get_size() == 1:
             data = data
         else:
-            data = self.comm.gather(data, root=rank)
-            if self.comm.Get_rank() == rank:
+            data = self.__comm.gather(data, root=rank)
+            if self.__comm.Get_rank() == rank:
                 data = pd.concat(data)
             else:
                 data = None
@@ -136,13 +136,13 @@ class IoShapefile(IoServer):
 
     def balance(self, data, rank=0):
 
-        data = self.comm.gather(data, root=rank)
-        if self.comm.Get_rank() == rank:
+        data = self.__comm.gather(data, root=rank)
+        if self.__comm.Get_rank() == rank:
             data = pd.concat(data)
-            data = np.array_split(data, self.comm.Get_size())
+            data = np.array_split(data, self.__comm.Get_size())
         else:
             data = None
 
-        data = self.comm.scatter(data, root=rank)
+        data = self.__comm.scatter(data, root=rank)
 
         return data

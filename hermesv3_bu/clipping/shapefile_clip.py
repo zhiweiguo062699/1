@@ -28,7 +28,7 @@ class ShapefileClip(Clip):
         super(ShapefileClip, self).__init__(logger, auxiliary_path)
         self.clip_type = 'Shapefile clip'
         self.shapefile = self.create_clip(clip_input_path)
-        self.logger.write_time_log('ShapefileClip', '__init__', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('ShapefileClip', '__init__', timeit.default_timer() - spent_time)
 
     def create_clip(self, clip_path):
         """
@@ -52,6 +52,6 @@ class ShapefileClip(Clip):
                 error_exit(" Clip shapefile {0} not found.")
         else:
             clip = gpd.read_file(self.shapefile_path)
-        self.logger.write_log("\tClip created at '{0}'".format(self.shapefile_path), 3)
-        self.logger.write_time_log('ShapefileClip', 'create_clip', timeit.default_timer() - spent_time)
+        self.__logger.write_log("\tClip created at '{0}'".format(self.shapefile_path), 3)
+        self.__logger.write_time_log('ShapefileClip', 'create_clip', timeit.default_timer() - spent_time)
         return clip

@@ -69,7 +69,7 @@ class MercatorGrid(Grid):
         super(MercatorGrid, self).__init__(logger, attributes, auxiliary_path, vertical_description_path)
 
         self.shape = (tstep_num, len(self.vertical_desctiption), ny, nx)
-        self.logger.write_time_log('MercatorGrid', '__init__', timeit.default_timer() - spent_time, 3)
+        self.__logger.write_time_log('MercatorGrid', '__init__', timeit.default_timer() - spent_time, 3)
 
     def write_netcdf(self):
         """
@@ -88,8 +88,8 @@ class MercatorGrid(Grid):
                                 boundary_longitudes=self.boundary_longitudes,
                                 mercator=True, lcc_x=self.x, lcc_y=self.y, lon_0=self.attributes['lon_0'],
                                 lat_ts=self.attributes['lat_ts'])
-        self.logger.write_log("\tGrid created at '{0}'".format(self.netcdf_path), 3)
-        self.logger.write_time_log('MercatorGrid', 'write_netcdf', timeit.default_timer() - spent_time, 3)
+        self.__logger.write_log("\tGrid created at '{0}'".format(self.netcdf_path), 3)
+        self.__logger.write_time_log('MercatorGrid', 'write_netcdf', timeit.default_timer() - spent_time, 3)
         return True
 
     def create_coords(self):
@@ -120,6 +120,6 @@ class MercatorGrid(Grid):
         self.center_longitudes, self.center_latitudes = projection(x, y, inverse=True)
         self.boundary_longitudes, self.boundary_latitudes = projection(x_b, y_b, inverse=True)
 
-        self.logger.write_time_log('MercatorGrid', 'create_coords', timeit.default_timer() - spent_time, 3)
+        self.__logger.write_time_log('MercatorGrid', 'create_coords', timeit.default_timer() - spent_time, 3)
 
         return True

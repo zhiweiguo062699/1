@@ -53,7 +53,7 @@ class AgriculturalMachinerySector(AgriculturalSector):
         self.vehicle_power = self.read_profiles(vehicle_power_path)
         self.emission_factors = self.read_profiles(ef_files_dir)
 
-        self.logger.write_time_log('AgriculturalMachinerySector', '__init__', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('AgriculturalMachinerySector', '__init__', timeit.default_timer() - spent_time)
 
     def get_crop_distribution_by_nut(self, crop_distribution, nut_shapefile, nut_code=None, write_crop_by_nut=False):
         spent_time = timeit.default_timer()
@@ -92,12 +92,12 @@ class AgriculturalMachinerySector(AgriculturalSector):
             crop_distribution.drop(columns=self.crop_list, inplace=True)
             crop_distribution.rename(columns={nut_code: 'NUT_code'}, inplace=True)
 
-            IoShapefile(self.comm).write_shapefile_parallel(crop_distribution, crop_distribution_nut_path)
+            IoShapefile(self.__comm).write_shapefile_parallel(crop_distribution, crop_distribution_nut_path)
         else:
-            crop_distribution = IoShapefile(self.comm).read_shapefile(crop_distribution_nut_path)
+            crop_distribution = IoShapefile(self.__comm).read_shapefile(crop_distribution_nut_path)
 
-        self.logger.write_time_log('AgriculturalMachinerySector', 'get_crop_distribution_by_nut',
-                                   timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('AgriculturalMachinerySector', 'get_crop_distribution_by_nut',
+                                     timeit.default_timer() - spent_time)
 
         return crop_distribution
 
@@ -110,8 +110,8 @@ class AgriculturalMachinerySector(AgriculturalSector):
         for month in month_list:
             month_dict[month] = np.array(self.date_array)[month_array == month]
 
-        self.logger.write_time_log('AgriculturalMachinerySector', 'get_date_array_by_month',
-                                   timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('AgriculturalMachinerySector', 'get_date_array_by_month',
+                                     timeit.default_timer() - spent_time)
         return month_dict
 
     def calcualte_yearly_emissions_by_nut_vehicle(self):
@@ -221,8 +221,8 @@ class AgriculturalMachinerySector(AgriculturalSector):
         database.drop(columns=['N', 'S', 'T', 'P', 'LF'], inplace=True)
 
         database = database.groupby(['NUT_code', 'vehicle']).sum()
-        self.logger.write_time_log('AgriculturalMachinerySector', 'calcualte_yearly_emissions_by_nut_vehicle',
-                                   timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('AgriculturalMachinerySector', 'calcualte_yearly_emissions_by_nut_vehicle',
+                                     timeit.default_timer() - spent_time)
         return database
 
     def calculate_monthly_emissions_by_nut(self, month):
@@ -242,8 +242,8 @@ class AgriculturalMachinerySector(AgriculturalSector):
 
         dataframe = dataframe.groupby('NUT_code').sum()
 
-        self.logger.write_time_log('AgriculturalMachinerySector', 'calculate_monthly_emissions_by_nut',
-                                   timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('AgriculturalMachinerySector', 'calculate_monthly_emissions_by_nut',
+                                     timeit.default_timer() - spent_time)
         return dataframe
 
     def distribute(self, dataframe):
@@ -263,8 +263,8 @@ class AgriculturalMachinerySector(AgriculturalSector):
 
         self.crop_distribution['timezone'] = timezones
         self.crop_distribution.reset_index(inplace=True)
-        self.logger.write_time_log('AgriculturalMachinerySector', 'distribute',
-                                   timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('AgriculturalMachinerySector', 'distribute',
+                                     timeit.default_timer() - spent_time)
         return self.crop_distribution
 
     def add_dates(self, df_by_month):
@@ -281,7 +281,7 @@ class AgriculturalMachinerySector(AgriculturalSector):
         dataframe_by_day = pd.concat(df_list, ignore_index=True)
 
         dataframe_by_day = self.to_timezone(dataframe_by_day)
-        self.logger.write_time_log('AgriculturalMachinerySector', 'add_dates', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('AgriculturalMachinerySector', 'add_dates', timeit.default_timer() - spent_time)
         return dataframe_by_day
 
     def calculate_hourly_emissions(self):
@@ -331,13 +331,13 @@ class AgriculturalMachinerySector(AgriculturalSector):
                 self.crop_distribution['HF'] * self.crop_distribution['WF'], axis=0)
 
         self.crop_distribution.drop(columns=['month', 'weekday', 'hour', 'WF', 'HF', 'date_as_date'], inplace=True)
-        self.logger.write_time_log('AgriculturalMachinerySector', 'calculate_hourly_emissions',
-                                   timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('AgriculturalMachinerySector', 'calculate_hourly_emissions',
+                                     timeit.default_timer() - spent_time)
         return self.crop_distribution
 
     def calculate_emissions(self):
         spent_time = timeit.default_timer()
-        self.logger.write_log('\tCalculating emissions')
+        self.__logger.write_log('\tCalculating emissions')
 
         distribution_by_month = {}
         for month in self.months.keys():
@@ -351,7 +351,7 @@ class AgriculturalMachinerySector(AgriculturalSector):
         self.crop_distribution = self.crop_distribution.groupby(['FID', 'layer', 'tstep']).sum()
         self.crop_distribution = self.speciate(self.crop_distribution)
 
-        self.logger.write_log('\t\tAgricultural machinery emissions calculated', message_level=2)
-        self.logger.write_time_log('AgriculturalMachinerySector', 'calculate_emissions',
-                                   timeit.default_timer() - spent_time)
+        self.__logger.write_log('\t\tAgricultural machinery emissions calculated', message_level=2)
+        self.__logger.write_time_log('AgriculturalMachinerySector', 'calculate_emissions',
+                                     timeit.default_timer() - spent_time)
         return self.crop_distribution

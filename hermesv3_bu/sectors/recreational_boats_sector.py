@@ -35,14 +35,14 @@ class RecreationalBoatsSector(Sector):
         self.boats_data_path = boats_data_path
         self.ef_file_path = ef_file_path
 
-        self.logger.write_time_log('RecreationalBoatsSector', '__init__', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('RecreationalBoatsSector', '__init__', timeit.default_timer() - spent_time)
 
     def create_density_map(self, density_map_path):
         spent_time = timeit.default_timer()
-        if self.comm.Get_rank() == 0:
+        if self.__comm.Get_rank() == 0:
             density_map_auxpath = os.path.join(self.auxiliary_dir, 'recreational_boats', 'density_map.shp')
             if not os.path.exists(density_map_auxpath):
-                src_density_map = IoRaster(self.comm).to_shapefile_serie(density_map_path, nodata=0)
+                src_density_map = IoRaster(self.__comm).to_shapefile_serie(density_map_path, nodata=0)
                 src_density_map = src_density_map.loc[src_density_map['data'] > 0]
                 src_density_map['data'] = src_density_map['data'] / src_density_map['data'].sum()
                 src_density_map.to_crs(self.grid.shapefile.crs, inplace=True)
@@ -59,15 +59,15 @@ class RecreationalBoatsSector(Sector):
                                                    geometry=self.grid.shapefile.loc[src_density_map.index, 'geometry'])
                 src_density_map.reset_index(inplace=True)
 
-                IoShapefile(self.comm).write_shapefile_serial(src_density_map, density_map_auxpath)
+                IoShapefile(self.__comm).write_shapefile_serial(src_density_map, density_map_auxpath)
             else:
-                src_density_map = IoShapefile(self.comm).read_shapefile_serial(density_map_auxpath)
+                src_density_map = IoShapefile(self.__comm).read_shapefile_serial(density_map_auxpath)
         else:
             src_density_map = None
-        src_density_map = IoShapefile(self.comm).split_shapefile(src_density_map)
+        src_density_map = IoShapefile(self.__comm).split_shapefile(src_density_map)
         src_density_map.set_index('FID', inplace=True)
 
-        self.logger.write_time_log('RecreationalBoatsSector', 'create_density_map', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('RecreationalBoatsSector', 'create_density_map', timeit.default_timer() - spent_time)
         return src_density_map
 
     def speciate_dict(self, annual_emissions_dict):
@@ -76,7 +76,7 @@ class RecreationalBoatsSector(Sector):
         speciated_emissions = {}
         for out_pollutant in self.output_pollutants:
             if out_pollutant != 'PMC':
-                self.logger.write_log("\t\t\t{0} = ({1}/{2})*{3}".format(
+                self.__logger.write_log("\t\t\t{0} = ({1}/{2})*{3}".format(
                     out_pollutant, self.speciation_map[out_pollutant],
                     self.molecular_weights[self.speciation_map[out_pollutant]],
                     self.speciation_profile.loc['default', out_pollutant]), message_level=3)
@@ -85,14 +85,14 @@ class RecreationalBoatsSector(Sector):
                                                       self.molecular_weights[self.speciation_map[out_pollutant]]
                                                       ) * self.speciation_profile.loc['default', out_pollutant]
             else:
-                self.logger.write_log("\t\t\t{0} = ({1}/{2} - {4}/{5})*{3}".format(
+                self.__logger.write_log("\t\t\t{0} = ({1}/{2} - {4}/{5})*{3}".format(
                     out_pollutant, 'pm10', self.molecular_weights['pm10'],
                     self.speciation_profile.loc['default', out_pollutant], 'pm25', self.molecular_weights['pm25']),
                     message_level=3)
                 speciated_emissions[out_pollutant] = ((annual_emissions_dict['pm10'] / self.molecular_weights['pm10']) -
                                                       (annual_emissions_dict['pm25'] / self.molecular_weights['pm25'])
                                                       ) * self.speciation_profile.loc['default', out_pollutant]
-        self.logger.write_time_log('RecreationalBoatsSector', 'speciate_dict', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('RecreationalBoatsSector', 'speciate_dict', timeit.default_timer() - spent_time)
         return speciated_emissions
 
     def get_annual_emissions(self):
@@ -108,8 +108,8 @@ class RecreationalBoatsSector(Sector):
         for in_p in self.source_pollutants:
             emissions_dict[in_p] = dataframe['AF'].multiply(dataframe['EF_{0}'.format(in_p)]).sum()
 
-        self.logger.write_time_log('RecreationalBoatsSector', 'get_annual_emissions',
-                                   timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('RecreationalBoatsSector', 'get_annual_emissions',
+                                     timeit.default_timer() - spent_time)
         return emissions_dict
 
     def calculate_yearly_emissions(self, annual_emissions):
@@ -121,8 +121,8 @@ class RecreationalBoatsSector(Sector):
         for pollutant, annual_value in annual_emissions.items():
             new_dataframe[pollutant] = self.density_map['data'] * annual_value
 
-        self.logger.write_time_log('RecreationalBoatsSector', 'calculate_yearly_emissions',
-                                   timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('RecreationalBoatsSector', 'calculate_yearly_emissions',
+                                     timeit.default_timer() - spent_time)
         return new_dataframe
 
     def dates_to_month_weekday_hour(self, dataframe):
@@ -131,8 +131,8 @@ class RecreationalBoatsSector(Sector):
         dataframe['weekday'] = dataframe['date'].dt.weekday
         dataframe['hour'] = dataframe['date'].dt.hour
 
-        self.logger.write_time_log('RecreationalBoatsSector', 'dates_to_month_weekday_hour',
-                                   timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('RecreationalBoatsSector', 'dates_to_month_weekday_hour',
+                                     timeit.default_timer() - spent_time)
         return dataframe
 
     def calculate_hourly_emissions(self, annual_distribution):
@@ -174,13 +174,13 @@ class RecreationalBoatsSector(Sector):
         dataframe[self.output_pollutants] = dataframe[self.output_pollutants].mul(dataframe['HF'], axis=0)
         dataframe.drop(columns=['hour', 'HF'], inplace=True)
 
-        self.logger.write_time_log('RecreationalBoatsSector', 'calculate_hourly_emissions',
-                                   timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('RecreationalBoatsSector', 'calculate_hourly_emissions',
+                                     timeit.default_timer() - spent_time)
         return dataframe
 
     def calculate_emissions(self):
         spent_time = timeit.default_timer()
-        self.logger.write_log('\tCalculating emissions')
+        self.__logger.write_log('\tCalculating emissions')
 
         annual_emissions = self.get_annual_emissions()
         annual_emissions = self.speciate_dict(annual_emissions)
@@ -190,7 +190,7 @@ class RecreationalBoatsSector(Sector):
         distribution.drop(columns=['geometry'], inplace=True)
         distribution['layer'] = 0
         distribution.set_index(['FID', 'layer', 'tstep'], inplace=True)
-        self.logger.write_log('\t\tRecreational boats emissions calculated', message_level=2)
-        self.logger.write_time_log('RecreationalBoatsSector', 'calculate_emissions',
-                                   timeit.default_timer() - spent_time)
+        self.__logger.write_log('\t\tRecreational boats emissions calculated', message_level=2)
+        self.__logger.write_time_log('RecreationalBoatsSector', 'calculate_emissions',
+                                     timeit.default_timer() - spent_time)
         return distribution

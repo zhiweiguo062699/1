@@ -27,7 +27,7 @@ class DefaultClip(Clip):
         super(DefaultClip, self).__init__(logger, auxiliary_path)
         self.clip_type = 'Default clip'
         self.shapefile = self.create_clip(grid)
-        self.logger.write_time_log('DefaultClip', '__init__', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('DefaultClip', '__init__', timeit.default_timer() - spent_time)
 
     def create_clip(self, grid):
         """
@@ -49,6 +49,6 @@ class DefaultClip(Clip):
             clip.to_file(self.shapefile_path)
         else:
             clip = gpd.read_file(self.shapefile_path)
-        self.logger.write_log("\tClip created at '{0}'".format(self.shapefile_path), 3)
-        self.logger.write_time_log('DefaultClip', 'create_clip', timeit.default_timer() - spent_time)
+        self.__logger.write_log("\tClip created at '{0}'".format(self.shapefile_path), 3)
+        self.__logger.write_time_log('DefaultClip', 'create_clip', timeit.default_timer() - spent_time)
         return clip

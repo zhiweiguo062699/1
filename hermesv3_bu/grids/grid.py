@@ -83,8 +83,8 @@ class Grid(object):
         :type vertical_description_path: str
         """
         spent_time = timeit.default_timer()
-        self.logger = logger
-        self.logger.write_log('\tGrid specifications: {0}'.format(attributes), 3)
+        self.__logger = logger
+        self.__logger.write_log('\tGrid specifications: {0}'.format(attributes), 3)
         self.attributes = attributes
         self.netcdf_path = os.path.join(auxiliary_path, 'grid', 'grid.nc')
         self.shapefile_path = os.path.join(auxiliary_path, 'grid', 'grid.shp')
@@ -117,7 +117,7 @@ class Grid(object):
         df = pd.read_csv(path, sep=',')
 
         heights = df.height_magl.values
-        self.logger.write_time_log('Grid', 'get_vertical_description', timeit.default_timer() - spent_time, 3)
+        self.__logger.write_time_log('Grid', 'get_vertical_description', timeit.default_timer() - spent_time, 3)
         return heights
 
     def write_netcdf(self):
@@ -171,7 +171,7 @@ class Grid(object):
                 bound_coords = np.dstack((coords_left, coords_right, coords_right, coords_left))
         else:
             error_exit('The number of vertices of the boundaries must be 2 or 4.')
-        self.logger.write_time_log('Grid', 'create_bounds', timeit.default_timer() - spent_time, 3)
+        self.__logger.write_time_log('Grid', 'create_bounds', timeit.default_timer() - spent_time, 3)
         return bound_coords
 
     def create_shapefile(self):
@@ -235,7 +235,7 @@ class Grid(object):
             gdf = gpd.read_file(self.shapefile_path)
 
         gdf.set_index('FID', inplace=True)
-        self.logger.write_time_log('Grid', 'create_shapefile', timeit.default_timer() - spent_time, 2)
+        self.__logger.write_time_log('Grid', 'create_shapefile', timeit.default_timer() - spent_time, 2)
 
         return gdf
 

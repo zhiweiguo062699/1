@@ -56,7 +56,7 @@ class LatLonGrid(Grid):
 
         self.shape = (tstep_num, len(self.vertical_desctiption), n_lat, n_lon)
 
-        self.logger.write_time_log('LatLonGrid', '__init__', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('LatLonGrid', '__init__', timeit.default_timer() - spent_time)
 
     def create_coords(self):
         """
@@ -81,7 +81,7 @@ class LatLonGrid(Grid):
         self.boundary_latitudes = self.boundary_latitudes.reshape((1,) + self.boundary_latitudes.shape)
         self.boundary_longitudes = self.boundary_longitudes.reshape((1,) + self.boundary_longitudes.shape)
 
-        self.logger.write_time_log('LatLonGrid', 'create_coords', timeit.default_timer() - spent_time, 2)
+        self.__logger.write_time_log('LatLonGrid', 'create_coords', timeit.default_timer() - spent_time, 2)
 
     def write_netcdf(self):
         """
@@ -98,5 +98,5 @@ class LatLonGrid(Grid):
                                 boundary_longitudes=self.boundary_longitudes,
                                 regular_latlon=True)
 
-        self.logger.write_log("\tGrid created at '{0}'".format(self.netcdf_path), 3)
-        self.logger.write_time_log('LatLonGrid', 'write_netcdf', timeit.default_timer() - spent_time, 3)
+        self.__logger.write_log("\tGrid created at '{0}'".format(self.netcdf_path), 3)
+        self.__logger.write_time_log('LatLonGrid', 'write_netcdf', timeit.default_timer() - spent_time, 3)

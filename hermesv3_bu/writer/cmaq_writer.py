@@ -79,7 +79,7 @@ class CmaqWriter(Writer):
         self.global_attributes = self.create_global_attributes(global_attributes_path)
         self.pollutant_info = self.change_pollutant_attributes()
 
-        self.logger.write_time_log('CmaqWriter', '__init__', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('CmaqWriter', '__init__', timeit.default_timer() - spent_time)
 
     def unit_change(self, emissions):
         """
@@ -96,7 +96,7 @@ class CmaqWriter(Writer):
         # From mol/h g/h to mol/s g/s
         emissions = emissions / 3600.0
 
-        self.logger.write_time_log('CmaqWriter', 'unit_change', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('CmaqWriter', 'unit_change', timeit.default_timer() - spent_time)
         return emissions
 
     def change_pollutant_attributes(self):
@@ -123,7 +123,7 @@ class CmaqWriter(Writer):
             new_pollutant_info.loc[i, 'long_name'] = "{:<16}".format(pollutant)
 
         new_pollutant_info.set_index('pollutant', inplace=True)
-        self.logger.write_time_log('CmaqWriter', 'change_pollutant_attributes', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('CmaqWriter', 'change_pollutant_attributes', timeit.default_timer() - spent_time)
         return new_pollutant_info
 
     def create_tflag(self):
@@ -144,7 +144,7 @@ class CmaqWriter(Writer):
                 t_flag[i_d, i_p, 0] = y_d
                 t_flag[i_d, i_p, 1] = hms
 
-        self.logger.write_time_log('CmaqWriter', 'create_tflag', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('CmaqWriter', 'create_tflag', timeit.default_timer() - spent_time)
         return t_flag
 
     def str_var_list(self):
@@ -160,7 +160,7 @@ class CmaqWriter(Writer):
         for var in list(self.pollutant_info.index):
             str_var_list += "{:<16}".format(var)
 
-        self.logger.write_time_log('CmaqWriter', 'str_var_list', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('CmaqWriter', 'str_var_list', timeit.default_timer() - spent_time)
         return str_var_list
 
     def read_global_attributes(self, global_attributes_path):
@@ -199,13 +199,13 @@ class CmaqWriter(Writer):
                     atts_dict[att] = np.array(df.loc[df['attribute'] == att, 'value'].item().split(),
                                               dtype=np.float32)
             except ValueError:
-                self.logger.write_log("WARNING: The global attribute {0} is not defined;".format(att) +
+                self.__logger.write_log("WARNING: The global attribute {0} is not defined;".format(att) +
                                       " Using default value '{0}'".format(atts_dict[att]))
                 if self.comm_write.Get_rank() == 0:
                     warn('WARNING: The global attribute {0} is not defined; Using default value {1}'.format(
                         att, atts_dict[att]))
 
-        self.logger.write_time_log('CmaqWriter', 'read_global_attributes', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('CmaqWriter', 'read_global_attributes', timeit.default_timer() - spent_time)
         return atts_dict
 
     def create_global_attributes(self, global_attributes_path):
@@ -256,7 +256,7 @@ class CmaqWriter(Writer):
             global_attributes['XCELL'] = np.float(self.grid.attributes['inc_x'])
             global_attributes['YCELL'] = np.float(self.grid.attributes['inc_y'])
 
-        self.logger.write_time_log('CmaqWriter', 'create_global_attributes', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('CmaqWriter', 'create_global_attributes', timeit.default_timer() - spent_time)
         return global_attributes
 
     def write_netcdf(self, emissions):
@@ -276,7 +276,7 @@ class CmaqWriter(Writer):
             netcdf = Dataset(self.netcdf_path, format="NETCDF4", mode='w')
 
         # ===== DIMENSIONS =====
-        self.logger.write_log('\tCreating NetCDF dimensions', message_level=2)
+        self.__logger.write_log('\tCreating NetCDF dimensions', message_level=2)
         netcdf.createDimension('TSTEP', len(self.date_array))
         netcdf.createDimension('DATE-TIME', 2)
         netcdf.createDimension('LAY', len(self.grid.vertical_desctiption))
@@ -285,7 +285,7 @@ class CmaqWriter(Writer):
         netcdf.createDimension('COL', self.grid.center_longitudes.shape[1])
 
         # ========== VARIABLES ==========
-        self.logger.write_log('\tCreating NetCDF variables', message_level=2)
+        self.__logger.write_log('\tCreating NetCDF variables', message_level=2)
         tflag = netcdf.createVariable('TFLAG', 'i', ('TSTEP', 'VAR', 'DATE-TIME',))
         tflag.setncatts({'units': "{:<16}".format('<YYYYDDD,HHMMSS>'), 'long_name': "{:<16}".format('TFLAG'),
                          'var_desc': "{:<80}".format('Timestep-valid flags:  (1) YYYYDDD or (2) HHMMSS')})
@@ -294,7 +294,7 @@ class CmaqWriter(Writer):
 
         # ========== POLLUTANTS ==========
         for var_name in emissions.columns.values:
-            self.logger.write_log('\t\tCreating {0} variable'.format(var_name), message_level=3)
+            self.__logger.write_log('\t\tCreating {0} variable'.format(var_name), message_level=3)
 
             if self.comm_write.Get_size() > 1:
                 var = netcdf.createVariable(var_name, np.float64, ('TSTEP', 'LAY', 'ROW', 'COL',))
@@ -315,13 +315,13 @@ class CmaqWriter(Writer):
             var.var_desc = self.pollutant_info.loc[var_name, 'var_desc']
 
         # ========== METADATA ==========
-        self.logger.write_log('\tCreating NetCDF metadata', message_level=2)
+        self.__logger.write_log('\tCreating NetCDF metadata', message_level=2)
 
         for attribute in self.global_attributes_order:
             netcdf.setncattr(attribute, self.global_attributes[attribute])
 
         netcdf.close()
-        self.logger.write_log('NetCDF write at {0}'.format(self.netcdf_path))
-        self.logger.write_time_log('CmaqWriter', 'write_netcdf', timeit.default_timer() - spent_time)
+        self.__logger.write_log('NetCDF write at {0}'.format(self.netcdf_path))
+        self.__logger.write_time_log('CmaqWriter', 'write_netcdf', timeit.default_timer() - spent_time)
 
         return True

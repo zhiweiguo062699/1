@@ -79,7 +79,7 @@ class LccGrid(Grid):
         # Initialises with parent class
         super(LccGrid, self).__init__(logger, attributes, auxiliary_path, vertical_description_path)
         self.shape = (tstep_num, len(self.vertical_desctiption), ny, nx)
-        self.logger.write_time_log('LccGrid', '__init__', timeit.default_timer() - spent_time)
+        self.__logger.write_time_log('LccGrid', '__init__', timeit.default_timer() - spent_time)
 
     def write_netcdf(self):
         """
@@ -99,8 +99,8 @@ class LccGrid(Grid):
                                 lat_1_2="{0}, {1}".format(self.attributes['lat_1'], self.attributes['lat_2']),
                                 lon_0=self.attributes['lon_0'], lat_0=self.attributes['lat_0'])
 
-        self.logger.write_log("\tGrid created at '{0}'".format(self.netcdf_path), 3)
-        self.logger.write_time_log('LccGrid', 'write_netcdf', timeit.default_timer() - spent_time, 3)
+        self.__logger.write_log("\tGrid created at '{0}'".format(self.netcdf_path), 3)
+        self.__logger.write_time_log('LccGrid', 'write_netcdf', timeit.default_timer() - spent_time, 3)
         return True
 
     def create_coords(self):
@@ -143,5 +143,5 @@ class LccGrid(Grid):
         self.center_longitudes, self.center_latitudes = projection(x, y, inverse=True)
         self.boundary_longitudes, self.boundary_latitudes = projection(x_b, y_b, inverse=True)
 
-        self.logger.write_time_log('LccGrid', 'create_coords', timeit.default_timer() - spent_time, 2)
+        self.__logger.write_time_log('LccGrid', 'create_coords', timeit.default_timer() - spent_time, 2)
         return True
