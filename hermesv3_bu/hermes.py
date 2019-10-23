@@ -27,7 +27,7 @@ class Hermes(object):
         :param comm: Communicator
         :type comm: MPI.Comm
         """
-        self.__initial_time = timeit.default_timer()
+        self.initial_time = timeit.default_timer()
         if comm is None:
             comm = MPI.COMM_WORLD
         self.comm = comm
