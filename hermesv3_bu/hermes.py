@@ -7,7 +7,7 @@ from mpi4py import MPI
 from datetime import timedelta
 
 from hermesv3_bu.config.config import Config
-from hermesv3_bu.grids.grid import select_grid
+from hermesv3_bu.grids.grid import select_grid, Grid
 from hermesv3_bu.clipping.clip import select_clip
 from hermesv3_bu.writer.writer import select_writer
 from hermesv3_bu.sectors.sector_manager import SectorManager
@@ -18,9 +18,19 @@ class Hermes(object):
     """
     Interface class for HERMESv3.
     """
-    def __init__(self, config):
-        self.initial_time = timeit.default_timer()
-        self.comm = MPI.COMM_WORLD
+    def __init__(self, config, comm=None):
+        """
+
+        :param config: Configuration file object
+        :type config: Config
+
+        :param comm: Communicator
+        :type comm: MPI.Comm
+        """
+        self.__initial_time = timeit.default_timer()
+        if comm is None:
+            comm = MPI.COMM_WORLD
+        self.comm = comm
 
         self.arguments = config.arguments
         self.logger = Log(self.arguments)
@@ -48,17 +58,25 @@ class Hermes(object):
         """
         from datetime import timedelta
 
-        emis = self.sector_manager.run()
-        waiting_time = timeit.default_timer()
-        self.comm.Barrier()
-        self.logger.write_log('All emissions calculated!')
-        self.logger.write_time_log('HERMES', 'Waiting_to_write', timeit.default_timer() - waiting_time)
+        if self.arguments.first_time:
+            self.logger.write_log('***** HERMESv3_BU First Time finished successfully *****')
+        else:
+            emis = self.sector_manager.run()
+            waiting_time = timeit.default_timer()
+            self.comm.Barrier()
+            self.logger.write_log('All emissions calculated!')
+            self.logger.write_time_log('Hermes', 'Waiting_to_write', timeit.default_timer() - waiting_time)
+            emis = self.sector_manager.run()
+            waiting_time = timeit.default_timer()
+            self.comm.Barrier()
+            self.logger.write_log('All emissions calculated!')
+            self.logger.write_time_log('HERMES', 'Waiting_to_write', timeit.default_timer() - waiting_time)
 
-        self.writer.write(emis)
-        self.comm.Barrier()
+            self.writer.write(emis)
+            self.comm.Barrier()
 
-        self.logger.write_log('***** HERMESv3_BU simulation finished successfully *****')
-        self.logger.write_time_log('HERMES', 'TOTAL', timeit.default_timer() - self.initial_time)
+            self.logger.write_log('***** HERMESv3_BU simulation finished successfully *****')
+        self.logger.write_time_log('Hermes', 'TOTAL', timeit.default_timer() - self.initial_time)
         self.logger.finish_logs()
 
         if self.arguments.start_date < self.arguments.end_date:
@@ -67,8 +85,8 @@ class Hermes(object):
         return None
 
 
-def run():
-    date = Hermes(Config()).main()
+def run(comm=None):
+    date = Hermes(Config(comm), comm).main()
     while date is not None:
         date = Hermes(Config(new_date=date)).main()
     sys.exit(0)

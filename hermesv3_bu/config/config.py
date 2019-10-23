@@ -10,13 +10,17 @@ class Config(ArgParser):
     """
     Configuration arguments class.
     """
-    def __init__(self, new_date=None):
+    def __init__(self, new_date=None, comm=None):
         """
         Read and parse all the arguments.
 
         :param new_date: Starting date for simulation loop day.
         :type new_date: datetime.datetime
         """
+        if comm is None:
+            comm = MPI.COMM_WORLD
+        self.comm = comm
+
         self.new_date = new_date
 
         super(Config, self).__init__()
@@ -55,6 +59,8 @@ class Config(ArgParser):
         p.add_argument('--auxiliary_files_path', required=True,
                        help='Path to the directory where the necessary auxiliary files will be created if them are ' +
                             'not created yet.')
+        p.add_argument('--first_time', required=False, default='False', type=str,
+                       help='Indicates if you want to run it for first time (only create auxiliary files).')
         p.add_argument('--erase_auxiliary_files', required=False, default='False', type=str,
                        help='Indicates if you want to start from scratch removing the auxiliary files already created.')
 
@@ -686,15 +692,15 @@ class Config(ArgParser):
         arguments.end_date = self._parse_end_date(arguments.end_date, arguments.start_date)
         arguments.output_name = self.get_output_name(arguments)
 
+        arguments.first_time = self._parse_bool(arguments.first_time)
         arguments.erase_auxiliary_files = self._parse_bool(arguments.erase_auxiliary_files)
         self.create_dir(arguments.output_dir)
 
         if arguments.erase_auxiliary_files:
             if os.path.exists(arguments.auxiliary_files_path):
-                comm = MPI.COMM_WORLD
-                if comm.Get_rank() == 0:
+                if self.comm.Get_rank() == 0:
                     rmtree(arguments.auxiliary_files_path)
-                comm.Barrier()
+                self.comm.Barrier()
         self.create_dir(arguments.auxiliary_files_path)
 
         # Booleans
@@ -797,8 +803,7 @@ class Config(ArgParser):
         full_path = os.path.join(arguments.output_dir, file_name)
         return full_path
 
-    @staticmethod
-    def create_dir(path):
+    def create_dir(self, path):
         """
         Create the given folder if it is not created yet.
 
@@ -807,8 +812,7 @@ class Config(ArgParser):
         """
         import os
         from mpi4py import MPI
-        icomm = MPI.COMM_WORLD
-        comm = icomm.Split(color=0, key=0)
+        comm = self.comm.Split(color=0, key=0)
         rank = comm.Get_rank()
 
         if rank == 0:
