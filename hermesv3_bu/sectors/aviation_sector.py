@@ -10,6 +10,8 @@ import geopandas as gpd
 from warnings import warn
 
 from hermesv3_bu.sectors.sector import Sector
+from hermesv3_bu.grids.grid import Grid
+from hermesv3_bu.tools.checker import check_files, error_exit
 
 PHASE_TYPE = {'taxi_out': 'departure', 'pre-taxi_out': 'departure', 'takeoff': 'departure', 'climbout': 'departure',
               'approach': 'arrival', 'taxi_in': 'arrival', 'post-taxi_in': 'arrival', 'landing': 'arrival',
@@ -34,7 +36,7 @@ class AviationSector(Sector):
         - Taxi in
         - Post-taxi in
     """
-    def __init__(self, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+    def __init__(self, comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
                  airport_list, plane_list, airport_shapefile_path, airport_runways_shapefile_path,
                  airport_runways_corners_shapefile_path, airport_trajectories_shapefile_path, operations_path,
                  planes_path, times_path, ef_dir, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
@@ -50,8 +52,8 @@ class AviationSector(Sector):
             created yet.
         :type auxiliary_dir: str
 
-        :param grid_shp: Shapefile with the grid horizontal distribution.
-        :type grid_shp: GeoDataFrame
+        :param grid: Grid object.
+        :type grid: Grid
 
         :param date_array: List of datetimes.
         :type date_array: list(datetime.datetime, ...)
@@ -123,18 +125,24 @@ class AviationSector(Sector):
             file must contain the 'Specie' and 'MW' columns.
         :type molecular_weights_path: str
         """
+
         spent_time = timeit.default_timer()
+
         logger.write_log('===== AVIATION SECTOR =====')
+        check_files(
+            [airport_shapefile_path, airport_runways_shapefile_path, airport_runways_corners_shapefile_path,
+             airport_trajectories_shapefile_path, operations_path, planes_path, times_path, weekly_profiles_path,
+             hourly_profiles_path, speciation_map_path, speciation_profiles_path, molecular_weights_path] +
+            [os.path.join(ef_dir, PHASE_EF_FILE[phase]) for phase in PHASE_TYPE.keys()])
+
+        if 'nmvoc' in source_pollutants or 'ch4' in source_pollutants:
+            if 'hc' not in source_pollutants:
+                source_pollutants.append('hc')
+
         super(AviationSector, self).__init__(
-            comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels, None,
+            comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels, None,
             weekly_profiles_path, hourly_profiles_path, speciation_map_path, speciation_profiles_path,
             molecular_weights_path)
-
-        if 'hc' in self.source_pollutants:
-            for poll in ['nmvoc', 'ch4']:
-                if poll not in self.source_pollutants:
-                    self.source_pollutants.append(poll)
-            self.source_pollutants.remove('hc')
 
         # self.ef_dir = ef_dir
         self.ef_files = self.read_ef_files(ef_dir)
@@ -228,7 +236,7 @@ class AviationSector(Sector):
         spent_time = timeit.default_timer()
         if self.comm.Get_rank() == 0:
             runway_shapefile = gpd.read_file(airport_runways_shapefile_path)
-            runway_shapefile.set_index('airport_id', inplace=True)
+            runway_shapefile.set_index(['airport_id', 'runway_id'], inplace=True)
             runway_shapefile = runway_shapefile.loc[self.airport_list_full, :]
             runway_shapefile = runway_shapefile.loc[runway_shapefile['cons'] == 1,
                                                     ['approach_f', 'climbout_f', 'geometry']]
@@ -286,20 +294,16 @@ class AviationSector(Sector):
         :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
-        check = False
+
         operations = pd.read_csv(operations_csv_path)
 
-        if check:
-            for index, aux_operations in operations.groupby(['airport_id', 'plane_id', 'operation']):
-                if len(aux_operations) > 1:
-                    print index, len(aux_operations)
         if self.plane_list is None:
             self.plane_list = list(np.unique(operations['plane_id'].values))
         else:
             operations = operations.loc[operations['plane_id'].isin(self.plane_list), :]
 
         if len(operations) == 0:
-            raise NameError("The plane/s defined in the plane_list do not exist.")
+            error_exit("The plane/s defined in the plane_list do not exist.")
         operations = operations.loc[operations['airport_id'].isin(self.airport_list), :]
         operations.set_index(['airport_id', 'plane_id', 'operation'], inplace=True)
         operations.rename(columns={'1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10,
@@ -320,13 +324,10 @@ class AviationSector(Sector):
         :rtype: DataFrame
         """
         spent_time = timeit.default_timer()
-        check = False
+
         dataframe = pd.read_csv(planes_path)
         dataframe = dataframe.loc[dataframe['plane_id'].isin(self.plane_list)]
-        if check:
-            for index, aux_operations in dataframe.groupby('plane_id'):
-                if len(aux_operations) > 1:
-                    print index, len(aux_operations)
+
         dataframe.set_index('plane_id', inplace=True)
         self.logger.write_time_log('AviationSector', 'read_planes', timeit.default_timer() - spent_time)
 
@@ -370,8 +371,9 @@ class AviationSector(Sector):
         spent_time = timeit.default_timer()
         if self.comm.Get_rank() == 0:
             airport_shapefile = airport_shapefile.reset_index()
-            airport_shapefile = gpd.sjoin(airport_shapefile.to_crs(self.grid_shp.crs),
-                                          self.clip.shapefile.to_crs(self.grid_shp.crs), how='inner', op='intersects')
+            airport_shapefile = gpd.sjoin(airport_shapefile.to_crs(self.grid.shapefile.crs),
+                                          self.clip.shapefile.to_crs(self.grid.shapefile.crs), how='inner',
+                                          op='intersects')
 
             shp_airport_list = list(np.unique(airport_shapefile['airport_id'].values))
 
@@ -379,15 +381,15 @@ class AviationSector(Sector):
                 shp_airport_list = list(set(conf_airport_list).intersection(shp_airport_list))
 
             if len(shp_airport_list) == 0:
-                raise NameError("No airports intersect with the defined domain or the defined aiport/s in the " +
-                                "airport_list do no exist ")
+                error_exit("No airports intersect with the defined domain or the defined aiport/s in the " +
+                           "airport_list do no exist ")
 
             airports_with_operations = np.unique(pd.read_csv(operations_file, usecols=['airport_id']).values)
 
             new_list = list(set(shp_airport_list) & set(airports_with_operations))
             if len(new_list) != len(shp_airport_list):
                 warn('{0} airports have no operations. Ignoring them.'.format(
-                    list(set(new_list) - set(shp_airport_list))))
+                    list(set(shp_airport_list) - set(new_list))))
 
             max_len = len(new_list)
             # Only for master (rank == 0)
@@ -397,9 +399,9 @@ class AviationSector(Sector):
                         for i in range(self.comm.size)]
             for sublist in new_list:
                 if len(sublist) == 0:
-                    raise ValueError("ERROR: The selected number of processors is to high. " +
-                                     "The maximum number of processors accepted are {0}".format(max_len) +
-                                     "(Maximum number of airports included in the working domain")
+                    error_exit("The selected number of processors is to high. " +
+                               "The maximum number of processors accepted are {0}".format(max_len) +
+                               "(Maximum number of airports included in the working domain")
         else:
             new_list = None
 
@@ -430,9 +432,9 @@ class AviationSector(Sector):
                 airport_shapefile = airport_shapefile.loc[self.airport_list_full, :].copy()
                 if not os.path.exists(os.path.dirname(airport_distribution_path)):
                     os.makedirs(os.path.dirname(airport_distribution_path))
-                airport_shapefile.to_crs(self.grid_shp.crs, inplace=True)
+                airport_shapefile.to_crs(self.grid.shapefile.crs, inplace=True)
                 airport_shapefile['area'] = airport_shapefile.area
-                airport_distribution = self.spatial_overlays(airport_shapefile, self.grid_shp.reset_index(),
+                airport_distribution = self.spatial_overlays(airport_shapefile, self.grid.shapefile.reset_index(),
                                                              how='intersection')
                 airport_distribution['fraction'] = airport_distribution.area / airport_distribution['area']
                 airport_distribution.drop(columns=['idx2', 'area', 'geometry', 'cons'], inplace=True)
@@ -477,6 +479,7 @@ class AviationSector(Sector):
         def normalize(df):
             total_fraction = df['{0}_f'.format(phase_type)].values.sum()
             df['{0}_f'.format(phase_type)] = df['{0}_f'.format(phase_type)] / total_fraction
+
             return df.loc[:, ['{0}_f'.format(phase_type)]]
 
         self.logger.write_log('\t\tCalculating runway distribution for {0}'.format(phase_type), message_level=2)
@@ -487,17 +490,14 @@ class AviationSector(Sector):
         if not os.path.exists(runway_distribution_path):
             if self.comm.rank == 0:
                 runway_shapefile['{0}_f'.format(phase_type)] = runway_shapefile.groupby('airport_id').apply(normalize)
-                if not os.path.exists(os.path.dirname(runway_distribution_path)):
-                    os.makedirs(os.path.dirname(runway_distribution_path))
-                runway_shapefile.reset_index(inplace=True)
-                runway_shapefile.to_crs(self.grid_shp.crs, inplace=True)
+
+                runway_shapefile.to_crs(self.grid.shapefile.crs, inplace=True)
                 runway_shapefile['length'] = runway_shapefile.length
                 # duplicating each runway by involved cell
-                runway_shapefile = gpd.sjoin(runway_shapefile, self.grid_shp.reset_index(), how="inner",
-                                             op='intersects')
+                runway_shapefile = gpd.sjoin(runway_shapefile.reset_index(), self.grid.shapefile.reset_index(),
+                                             how="inner", op='intersects')
                 # Adding cell geometry
-                runway_shapefile = runway_shapefile.merge(self.grid_shp.reset_index().loc[:, ['FID', 'geometry']],
-                                                          on='FID',  how='left')
+                runway_shapefile = runway_shapefile.merge(self.grid.shapefile.reset_index(), on='FID',  how='left')
                 # Intersection between line (roadway) and polygon (cell)
                 # runway_shapefile['geometry'] = runway_shapefile.apply(do_intersection, axis=1)
                 runway_shapefile['mini_length'] = runway_shapefile.apply(get_intersection_length, axis=1)
@@ -511,6 +511,8 @@ class AviationSector(Sector):
                 runway_shapefile = runway_shapefile[['airport_id', 'FID', 'layer', 'fraction']]
                 runway_shapefile = runway_shapefile.groupby(['airport_id', 'FID', 'layer']).sum()
                 # runway_shapefile.set_index(['airport_id', 'FID', 'layer'], inplace=True)
+                if not os.path.exists(os.path.dirname(runway_distribution_path)):
+                    os.makedirs(os.path.dirname(runway_distribution_path))
                 runway_shapefile.to_csv(runway_distribution_path)
             else:
                 runway_shapefile = None
@@ -601,8 +603,8 @@ class AviationSector(Sector):
                 trajectories_distr.reset_index(inplace=True)
 
                 # HORIZONTAL DISTRIBUTION
-                aux_grid = self.grid_shp.to_crs(trajectories_distr.crs).reset_index()
-                # trajectories_distr.to_crs(self.grid_shp.crs, inplace=True)
+                aux_grid = self.grid.shapefile.to_crs(trajectories_distr.crs).reset_index()
+                # trajectories_distr.to_crs(self.grid.shapefile.crs, inplace=True)
                 # duplicating each runway by involved cell
                 trajectories_distr = gpd.sjoin(trajectories_distr, aux_grid, how="inner", op='intersects')
                 # Adding cell geometry
@@ -1015,7 +1017,7 @@ class AviationSector(Sector):
         self.logger.write_log('\t\tTrajectory emissions distributed (approach, climb out)', message_level=2)
 
         emissions = pd.concat([airport_emissions, runway_departure_emissions, trajectory_arrival_emissions,
-                               trajectory_departure_emisions, runway_arrival_emissions])
+                               trajectory_departure_emisions, runway_arrival_emissions], sort=False)
 
         emissions = emissions.groupby(['FID', 'layer', 'tstep']).sum()
         runway_arrival_emissions_wear = runway_arrival_emissions_wear.groupby(['FID', 'layer', 'tstep']).sum()
@@ -1024,11 +1026,11 @@ class AviationSector(Sector):
             emissions['nmvoc'] = 0.9 * emissions['hc']
             emissions['ch4'] = 0.1 * emissions['hc']
 
-        # Speceiation
+        # Speciation
         runway_arrival_emissions_wear = self.speciate(runway_arrival_emissions_wear, 'landing_wear')
         emissions = self.speciate(emissions, 'default')
 
-        emissions = pd.concat([emissions, runway_arrival_emissions_wear])
+        emissions = pd.concat([emissions, runway_arrival_emissions_wear], sort=False)
         emissions = emissions[(emissions.T != 0).any()]
         emissions = emissions.groupby(['FID', 'layer', 'tstep']).sum()
 

@@ -8,10 +8,12 @@ import numpy as np
 from hermesv3_bu.sectors.agricultural_sector import AgriculturalSector
 from hermesv3_bu.io_server.io_shapefile import IoShapefile
 from hermesv3_bu.logger.log import Log
+from hermesv3_bu.grids.grid import Grid
+from hermesv3_bu.tools.checker import check_files
 
 
 class AgriculturalCropOperationsSector(AgriculturalSector):
-    def __init__(self, comm_agr, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants,
+    def __init__(self, comm_agr, comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants,
                  vertical_levels, crop_list, nut_shapefile_path, land_uses_path, ef_dir, monthly_profiles_path,
                  weekly_profiles_path, hourly_profiles_path, speciation_map_path, speciation_profiles_path,
                  molecular_weights_path, landuse_by_nut, crop_by_nut, crop_from_landuse_path):
@@ -21,8 +23,8 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
             not created yet.
         :type auxiliary_dir: str
 
-        :param grid_shp: Shapefile that contains the destination grid. It must contains the 'FID' (cell num).
-        :type grid_shp: GeoPandas.GeoDataframe
+        :param grid: Grid object.
+        :type grid: Grid
 
         :param clip: Path to the shapefile that contains the region of interest.
         :type clip: str
@@ -31,7 +33,7 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
         :type date_array: list(datetime.datetime, ...)
 
         :param nut_shapefile_path: Path to the shapefile that contain the NUT polygons. The shapefile must contain
-            the 'ORDER06' information with the NUT_code.
+            the 'nuts2_id' information with the NUT_code.
         :type nut_shapefile_path: str
 
         :param source_pollutants: List of input pollutants to take into account. Agricultural livestock module can
@@ -84,13 +86,20 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
         :param crop_by_nut:
 
         :param nut_shapefile_path: Path to the shapefile that contain the NUT polygons. The shapefile must contain
-            the 'ORDER07' information with the NUT_code.
+            the 'nuts3_id' information with the NUT_code.
         :type nut_shapefile_path: str
         """
         spent_time = timeit.default_timer()
         logger.write_log('===== AGRICULTURAL CROP OPERATIONS SECTOR =====')
+
+        check_files(
+            [nut_shapefile_path, land_uses_path, monthly_profiles_path, weekly_profiles_path,
+             hourly_profiles_path, speciation_map_path, speciation_profiles_path, molecular_weights_path,
+             landuse_by_nut, crop_by_nut, crop_from_landuse_path] +
+            [os.path.join(ef_dir, ef_file) for ef_file in ['{0}.csv'.format(pol) for pol in source_pollutants]])
+
         super(AgriculturalCropOperationsSector, self).__init__(
-            comm_agr, comm, logger, auxiliary_dir, grid_shp, clip, date_array, nut_shapefile_path, source_pollutants,
+            comm_agr, comm, logger, auxiliary_dir, grid, clip, date_array, nut_shapefile_path, source_pollutants,
             vertical_levels, crop_list, land_uses_path, landuse_by_nut, crop_by_nut, crop_from_landuse_path, ef_dir,
             monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
             speciation_profiles_path, molecular_weights_path)
@@ -240,7 +249,7 @@ class AgriculturalCropOperationsSector(AgriculturalSector):
         self.logger.write_log('\tCalculating emissions')
 
         distribution_by_month = {}
-        for month in self.months.iterkeys():
+        for month in self.months.keys():
             distribution_by_month[month] = self.calculate_distribution_by_month(month)
 
         self.crop_distribution = self.add_dates(distribution_by_month)

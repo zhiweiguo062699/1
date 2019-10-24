@@ -1,19 +1,17 @@
 #!/usr/bin/env python
 
-import sys
 import os
 import timeit
-from warnings import warn
 from mpi4py import MPI
 import rasterio
 from rasterio.mask import mask
 import geopandas as gpd
-import pandas as pd
 import numpy as np
 from shapely.geometry import Polygon
 
-
 from hermesv3_bu.io_server.io_server import IoServer
+from hermesv3_bu.io_server.io_shapefile import IoShapefile
+from hermesv3_bu.tools.checker import check_files, error_exit
 
 
 class IoRaster(IoServer):
@@ -49,7 +47,7 @@ class IoRaster(IoServer):
             Function to parse features from GeoDataFrame in such a manner that rasterio wants them"""
             import json
             return [json.loads(gdf.to_json())['features'][0]['geometry']]
-
+        check_files([raster_path, shape_path])
         data = rasterio.open(raster_path)
         geo = gpd.read_file(shape_path)
         if len(geo) > 1:
@@ -106,7 +104,7 @@ class IoRaster(IoServer):
             Function to parse features from GeoDataFrame in such a manner that rasterio wants them"""
             import json
             return [json.loads(gdf.to_json())['features'][0]['geometry']]
-
+        check_files(raster_path)
         data = rasterio.open(raster_path)
 
         if len(geo) > 1:
@@ -172,7 +170,7 @@ class IoRaster(IoServer):
             else:
                 bound_coords = np.dstack((coords_left, coords_right, coords_right, coords_left))
         else:
-            raise ValueError('ERROR: The number of vertices of the boundaries must be 2 or 4.')
+            error_exit('ERROR: The number of vertices of the boundaries must be 2 or 4.')
         # self.logger.write_time_log('IoRaster', 'create_bounds', timeit.default_timer() - spent_time, 3)
         return bound_coords
 
@@ -198,6 +196,77 @@ class IoRaster(IoServer):
 
         return gdf
 
+    def to_shapefile_serie_by_cell(self, raster_path, out_path=None, write=False, crs=None, nodata=0):
+        """
+
+        :param raster_path:
+        :param out_path:
+        :param write:
+        :param crs:
+        :param nodata:
+        :return:
+        """
+
+        if out_path is None or not os.path.exists(out_path):
+            ds = rasterio.open(raster_path)
+
+            grid_info = ds.transform
+            # TODO remove when new version will be installed
+            if rasterio.__version__ == '0.36.0':
+                lons = np.arange(ds.width) * grid_info[1] + grid_info[0]
+                lats = np.arange(ds.height) * grid_info[5] + grid_info[3]
+            elif rasterio.__version__ == '1.0.21':
+                lons = np.arange(ds.width) * grid_info[0] + grid_info[2]
+                lats = np.arange(ds.height) * grid_info[4] + grid_info[5]
+            else:
+                lons = np.arange(ds.width) * grid_info[0] + grid_info[2]
+                lats = np.arange(ds.height) * grid_info[4] + grid_info[5]
+
+            # 1D to 2D
+            c_lats = np.array([lats] * len(lons)).T.flatten()
+            c_lons = np.array([lons] * len(lats)).flatten()
+
+            del lons, lats
+            if rasterio.__version__ == '0.36.0':
+                b_lons = self.create_bounds(c_lons, grid_info[1], number_vertices=4) + grid_info[1] / 2
+                b_lats = self.create_bounds(c_lats, grid_info[1], number_vertices=4, inverse=True) + grid_info[5] / 2
+            elif rasterio.__version__ == '1.0.21':
+                b_lons = self.create_bounds(c_lons, grid_info[0], number_vertices=4) + grid_info[0] / 2
+                b_lats = self.create_bounds(c_lats, grid_info[4], number_vertices=4, inverse=True) + grid_info[4] / 2
+            else:
+                b_lons = self.create_bounds(c_lons, grid_info[0], number_vertices=4) + grid_info[0] / 2
+                b_lats = self.create_bounds(c_lats, grid_info[4], number_vertices=4, inverse=True) + grid_info[4] / 2
+
+            b_lats = b_lats.reshape((b_lats.shape[1], b_lats.shape[2]))
+            b_lons = b_lons.reshape((b_lons.shape[1], b_lons.shape[2]))
+
+            gdf = gpd.GeoDataFrame(ds.read(1).flatten(), columns=['data'], index=range(b_lons.shape[0]), crs=ds.crs)
+            gdf['geometry'] = None
+
+            for i in range(b_lons.shape[0]):
+                gdf.loc[i, 'geometry'] = Polygon([(b_lons[i, 0], b_lats[i, 0]),
+                                                  (b_lons[i, 1], b_lats[i, 1]),
+                                                  (b_lons[i, 2], b_lats[i, 2]),
+                                                  (b_lons[i, 3], b_lats[i, 3]),
+                                                  (b_lons[i, 0], b_lats[i, 0])])
+
+            gdf['CELL_ID'] = gdf.index
+
+            gdf = gdf[gdf['data'] != nodata]
+
+            if crs is not None:
+                gdf = gdf.to_crs(crs)
+
+            if write:
+                if not os.path.exists(os.path.dirname(out_path)):
+                    os.makedirs(os.path.dirname(out_path))
+                gdf.to_file(out_path)
+
+        else:
+            gdf = gpd.read_file(out_path)
+
+        return gdf
+
     def to_shapefile_serie(self, raster_path, out_path=None, write=False, crs=None, nodata=0):
         """
 
@@ -214,6 +283,7 @@ class IoRaster(IoServer):
             from rasterio.features import shapes
             mask = None
             src = rasterio.open(raster_path)
+
             image = src.read(1)  # first band
             image = image.astype(np.float32)
             geoms = (
@@ -222,10 +292,14 @@ class IoRaster(IoServer):
 
             gdf = gpd.GeoDataFrame.from_features(geoms)
 
-            gdf.loc[:, 'CELL_ID'] = xrange(len(gdf))
+            gdf.loc[:, 'CELL_ID'] = range(len(gdf))
             gdf = gdf[gdf['data'] != nodata]
 
-            gdf.crs = src.crs
+            # Error on to_crs function of geopandas that flip lat with lon in the non dict form
+            if src.crs == 'EPSG:4326':
+                gdf.crs = {'init': 'epsg:4326'}
+            else:
+                gdf.crs = src.crs
 
             if crs is not None:
                 gdf = gdf.to_crs(crs)
@@ -237,5 +311,75 @@ class IoRaster(IoServer):
 
         else:
             gdf = gpd.read_file(out_path)
+        gdf.set_index('CELL_ID', inplace=True)
+        return gdf
 
+    def to_shapefile_parallel(self, raster_path, gather=False, bcast=False, crs=None, nodata=0):
+        spent_time = timeit.default_timer()
+        if self.comm.Get_rank() == 0:
+            ds = rasterio.open(raster_path)
+            grid_info = ds.transform
+
+            # TODO remove when new version will be installed
+            if rasterio.__version__ == '0.36.0':
+                lons = np.arange(ds.width) * grid_info[1] + grid_info[0]
+                lats = np.arange(ds.height) * grid_info[5] + grid_info[3]
+            elif rasterio.__version__ == '1.0.21':
+                lons = np.arange(ds.width) * grid_info[0] + grid_info[2]
+                lats = np.arange(ds.height) * grid_info[4] + grid_info[5]
+            else:
+                lons = np.arange(ds.width) * grid_info[0] + grid_info[2]
+                lats = np.arange(ds.height) * grid_info[4] + grid_info[5]
+
+            # 1D to 2D
+            c_lats = np.array([lats] * len(lons)).T.flatten()
+            c_lons = np.array([lons] * len(lats)).flatten()
+            del lons, lats
+            if rasterio.__version__ == '0.36.0':
+                b_lons = self.create_bounds(c_lons, grid_info[1], number_vertices=4) + grid_info[1] / 2
+                b_lats = self.create_bounds(c_lats, grid_info[1], number_vertices=4, inverse=True) + grid_info[5] / 2
+            elif rasterio.__version__ == '1.0.21':
+                b_lons = self.create_bounds(c_lons, grid_info[0], number_vertices=4) + grid_info[0] / 2
+                b_lats = self.create_bounds(c_lats, grid_info[4], number_vertices=4, inverse=True) + grid_info[4] / 2
+            else:
+                b_lons = self.create_bounds(c_lons, grid_info[0], number_vertices=4) + grid_info[0] / 2
+                b_lats = self.create_bounds(c_lats, grid_info[4], number_vertices=4, inverse=True) + grid_info[4] / 2
+
+            b_lats = b_lats.reshape((b_lats.shape[1], b_lats.shape[2]))
+            b_lons = b_lons.reshape((b_lons.shape[1], b_lons.shape[2]))
+
+            gdf = gpd.GeoDataFrame(ds.read(1).flatten(), columns=['data'], index=range(b_lons.shape[0]), crs=ds.crs)
+            # Error on to_crs function of geopandas that flip lat with lon in the non dict form
+            if gdf.crs == 'EPSG:4326':
+                gdf.crs = {'init': 'epsg:4326'}
+            gdf['geometry'] = None
+        else:
+            gdf = None
+            b_lons = None
+            b_lats = None
+        self.comm.Barrier()
+        gdf = IoShapefile(self.comm).split_shapefile(gdf)
+
+        b_lons = IoShapefile(self.comm).split_shapefile(b_lons)
+        b_lats = IoShapefile(self.comm).split_shapefile(b_lats)
+
+        i = 0
+        for j, df_aux in gdf.iterrows():
+            gdf.loc[j, 'geometry'] = Polygon([(b_lons[i, 0], b_lats[i, 0]),
+                                              (b_lons[i, 1], b_lats[i, 1]),
+                                              (b_lons[i, 2], b_lats[i, 2]),
+                                              (b_lons[i, 3], b_lats[i, 3]),
+                                              (b_lons[i, 0], b_lats[i, 0])])
+            i += 1
+
+        gdf['CELL_ID'] = gdf.index
+        gdf = gdf[gdf['data'] != nodata]
+
+        if crs is not None:
+            gdf = gdf.to_crs(crs)
+
+        if gather and not bcast:
+            gdf = IoShapefile(self.comm).gather_shapefile(gdf)
+        elif gather and bcast:
+            gdf = IoShapefile(self.comm).gather_bcast_shapefile(gdf)
         return gdf

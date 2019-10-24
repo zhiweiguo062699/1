@@ -8,6 +8,7 @@ from mpi4py import MPI
 from warnings import warn
 import timeit
 from hermesv3_bu.logger.log import Log
+from hermesv3_bu.tools.checker import error_exit
 
 CHUNKING = True
 BALANCED = False
@@ -80,8 +81,8 @@ def select_writer(logger, arguments, grid, date_array):
         writer = WrfChemWriter(comm_world, comm_write, logger, arguments.output_name, grid, date_array, pollutant_info,
                                rank_distribution, arguments.output_attributes, arguments.emission_summary)
     else:
-        raise TypeError("Unknown output model '{0}'. ".format(arguments.output_model) +
-                        "Only MONARCH, CMAQ, WRF_CHEM or DEFAULT writers are available")
+        error_exit("Unknown output model '{0}'. ".format(arguments.output_model) +
+                   "Only MONARCH, CMAQ, WRF_CHEM or DEFAULT writers are available")
 
     logger.write_time_log('Writer', 'select_writer', timeit.default_timer() - spent_time)
     return writer
@@ -129,7 +130,7 @@ def get_distribution(logger, processors, shape):
         aux_rows -= 1
 
     rows_sum = 0
-    for proc in xrange(processors):
+    for proc in range(processors):
         total_rows -= aux_rows
         if total_rows < 0 or proc == processors - 1:
             rows = total_rows + aux_rows
@@ -193,7 +194,7 @@ def get_balanced_distribution(logger, processors, shape):
     procs_rows_extended = total_rows-(procs_rows*processors)
 
     rows_sum = 0
-    for proc in xrange(processors):
+    for proc in range(processors):
         if proc < procs_rows_extended:
             aux_rows = procs_rows + 1
         else:
@@ -308,7 +309,7 @@ class Writer(object):
         # Sending
         self.logger.write_log('Sending emissions to the writing processors.', message_level=2)
         requests = []
-        for w_rank, info in self.rank_distribution.iteritems():
+        for w_rank, info in self.rank_distribution.items():
             partial_emis = emissions.loc[(emissions.index.get_level_values(0) >= info['fid_min']) &
                                          (emissions.index.get_level_values(0) < info['fid_max'])]
 
@@ -320,40 +321,29 @@ class Writer(object):
 
         # Receiving
         self.logger.write_log('Receiving emissions in the writing processors.', message_level=2)
-        if self.comm_world.Get_rank() in self.rank_distribution.iterkeys():
+        if self.comm_world.Get_rank() in self.rank_distribution.keys():
             self.logger.write_log("I'm a writing processor.", message_level=3)
             data_list = []
 
             self.logger.write_log("Prepared to receive", message_level=3)
-            for i_rank in xrange(self.comm_world.Get_size()):
-                # print self.rank_distribution[i_rank]
-                # print reduce(lambda x, y: x * y, self.rank_distribution[i_rank]['shape'])
-                # req = self.comm_world.irecv(source=i_rank, tag=i_rank + MPI_TAG_CONSTANT)
-                # data_size = req.wait()
-
+            for i_rank in range(self.comm_world.Get_size()):
                 self.logger.write_log(
                     '\tFrom {0} to {1}'.format(i_rank, self.comm_world.Get_rank()), message_level=3)
                 req = self.comm_world.irecv(2**27, source=i_rank, tag=i_rank)
                 dataframe = req.wait()
                 data_list.append(dataframe.reset_index())
-            # print "I'm Rank {0} DataList: \n {1}".format(self.comm_world.Get_rank(), data_list)
-            # new_emissions = pd.concat(data_list).reset_index().groupby(['FID', 'layer', 'tstep']).sum()
+
             new_emissions = pd.concat(data_list)
             new_emissions[['FID', 'layer', 'tstep']] = new_emissions[['FID', 'layer', 'tstep']].astype(np.int32)
-            # new_emissions.reset_index(inplace=True)
 
             new_emissions = new_emissions.groupby(['FID', 'layer', 'tstep']).sum()
-            # try:
-            #     new_emissions = new_emissions.groupby(['FID', 'layer', 'tstep']).sum()
-            # except KeyError as e:
-            #     print "I'm Rank {0} ERROR on: \n {1}".format(self.comm_world.Get_rank(), new_emissions)
-            #     raise e
+
         else:
             new_emissions = None
         self.comm_world.Barrier()
         self.logger.write_log('All emissions received.', message_level=2)
 
-        if self.emission_summary and self.comm_world.Get_rank() in self.rank_distribution.iterkeys():
+        if self.emission_summary and self.comm_world.Get_rank() in self.rank_distribution.keys():
             self.make_summary(new_emissions)
 
         self.logger.write_time_log('Writer', 'gather_emissions', timeit.default_timer() - spent_time)
@@ -396,7 +386,7 @@ class Writer(object):
         spent_time = timeit.default_timer()
         emissions = self.unit_change(emissions)
         emissions = self.gather_emissions(emissions)
-        if self.comm_world.Get_rank() in self.rank_distribution.iterkeys():
+        if self.comm_world.Get_rank() in self.rank_distribution.keys():
             self.write_netcdf(emissions)
 
         self.comm_world.Barrier()
@@ -447,5 +437,5 @@ class Writer(object):
             summary.drop(columns=['layer'], inplace=True)
             summary.groupby('tstep').sum().to_csv(self.emission_summary_paths['hourly_summary_path'])
             summary.drop(columns=['tstep'], inplace=True)
-            summary.sum().to_csv(self.emission_summary_paths['total_summary_path'])
+            pd.DataFrame(summary.sum()).to_csv(self.emission_summary_paths['total_summary_path'])
         self.logger.write_time_log('Writer', 'make_summary', timeit.default_timer() - spent_time)

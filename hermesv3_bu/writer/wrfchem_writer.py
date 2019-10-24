@@ -9,6 +9,7 @@ from hermesv3_bu.writer.writer import Writer
 from mpi4py import MPI
 import timeit
 from hermesv3_bu.logger.log import Log
+from hermesv3_bu.tools.checker import error_exit
 
 
 class WrfChemWriter(Writer):
@@ -67,8 +68,8 @@ class WrfChemWriter(Writer):
         super(WrfChemWriter, self).__init__(comm_world, comm_write, logger, netcdf_path, grid, date_array,
                                             pollutant_info, rank_distribution, emission_summary)
         if self.grid.grid_type not in ['Lambert Conformal Conic', 'Mercator']:
-            raise TypeError("ERROR: Only Lambert Conformal Conic or Mercator grid is implemented for WRF-Chem. " +
-                            "The current grid type is '{0}'".format(self.grid.grid_type))
+            error_exit("ERROR: Only Lambert Conformal Conic or Mercator grid is implemented for WRF-Chem. " +
+                       "The current grid type is '{0}'".format(self.grid.grid_type))
 
         self.global_attributes_order = [
             'TITLE', 'START_DATE', 'WEST-EAST_GRID_DIMENSION', 'SOUTH-NORTH_GRID_DIMENSION',
@@ -138,9 +139,9 @@ class WrfChemWriter(Writer):
 
         for i, (pollutant, variable) in enumerate(self.pollutant_info.iterrows()):
             if variable.get('units') not in ['mol.h-1.km-2', "mol km^-2 hr^-1", 'ug.s-1.m-2', "ug/m3 m/s"]:
-                raise ValueError("'{0}' unit is not supported for WRF-Chem emission ".format(variable.get('units')) +
-                                 "input file. Set '{0}' in the speciation_map file.".format(
-                                     ['mol.h-1.km-2', "mol km^-2 hr^-1", 'ug.s-1.m-2', "ug/m3 m/s"]))
+                error_exit("'{0}' unit is not supported for WRF-Chem emission ".format(variable.get('units')) +
+                           "input file. Set '{0}' in the speciation_map file.".format(
+                               ['mol.h-1.km-2', "mol km^-2 hr^-1", 'ug.s-1.m-2', "ug/m3 m/s"]))
 
             new_pollutant_info.loc[i, 'pollutant'] = pollutant
             if variable.get('units') in ['mol.h-1.km-2', "mol km^-2 hr^-1"]:
@@ -177,8 +178,8 @@ class WrfChemWriter(Writer):
         elif self.grid.grid_type == 'Mercator':
             lat_ts = np.float32(self.grid.attributes['lat_ts'])
         else:
-            raise TypeError("ERROR: Only Lambert Conformal Conic or Mercator grid is implemented for WRF-Chem. " +
-                            "The current grid type is '{0}'".format(self.grid.grid_type))
+            error_exit("Only Lambert Conformal Conic or Mercator grid is implemented for WRF-Chem. " +
+                       "The current grid type is '{0}'".format(self.grid.grid_type))
 
         atts_dict = {
             'BOTTOM-TOP_GRID_DIMENSION': np.int32(45),
@@ -228,7 +229,7 @@ class WrfChemWriter(Writer):
 
         df = pd.read_csv(global_attributes_path)
 
-        for att in atts_dict.iterkeys():
+        for att in atts_dict.keys():
             try:
                 if att in int_atts:
                     atts_dict[att] = np.int32(df.loc[df['attribute'] == att, 'value'].item())
@@ -307,15 +308,12 @@ class WrfChemWriter(Writer):
 
         :return:
         """
-        import netCDF4
+        aux_times = np.chararray((len(self.date_array), 19), itemsize=1)
 
-        aux_times_list = []
+        for i, date in enumerate(self.date_array):
+            aux_times[i] = list(date.strftime("%Y-%m-%d_%H:%M:%S"))
 
-        for date in self.date_array:
-            aux_times_list.append(date.strftime("%Y-%m-%d_%H:%M:%S"))
-
-        str_out = netCDF4.stringtochar(np.array(aux_times_list))
-        return str_out
+        return aux_times
 
     def write_netcdf(self, emissions):
         """
@@ -327,7 +325,11 @@ class WrfChemWriter(Writer):
         """
         spent_time = timeit.default_timer()
 
-        netcdf = Dataset(self.netcdf_path, mode='w', parallel=True, comm=self.comm_write, info=MPI.Info())
+        if self.comm_write.Get_size() > 1:
+            netcdf = Dataset(self.netcdf_path, format="NETCDF4", mode='w', parallel=True, comm=self.comm_write,
+                             info=MPI.Info())
+        else:
+            netcdf = Dataset(self.netcdf_path, format="NETCDF4", mode='w')
 
         # ===== DIMENSIONS =====
         self.logger.write_log('\tCreating NetCDF dimensions', message_level=2)
@@ -347,8 +349,16 @@ class WrfChemWriter(Writer):
         for var_name in emissions.columns.values:
             self.logger.write_log('\t\tCreating {0} variable'.format(var_name), message_level=3)
 
+            if self.comm_write.Get_size() > 1:
+                var = netcdf.createVariable(var_name, np.float64,
+                                            ('Time', 'emissions_zdim', 'south_north', 'west_east',))
+                var.set_collective(True)
+            else:
+                var = netcdf.createVariable(var_name, np.float64,
+                                            ('Time', 'emissions_zdim', 'south_north', 'west_east',), zlib=True)
+
             var_data = self.dataframe_to_array(emissions.loc[:, [var_name]])
-            var = netcdf.createVariable(var_name, np.float64, ('Time', 'emissions_zdim', 'south_north', 'west_east',))
+
             var[:, :,
                 self.rank_distribution[self.comm_write.Get_rank()]['y_min']:
                 self.rank_distribution[self.comm_write.Get_rank()]['y_max'],

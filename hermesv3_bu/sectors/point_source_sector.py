@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import sys
 import os
 import timeit
 import numpy as np
@@ -10,6 +11,7 @@ from hermesv3_bu.sectors.sector import Sector
 from hermesv3_bu.io_server.io_shapefile import IoShapefile
 # from hermesv3_bu.io_server.io_netcdf import IoNetcdf
 from hermesv3_bu.logger.log import Log
+from hermesv3_bu.tools.checker import check_files, error_exit
 
 INTERPOLATION_TYPE = 'linear'
 # GRAVITI m/s-2
@@ -22,8 +24,8 @@ class PointSourceSector(Sector):
     """
     Class to calculate the Point Source emissions
 
-    :param grid_shp: Grid of the destination domain
-    :type grid_shp: Grid
+    :param grid: Grid of the destination domain
+    :type grid: Grid
 
     :param catalog_path: Path to the fine that contains all the information for each point source.
     :type catalog_path: str
@@ -46,27 +48,60 @@ class PointSourceSector(Sector):
     :param sector_list: List os sectors (SNAPS) to take into account. 01, 03, 04, 09
     :type sector_list: list
     """
-    def __init__(self, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+    def __init__(self, comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
                  catalog_path, monthly_profiles_path, weekly_profiles_path, hourly_profiles_path,
                  speciation_map_path, speciation_profiles_path, sector_list, measured_emission_path,
                  molecular_weights_path, plume_rise=False, plume_rise_pahts=None):
         spent_time = timeit.default_timer()
-
+        logger.write_log('===== POINT SOURCES SECTOR =====')
+        check_files(
+            [catalog_path, monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
+             speciation_profiles_path])
         super(PointSourceSector, self).__init__(
-            comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+            comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
             monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
             speciation_profiles_path, molecular_weights_path)
 
         self.plume_rise = plume_rise
-        self.catalog = self.read_catalog(catalog_path, sector_list)
-
+        self.catalog = self.read_catalog_shapefile(catalog_path, sector_list)
+        self.check_catalog()
         self.catalog_measured = self.read_catalog_for_measured_emissions(catalog_path, sector_list)
         self.measured_path = measured_emission_path
         self.plume_rise_pahts = plume_rise_pahts
 
         self.logger.write_time_log('PointSourceSector', '__init__', timeit.default_timer() - spent_time)
 
-    def read_catalog(self, catalog_path, sector_list):
+    def check_catalog(self):
+        # Checking monthly profiles IDs
+        links_month = set(np.unique(self.catalog['P_month'].dropna().values))
+        month = set(self.monthly_profiles.index.values)
+        month_res = links_month - month
+        if len(month_res) > 0:
+            error_exit("The following monthly profile IDs reported in the point sources shapefile do not appear " +
+                       "in the monthly profiles file. {0}".format(month_res))
+        # Checking weekly profiles IDs
+        links_week = set(np.unique(self.catalog['P_week'].dropna().values))
+        week = set(self.weekly_profiles.index.values)
+        week_res = links_week - week
+        if len(week_res) > 0:
+            error_exit("The following weekly profile IDs reported in the point sources shapefile do not appear " +
+                       "in the weekly profiles file. {0}".format(week_res))
+        # Checking hourly profiles IDs
+        links_hour = set(np.unique(self.catalog['P_hour'].dropna().values))
+        hour = set(self.hourly_profiles.index.values)
+        hour_res = links_hour - hour
+        if len(hour_res) > 0:
+            error_exit("The following hourly profile IDs reported in the point sources shapefile do not appear " +
+                       "in the hourly profiles file. {0}".format(hour_res))
+        # Checking specly profiles IDs
+        links_spec = set(np.unique(self.catalog['P_spec'].dropna().values))
+        spec = set(self.speciation_profile.index.values)
+        spec_res = links_spec - spec
+        if len(spec_res) > 0:
+            error_exit("The following speciation profile IDs reported in the point sources shapefile do not appear " +
+                       "in the speciation profiles file. {0}".format(spec_res))
+
+    def read_catalog_csv(self, catalog_path, sector_list):
         """
         Read the catalog
 
@@ -121,7 +156,64 @@ class PointSourceSector(Sector):
         self.logger.write_time_log('PointSourceSector', 'read_catalog', timeit.default_timer() - spent_time)
         return catalog_df
 
-    def read_catalog_for_measured_emissions(self, catalog_path, sector_list):
+    def read_catalog_shapefile(self, catalog_path, sector_list):
+        """
+        Read the catalog
+
+        :param catalog_path: path to the catalog
+        :type catalog_path: str
+
+        :param sector_list: List of sectors to take into account
+        :type sector_list: list
+
+        :return: catalog
+        :rtype: DataFrame
+        """
+        spent_time = timeit.default_timer()
+
+        if self.comm.Get_rank() == 0:
+            if self.plume_rise:
+                columns = {"Code": np.str, "Cons": np.bool, "SNAP": np.str, "Height": np.float64,
+                           "Diameter": np.float64, "Speed": np.float64, "Temp": np.float64, "AF": np.float64,
+                           "P_month": np.str, "P_week": np.str, "P_hour": np.str, "P_spec": np.str}
+            else:
+                columns = {"Code": np.str, "Cons": np.bool, "SNAP": np.str, "Height": np.float64, "AF": np.float64,
+                           "P_month": np.str, "P_week": np.str, "P_hour": np.str, "P_spec": np.str}
+            for pollutant in self.source_pollutants:
+                # EF in Kg / Activity factor
+                columns['EF_{0}'.format(pollutant)] = np.float64
+
+            catalog_df = gpd.read_file(catalog_path)
+
+            columns_to_drop = list(set(catalog_df.columns.values) - set(list(columns.keys()) + ['geometry']))
+
+            if len(columns_to_drop) > 0:
+                catalog_df.drop(columns=columns_to_drop, inplace=True)
+            for col, typ in columns.items():
+                catalog_df[col] = catalog_df[col].astype(typ)
+
+            # Filtering
+            catalog_df = catalog_df.loc[catalog_df['Cons'] == 1, :]
+            catalog_df.drop('Cons', axis=1, inplace=True)
+
+            # Filtering
+            catalog_df = catalog_df.loc[catalog_df['AF'] != -1, :]
+
+            if sector_list is not None:
+                catalog_df = catalog_df.loc[catalog_df['SNAP'].str[:2].isin(sector_list)]
+            catalog_df.drop('SNAP', axis=1, inplace=True)
+
+            catalog_df = gpd.sjoin(catalog_df, self.clip.shapefile.to_crs(catalog_df.crs), how='inner')
+            catalog_df.drop(columns=['index_right'], inplace=True)
+
+        else:
+            catalog_df = None
+        self.comm.Barrier()
+        catalog_df = IoShapefile(self.comm).split_shapefile(catalog_df)
+        self.logger.write_time_log('PointSourceSector', 'read_catalog', timeit.default_timer() - spent_time)
+        return catalog_df
+
+    def read_catalog_for_measured_emissions_csv(self, catalog_path, sector_list):
         """
         Read the catalog
 
@@ -147,6 +239,56 @@ class PointSourceSector(Sector):
         #     columns['EF_{0}'.format(pollutant)] = settings.precision
 
         catalog_df = pd.read_csv(catalog_path, usecols=columns.keys(), dtype=columns)
+
+        # Filtering
+        catalog_df = catalog_df.loc[catalog_df['Cons'] == 1, :]
+        catalog_df.drop('Cons', axis=1, inplace=True)
+
+        # Filtering
+        catalog_df = catalog_df.loc[catalog_df['AF'] == -1, :]
+        catalog_df.drop('AF', axis=1, inplace=True)
+
+        if sector_list is not None:
+            catalog_df = catalog_df.loc[catalog_df['SNAP'].str[:2].isin(sector_list)]
+        catalog_df.drop('SNAP', axis=1, inplace=True)
+
+        self.logger.write_time_log('PointSourceSector', 'read_catalog_for_measured_emissions',
+                                   timeit.default_timer() - spent_time)
+        return catalog_df
+
+    def read_catalog_for_measured_emissions(self, catalog_path, sector_list):
+        """
+        Read the catalog
+
+        :param catalog_path: path to the catalog
+        :type catalog_path: str
+
+        :param sector_list: List of sectors to take into account
+        :type sector_list: list
+
+        :return: catalog
+        :rtype: DataFrame
+        """
+        spent_time = timeit.default_timer()
+
+        if self.plume_rise:
+            columns = {"Code": np.str, "Cons": np.bool, "SNAP": np.str, "Lon": np.float64, "Lat": np.float64,
+                       "Height": np.float64, "Diameter": np.float64, "Speed": np.float64, "Temp": np.float64,
+                       "AF": np.float64, "P_spec": np.str}
+        else:
+            columns = {"Code": np.str, "Cons": np.bool, "SNAP": np.str, "Lon": np.float64, "Lat": np.float64,
+                       "Height": np.float64, "AF": np.float64, "P_spec": np.str}
+        # for pollutant in self.pollutant_list:
+        #     columns['EF_{0}'.format(pollutant)] = settings.precision
+
+        catalog_df = gpd.read_file(catalog_path)
+
+        columns_to_drop = list(set(catalog_df.columns.values) - set(list(columns.keys()) + ['geometry']))
+
+        if len(columns_to_drop) > 0:
+            catalog_df.drop(columns=columns_to_drop, inplace=True)
+        for col, typ in columns.items():
+            catalog_df[col] = catalog_df[col].astype(typ)
 
         # Filtering
         catalog_df = catalog_df.loc[catalog_df['Cons'] == 1, :]
@@ -277,8 +419,9 @@ class PointSourceSector(Sector):
                                    timeit.default_timer() - spent_time)
         return catalog
 
-    @staticmethod
-    def get_meteo_xy(dataframe, netcdf_path):
+    def get_meteo_xy(self, dataframe, netcdf_path):
+        spent_time = timeit.default_timer()
+
         def nearest(row, geom_union, df1, df2, geom1_col='geometry', geom2_col='geometry', src_column=None):
             """Finds the nearest point and return the corresponding value from specified column.
             https://automating-gis-processes.github.io/2017/lessons/L3/nearest-neighbour.html
@@ -295,16 +438,19 @@ class PointSourceSector(Sector):
         import numpy as np
         import pandas as pd
         import geopandas as gpd
-
+        check_files(netcdf_path)
         nc = Dataset(netcdf_path, mode='r')
-        lats = nc.variables['lat'][:]
-        lons = nc.variables['lon'][:]
+        try:
+            lats = nc.variables['lat'][:]
+            lons = nc.variables['lon'][:]
+        except KeyError as e:
+            error_exit("{0} variable not found in {1} file.".format(str(e), netcdf_path))
         x = np.array([np.arange(lats.shape[1])] * lats.shape[0])
         y = np.array([np.arange(lats.shape[0]).T] * lats.shape[1]).T
 
         nc_dataframe = pd.DataFrame.from_dict({'X': x.flatten(), 'Y': y.flatten()})
         nc_dataframe = gpd.GeoDataFrame(nc_dataframe,
-                                        geometry=[Point(xy) for xy in zip(lons.flatten(), lats.flatten())],
+                                        geometry=[Point(xy) for xy in list(zip(lons.flatten(), lats.flatten()))],
                                         crs={'init': 'epsg:4326'})
         nc_dataframe['index'] = nc_dataframe.index
 
@@ -315,6 +461,7 @@ class PointSourceSector(Sector):
         dataframe['X'] = nc_dataframe.loc[dataframe['meteo_index'], 'X'].values
         dataframe['Y'] = nc_dataframe.loc[dataframe['meteo_index'], 'Y'].values
 
+        self.logger.write_time_log('PointSourceSector', 'get_meteo_xy', timeit.default_timer() - spent_time)
         return dataframe[['X', 'Y']]
 
     def get_plumerise_meteo(self, catalog):
@@ -322,16 +469,23 @@ class PointSourceSector(Sector):
             from netCDF4 import Dataset, num2date
             nc_path = os.path.join(dir_path,
                                    '{0}_{1}.nc'.format(var_name, dataframe.name.replace(hour=0).strftime("%Y%m%d%H")))
+            check_files(nc_path)
             netcdf = Dataset(nc_path, mode='r')
             # time_index
-            time = netcdf.variables['time']
+            try:
+                time = netcdf.variables['time']
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), nc_path))
             nc_times = [x.replace(minute=0, second=0, microsecond=0) for x in
                         num2date(time[:], time.units, time.calendar)]
             time_index = nc_times.index(dataframe.name.to_pydatetime().replace(tzinfo=None))
 
-            var = netcdf.variables[var_name][time_index, 0, :]
+            try:
+                var = netcdf.variables[var_name][time_index, 0, :]
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), nc_path))
             netcdf.close()
-            dataframe[var_name] = var[dataframe['X'], dataframe['Y']]
+            dataframe[var_name] = var[dataframe['Y'], dataframe['X']]
 
             return dataframe[[var_name]]
 
@@ -339,16 +493,23 @@ class PointSourceSector(Sector):
             from netCDF4 import Dataset, num2date
             nc_path = os.path.join(dir_path,
                                    '{0}_{1}.nc'.format(var_name, dataframe.name.replace(hour=0).strftime("%Y%m%d%H")))
+            check_files(nc_path)
             netcdf = Dataset(nc_path, mode='r')
             # time_index
-            time = netcdf.variables['time']
+            try:
+                time = netcdf.variables['time']
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), nc_path))
             nc_times = [x.replace(minute=0, second=0, microsecond=0) for x in
                         num2date(time[:], time.units, time.calendar)]
             time_index = nc_times.index(dataframe.name.to_pydatetime().replace(tzinfo=None))
 
-            var = np.flipud(netcdf.variables[var_name][time_index, :, :, :])
+            try:
+                var = np.flipud(netcdf.variables[var_name][time_index, :, :, :])
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), nc_path))
             netcdf.close()
-            var = var[:, dataframe['X'], dataframe['Y']]
+            var = var[:, dataframe['Y'], dataframe['X']]
 
             pre_t_lay = 0
             lay_list = []
@@ -370,16 +531,23 @@ class PointSourceSector(Sector):
 
             nc_path = os.path.join(dir_path,
                                    '{0}_{1}.nc'.format(var_name, dataframe.name.replace(hour=0).strftime("%Y%m%d%H")))
+            check_files(nc_path)
             netcdf = Dataset(nc_path, mode='r')
             # time_index
-            time = netcdf.variables['time']
+            try:
+                time = netcdf.variables['time']
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), nc_path))
             nc_times = [x.replace(minute=0, second=0, microsecond=0) for x in
                         num2date(time[:], time.units, time.calendar)]
             time_index = nc_times.index(dataframe.name.to_pydatetime().replace(tzinfo=None))
 
-            var = np.flipud(netcdf.variables[var_name][time_index, :, :, :])
+            try:
+                var = np.flipud(netcdf.variables[var_name][time_index, :, :, :])
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), nc_path))
             netcdf.close()
-            var = var[:, dataframe['X'], dataframe['Y']]
+            var = var[:, dataframe['Y'], dataframe['X']]
 
             lay_list = ['temp_sfc']
             for i, t_lay in enumerate(var):
@@ -403,25 +571,36 @@ class PointSourceSector(Sector):
             # === u10 ===
             u10_nc_path = os.path.join(
                 u_dir_path, '{0}_{1}.nc'.format(u_var_name, dataframe.name.replace(hour=0).strftime("%Y%m%d%H")))
+            check_files(u10_nc_path)
             u10_netcdf = Dataset(u10_nc_path, mode='r')
             # time_index
-            time = u10_netcdf.variables['time']
+            try:
+                time = u10_netcdf.variables['time']
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), u10_nc_path))
             nc_times = [x.replace(minute=0, second=0, microsecond=0) for x in
                         num2date(time[:], time.units, time.calendar)]
             time_index = nc_times.index(dataframe.name.to_pydatetime().replace(tzinfo=None))
 
-            var = u10_netcdf.variables[u_var_name][time_index, 0, :]
+            try:
+                var = u10_netcdf.variables[u_var_name][time_index, 0, :]
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), u10_nc_path))
             u10_netcdf.close()
-            dataframe['u10'] = var[dataframe['X'], dataframe['Y']]
+            dataframe['u10'] = var[dataframe['Y'], dataframe['X']]
 
             # === v10 ===
             v10_nc_path = os.path.join(
                 v_dir_path, '{0}_{1}.nc'.format(v_var_name, dataframe.name.replace(hour=0).strftime("%Y%m%d%H")))
+            check_files(v10_nc_path)
             v10_netcdf = Dataset(v10_nc_path, mode='r')
 
-            var = v10_netcdf.variables[v_var_name][time_index, 0, :]
+            try:
+                var = v10_netcdf.variables[v_var_name][time_index, 0, :]
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), v10_nc_path))
             v10_netcdf.close()
-            dataframe['v10'] = var[dataframe['X'], dataframe['Y']]
+            dataframe['v10'] = var[dataframe['Y'], dataframe['X']]
 
             # === wind speed ===
             dataframe['wSpeed_10'] = np.linalg.norm(dataframe[['u10', 'v10']].values, axis=1)
@@ -434,16 +613,24 @@ class PointSourceSector(Sector):
             # === u10 ===
             u10_nc_path = os.path.join(
                 u_dir_path, '{0}_{1}.nc'.format(u_var_name, dataframe.name.replace(hour=0).strftime("%Y%m%d%H")))
+            check_files(u10_nc_path)
             u10_netcdf = Dataset(u10_nc_path, mode='r')
             # time_index
-            time = u10_netcdf.variables['time']
+            try:
+                time = u10_netcdf.variables['time']
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), u10_nc_path))
             nc_times = [x.replace(minute=0, second=0, microsecond=0) for x in
                         num2date(time[:], time.units, time.calendar)]
             time_index = nc_times.index(dataframe.name.to_pydatetime().replace(tzinfo=None))
 
-            var = np.flipud(u10_netcdf.variables[u_var_name][time_index, :, :, :])
+            try:
+                var = np.flipud(u10_netcdf.variables[u_var_name][time_index, :, :, :])
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), u10_nc_path))
+
             u10_netcdf.close()
-            var = var[:, dataframe['X'], dataframe['Y']]
+            var = var[:, dataframe['Y'], dataframe['X']]
 
             for i, t_lay in enumerate(var):
                 dataframe['u_{0}'.format(i)] = t_lay
@@ -451,11 +638,15 @@ class PointSourceSector(Sector):
             # === v10 ===
             v10_nc_path = os.path.join(
                 v_dir_path, '{0}_{1}.nc'.format(v_var_name, dataframe.name.replace(hour=0).strftime("%Y%m%d%H")))
+            check_files(v10_nc_path)
             v10_netcdf = Dataset(v10_nc_path, mode='r')
 
-            var = np.flipud(v10_netcdf.variables[v_var_name][time_index, :, :, :])
+            try:
+                var = np.flipud(v10_netcdf.variables[v_var_name][time_index, :, :, :])
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), v10_nc_path))
             v10_netcdf.close()
-            var = var[:, dataframe['X'], dataframe['Y']]
+            var = var[:, dataframe['Y'], dataframe['X']]
 
             ws_lay_list = ['wSpeed_10']
             for i, t_lay in enumerate(var):
@@ -475,7 +666,7 @@ class PointSourceSector(Sector):
 
         # TODO Use IoNetCDF
         spent_time = timeit.default_timer()
-        # Adding meteo X, Y array index to the catalog
+
         meteo_xy = self.get_meteo_xy(catalog.groupby('Code').first(), os.path.join(
             self.plume_rise_pahts['temperature_sfc_dir'],
             't2_{0}.nc'.format(self.date_array[0].replace(hour=0).strftime("%Y%m%d%H"))))
@@ -525,7 +716,7 @@ class PointSourceSector(Sector):
     def get_plume_rise_top_bot(self, catalog):
         spent_time = timeit.default_timer()
 
-        catalog = self.get_plumerise_meteo(catalog)
+        catalog = self.get_plumerise_meteo(catalog).reset_index()
 
         # Step 1: Bouyancy flux
         catalog.loc[catalog['Temp'] <= catalog['temp_top'], 'Fb'] = 0
@@ -539,7 +730,7 @@ class PointSourceSector(Sector):
             0.047 / catalog['temp_top'])
 
         # Step 3: Plume thickness
-        catalog.reset_index(inplace=True)
+        # catalog.reset_index(inplace=True)
         neutral_atm = (catalog['obukhov_len'] > 2. * catalog['Height']) | (
                     catalog['obukhov_len'] < -0.25 * catalog['Height'])
         stable_atm = ((catalog['obukhov_len'] > 0) & (catalog['obukhov_len'] < 2 * catalog['Height'])) | (
@@ -673,7 +864,7 @@ class PointSourceSector(Sector):
             try:
                 test.set_index(x.index, inplace=True)
             except ValueError:
-                raise IOError('No measured emissions for the selected dates: {0}'.format(x.values))
+                error_exit('No measured emissions for the selected dates: {0}'.format(x.values))
 
             return test[pollutant]
 
@@ -690,7 +881,7 @@ class PointSourceSector(Sector):
             catalog = None
         else:
             catalog = self.to_geodataframe(catalog)
-            catalog = self.add_dates(catalog)
+            catalog = self.add_dates(catalog, drop_utc=False)
             catalog = self.add_measured_emissions(catalog)
 
             catalog.set_index(['Code', 'tstep'], inplace=True)
@@ -701,7 +892,8 @@ class PointSourceSector(Sector):
     def merge_catalogs(self, catalog_list):
         spent_time = timeit.default_timer()
 
-        catalog = pd.concat(catalog_list)
+        catalog = pd.concat(catalog_list).reset_index()
+        catalog.set_index(['Code', 'tstep'], inplace=True)
         self.logger.write_time_log('PointSourceSector', 'merge_catalogs', timeit.default_timer() - spent_time)
         return catalog
 
@@ -747,9 +939,9 @@ class PointSourceSector(Sector):
 
     def point_source_to_fid(self, catalog):
         catalog.reset_index(inplace=True)
-        catalog = catalog.to_crs(self.grid_shp.crs)
+        catalog = catalog.to_crs(self.grid.shapefile.crs)
 
-        catalog = gpd.sjoin(catalog, self.grid_shp.reset_index(), how="inner", op='intersects')
+        catalog = gpd.sjoin(catalog, self.grid.shapefile.reset_index(), how="inner", op='intersects')
 
         # Drops duplicates when the point source is on the boundary of the cell
         catalog = catalog[~catalog.index.duplicated(keep='first')]

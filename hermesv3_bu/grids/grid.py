@@ -5,6 +5,7 @@ import timeit
 import numpy as np
 
 from hermesv3_bu.logger.log import Log
+from hermesv3_bu.tools.checker import error_exit
 
 
 def select_grid(comm, logger, arguments):
@@ -27,44 +28,45 @@ def select_grid(comm, logger, arguments):
         if arguments.domain_type == 'regular':
             from hermesv3_bu.grids.grid_latlon import LatLonGrid
             grid = LatLonGrid(
-                comm, logger, arguments.auxiliary_files_path, arguments.output_timestep_num,
+                logger, arguments.auxiliary_files_path, arguments.output_timestep_num,
                 arguments.vertical_description, arguments.inc_lat, arguments.inc_lon, arguments.lat_orig,
                 arguments.lon_orig, arguments.n_lat, arguments.n_lon)
 
         elif arguments.domain_type == 'lcc':
             from hermesv3_bu.grids.grid_lcc import LccGrid
             grid = LccGrid(
-                comm, logger, arguments.auxiliary_files_path, arguments.output_timestep_num,
+                logger, arguments.auxiliary_files_path, arguments.output_timestep_num,
                 arguments.vertical_description, arguments.lat_1, arguments.lat_2, arguments.lon_0, arguments.lat_0,
                 arguments.nx, arguments.ny, arguments.inc_x, arguments.inc_y, arguments.x_0, arguments.y_0)
 
         elif arguments.domain_type == 'rotated':
             from hermesv3_bu.grids.grid_rotated import RotatedGrid
             grid = RotatedGrid(
-                comm, logger, arguments.auxiliary_files_path, arguments.output_timestep_num,
+                logger, arguments.auxiliary_files_path, arguments.output_timestep_num,
                 arguments.vertical_description, arguments.centre_lat, arguments.centre_lon, arguments.west_boundary,
                 arguments.south_boundary, arguments.inc_rlat, arguments.inc_rlon)
 
         elif arguments.domain_type == 'mercator':
             from hermesv3_bu.grids.grid_mercator import MercatorGrid
             grid = MercatorGrid(
-                comm, logger, arguments.auxiliary_files_path, arguments.output_timestep_num,
+                logger, arguments.auxiliary_files_path, arguments.output_timestep_num,
                 arguments.vertical_description, arguments.lat_ts, arguments.lon_0, arguments.nx, arguments.ny,
                 arguments.inc_x, arguments.inc_y, arguments.x_0, arguments.y_0)
 
         else:
-            raise NameError('Unknown grid type {0}'.format(arguments.domain_type))
+            error_exit('Unknown grid type {0}'.format(arguments.domain_type))
     else:
         grid = None
 
     grid = comm.bcast(grid, root=0)
+
     logger.write_time_log('Grid', 'select_grid', timeit.default_timer() - spent_time)
     return grid
 
 
 class Grid(object):
 
-    def __init__(self, comm, logger, attributes, auxiliary_path, vertical_description_path):
+    def __init__(self, logger, attributes, auxiliary_path, vertical_description_path):
         """
         Initialise the Grid class
 
@@ -81,7 +83,6 @@ class Grid(object):
         :type vertical_description_path: str
         """
         spent_time = timeit.default_timer()
-        self.comm = comm
         self.logger = logger
         self.logger.write_log('\tGrid specifications: {0}'.format(attributes), 3)
         self.attributes = attributes
@@ -169,7 +170,7 @@ class Grid(object):
             else:
                 bound_coords = np.dstack((coords_left, coords_right, coords_right, coords_left))
         else:
-            raise ValueError('ERROR: The number of vertices of the boundaries must be 2 or 4.')
+            error_exit('The number of vertices of the boundaries must be 2 or 4.')
         self.logger.write_time_log('Grid', 'create_bounds', timeit.default_timer() - spent_time, 3)
         return bound_coords
 
@@ -181,7 +182,6 @@ class Grid(object):
         :rtype: GeoDataFrame
         """
         import geopandas as gpd
-        import pandas as pd
         from shapely.geometry import Polygon
         spent_time = timeit.default_timer()
 
@@ -217,49 +217,31 @@ class Grid(object):
 
             aux_b_lats = y.reshape((y.shape[0] * y.shape[1], y.shape[2]))
             aux_b_lons = x.reshape((x.shape[0] * x.shape[1], x.shape[2]))
-
+            gdf = gpd.GeoDataFrame(index=range(aux_b_lons.shape[0]), crs={'init': 'epsg:4326'})
+            gdf['geometry'] = None
             # Create one dataframe with 8 columns, 4 points with two coordinates each one
-            df_lats = pd.DataFrame(aux_b_lats, columns=['b_lat_1', 'b_lat_2', 'b_lat_3', 'b_lat_4'])
-            df_lons = pd.DataFrame(aux_b_lons, columns=['b_lon_1', 'b_lon_2', 'b_lon_3', 'b_lon_4'])
-            df = pd.concat([df_lats, df_lons], axis=1)
+            for i in range(aux_b_lons.shape[0]):
+                gdf.loc[i, 'geometry'] = Polygon([(aux_b_lons[i, 0], aux_b_lats[i, 0]),
+                                                  (aux_b_lons[i, 1], aux_b_lats[i, 1]),
+                                                  (aux_b_lons[i, 2], aux_b_lats[i, 2]),
+                                                  (aux_b_lons[i, 3], aux_b_lats[i, 3]),
+                                                  (aux_b_lons[i, 0], aux_b_lats[i, 0])])
 
-            # Substituate 8 columns by 4 with the two coordinates
-            df['p1'] = zip(df.b_lon_1, df.b_lat_1)
-            del df['b_lat_1'], df['b_lon_1']
-            df['p2'] = zip(df.b_lon_2, df.b_lat_2)
-            del df['b_lat_2'], df['b_lon_2']
-            df['p3'] = zip(df.b_lon_3, df.b_lat_3)
-            del df['b_lat_3'], df['b_lon_3']
-            df['p4'] = zip(df.b_lon_4, df.b_lat_4)
-            del df['b_lat_4'], df['b_lon_4']
-
-            # Make a list of list of tuples
-            list_points = df.values
-            del df['p1'], df['p2'], df['p3'], df['p4']
-
-            # List of polygons from the list of points
-            geometry = [Polygon(list(points)) for points in list_points]
-
-            gdf = gpd.GeoDataFrame(index=df.index, crs={'init': 'epsg:4326'}, geometry=geometry)
-            gdf = gdf.to_crs(self.attributes['crs'])
+            gdf.to_crs(self.attributes['crs'], inplace=True)
             gdf['FID'] = gdf.index
             gdf.to_file(self.shapefile_path)
 
         else:
             gdf = gpd.read_file(self.shapefile_path)
 
-        # gdf.set_index('FID', inplace=True, drop=False)
+        gdf.set_index('FID', inplace=True)
         self.logger.write_time_log('Grid', 'create_shapefile', timeit.default_timer() - spent_time, 2)
 
         return gdf
 
     def add_cell_area(self):
         from cdo import Cdo
-        # spent_time = timeit.default_timer()
 
-        # Initialises the CDO
         cdo = Cdo()
-        cell_area = cdo.gridarea(input=self.netcdf_path, returnArray='cell_area')
+        cell_area = cdo.gridarea(input=input_file, returnArray='cell_area')
         self.shapefile['cell_area'] = cell_area.flatten()
-
-        # self.logger.write_time_log('Grid', 'add_cell_area', timeit.default_timer() - spent_time)

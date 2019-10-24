@@ -9,7 +9,9 @@ import pandas as pd
 import geopandas as gpd
 from mpi4py import MPI
 
+from geopandas import GeoDataFrame
 from hermesv3_bu.io_server.io_server import IoServer
+from hermesv3_bu.tools.checker import check_files
 
 
 class IoShapefile(IoServer):
@@ -59,13 +61,14 @@ class IoShapefile(IoServer):
         return True
 
     def read_shapefile_serial(self, path):
-
+        check_files(path)
         gdf = gpd.read_file(path)
 
         return gdf
 
     def read_shapefile(self, path, rank=0):
         if self.comm.Get_rank() == rank:
+            check_files(path)
             gdf = gpd.read_file(path)
             gdf = np.array_split(gdf, self.comm.Get_size())
         else:
@@ -86,6 +89,13 @@ class IoShapefile(IoServer):
         return data
 
     def split_shapefile(self, data, rank=0):
+        """
+
+        :param data:
+        :param rank:
+        :return: Splitted Shapefile
+        :rtype: GeoDataFrame
+        """
 
         if self.comm.Get_size() == 1:
             data = data
@@ -96,6 +106,32 @@ class IoShapefile(IoServer):
                 data = None
             data = self.comm.scatter(data, root=rank)
 
+        return data
+
+    def gather_bcast_shapefile(self, data, rank=0):
+
+        if self.comm.Get_size() == 1:
+            data = data
+        else:
+            data = self.comm.gather(data, root=rank)
+            if self.comm.Get_rank() == rank:
+                data = pd.concat(data)
+            else:
+                data = None
+            data = self.comm.bcast(data, root=rank)
+
+        return data
+
+    def gather_shapefile(self, data, rank=0):
+
+        if self.comm.Get_size() == 1:
+            data = data
+        else:
+            data = self.comm.gather(data, root=rank)
+            if self.comm.Get_rank() == rank:
+                data = pd.concat(data)
+            else:
+                data = None
         return data
 
     def balance(self, data, rank=0):

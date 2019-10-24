@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import sys
 import os
 import timeit
 import pandas as pd
@@ -10,12 +11,14 @@ from hermesv3_bu.io_server.io_raster import IoRaster
 from hermesv3_bu.io_server.io_shapefile import IoShapefile
 from hermesv3_bu.io_server.io_netcdf import IoNetcdf
 from hermesv3_bu.logger.log import Log
+from hermesv3_bu.tools.checker import check_files
+from geopandas import GeoDataFrame
 
-formula = True
+FORMULA = True
 
 
 class AgriculturalCropFertilizersSector(AgriculturalSector):
-    def __init__(self, comm_agr, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants,
+    def __init__(self, comm_agr, comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants,
                  vertical_levels, crop_list, nut_shapefile, land_uses_path, hourly_profiles_path, speciation_map_path,
                  speciation_profiles_path, molecular_weights_path, landuse_by_nut, crop_by_nut, crop_from_landuse_path,
                  cultivated_ratio, fertilizer_rate, crop_f_parameter, crop_f_fertilizers, gridded_ph, gridded_cec,
@@ -23,8 +26,13 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
                  crop_growing_degree_day_path):
         spent_time = timeit.default_timer()
         logger.write_log('===== AGRICULTURAL CROP FERTILIZERS SECTOR =====')
+        check_files(
+            [nut_shapefile, land_uses_path, hourly_profiles_path, speciation_map_path, speciation_profiles_path,
+             molecular_weights_path, landuse_by_nut, crop_by_nut, crop_from_landuse_path, cultivated_ratio,
+             fertilizer_rate, crop_f_parameter, crop_f_fertilizers, gridded_ph, gridded_cec, crop_calendar,
+             temperature_path, wind_speed_path])
         super(AgriculturalCropFertilizersSector, self).__init__(
-            comm_agr, comm, logger, auxiliary_dir, grid_shp, clip, date_array, nut_shapefile, source_pollutants,
+            comm_agr, comm, logger, auxiliary_dir, grid, clip, date_array, nut_shapefile, source_pollutants,
             vertical_levels, crop_list, land_uses_path, landuse_by_nut, crop_by_nut, crop_from_landuse_path, None, None,
             None, hourly_profiles_path, speciation_map_path, speciation_profiles_path, molecular_weights_path)
 
@@ -32,29 +40,12 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
 
         self.cultivated_ratio = self.read_profiles(cultivated_ratio)
         self.fertilizer_rate = self.read_profiles(fertilizer_rate)
+        self.fertilizer_rate.rename(columns={'nuts2_id': 'code'}, inplace=True)
         self.crop_f_parameter = self.read_profiles(crop_f_parameter)
+        self.crop_f_parameter.rename(columns={'nuts2_id': 'code'}, inplace=True)
         self.crop_f_fertilizers = self.read_profiles(crop_f_fertilizers)
-
-        if self.comm.Get_rank() == 0:
-            self.logger.write_log('Getting gridded constants', message_level=2)
-            self.gridded_constants = self.get_gridded_constants(
-                os.path.join(auxiliary_dir, 'fertilizers', 'gridded_constants.shp'),
-                gridded_ph,
-                os.path.join(auxiliary_dir, 'fertilizers', 'gridded_ph.tiff'),
-                gridded_cec,
-                os.path.join(auxiliary_dir, 'fertilizers', 'gridded_cec.tiff'))
-            self.ef_by_crop = self.get_ef_by_crop()
-        else:
-            self.logger.write_log('Waiting for master to get the gridded constants', message_level=2)
-            self.gridded_constants = None
-            self.ef_by_crop = None
-
-        self.gridded_constants = self.comm.bcast(self.gridded_constants, root=0)
-        # self.gridded_constants = IoShapefile(self.comm).split_shapefile(self.gridded_constants)
-        self.gridded_constants = self.gridded_constants.loc[self.crop_distribution.index, :]
-        self.ef_by_crop = self.comm.bcast(self.ef_by_crop, root=0)
-        # self.ef_by_crop = IoShapefile(self.comm).split_shapefile(self.ef_by_crop)
-        self.ef_by_crop = self.ef_by_crop.loc[self.crop_distribution.index, :]
+        self.gridded_constants = self.get_gridded_constants(gridded_ph, gridded_cec)
+        self.ef_by_crop = self.get_ef_by_crop()
 
         self.fertilizer_denominator_yearly_factor_path = fertilizer_denominator_yearly_factor_path
         self.crop_calendar = self.read_profiles(crop_calendar)
@@ -91,7 +82,7 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
         for crop in self.crop_list:
             crop_ef = self.gridded_constants.loc[:, ['geometry', 'nut_code']].copy()
             # f_ph
-            if formula:
+            if FORMULA:
                 # After Zhang et al. (2018)
                 crop_ef['f_ph'] = (0.067 * self.gridded_constants['ph'] ** 2) - \
                                   (0.69 * self.gridded_constants['ph']) + 0.68
@@ -130,10 +121,16 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
     def to_dst_resolution(self, src_shapefile, value):
         spent_time = timeit.default_timer()
 
-        intersection = self.spatial_overlays(src_shapefile.to_crs(self.grid_shp.crs), self.grid_shp.reset_index())
+        intersection = self.spatial_overlays(src_shapefile.to_crs(self.grid.shapefile.crs).reset_index(),
+                                             self.grid.shapefile.reset_index())
+
+        # intersection = IoShapefile(self.comm).balance(intersection)
+
         intersection['area'] = intersection.geometry.area
-        dst_shapefile = self.grid_shp.reset_index().copy()
+        dst_shapefile = self.grid.shapefile.reset_index().copy()
+        # dst_shapefile = self.grid.shapefile.loc[np.unique(intersection['FID'])].copy()
         dst_shapefile['involved_area'] = intersection.groupby('FID')['area'].sum()
+        # dst_shapefile.reset_index(inplace=True)
         intersection_with_dst_areas = pd.merge(intersection, dst_shapefile.loc[:, ['FID', 'involved_area']],
                                                how='left', on='FID')
         intersection_with_dst_areas['involved_area'] = \
@@ -141,51 +138,47 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
 
         intersection_with_dst_areas[value] = \
             intersection_with_dst_areas[value] * intersection_with_dst_areas['involved_area']
+        dst_shapefile.set_index('FID', inplace=True)
         dst_shapefile[value] = intersection_with_dst_areas.groupby('FID')[value].sum()
-        dst_shapefile.drop('involved_area', axis=1, inplace=True)
+        # dst_shapefile.drop('involved_area', axis=1, inplace=True)
+        dst_shapefile.dropna(inplace=True)
+
+        dst_shapefile = IoShapefile(self.comm).gather_shapefile(dst_shapefile.reset_index())
+        if self.comm.Get_rank() == 0:
+            # dst_shapefile['FID_involved_area'] = dst_shapefile.groupby('FID')['involved_area'].sum()
+            # dst_shapefile['involved_area'] = dst_shapefile['involved_area'] / dst_shapefile['FID_involved_area']
+            # dst_shapefile[value] = dst_shapefile[value] * dst_shapefile['involved_area']
+            # dst_shapefile[value] = dst_shapefile[value].astype(np.float64)
+            # dst_shapefile.drop(columns=['involved_area', 'FID_involved_area'], inplace=True)
+            # dst_shapefile = dst_shapefile.groupby(['FID'])[value].sum()
+            dst_shapefile = dst_shapefile.groupby(['FID'])[value].mean()
+        else:
+            dst_shapefile = None
+        dst_shapefile = IoShapefile(self.comm).split_shapefile(dst_shapefile)
+        # print('Rank {0} -Z {1}: \n{2}\n'.format(self.comm.Get_rank(), value, dst_shapefile))
+        # sys.stdout.flush()
         self.logger.write_time_log('AgriculturalCropFertilizersSector', 'to_dst_resolution',
                                    timeit.default_timer() - spent_time)
-        dst_shapefile.set_index('FID', inplace=True)
-
         return dst_shapefile
 
-    def to_dst_resolution_parallel(self, src_shapefile, index, value):
+    def get_gridded_constants(self, ph_path, cec_path):
         spent_time = timeit.default_timer()
 
-        grid_shp = self.grid_shp.loc[index, :].copy()
-        src_shapefile = self.comm.bcast(src_shapefile, root=0)
-        src_shapefile = src_shapefile.to_crs(grid_shp.crs)
-        src_shapefile = src_shapefile[src_shapefile.within(grid_shp.unary_union)]
+        self.logger.write_log('Getting gridded constants', message_level=2)
 
-        intersection = self.spatial_overlays(src_shapefile, grid_shp)
-        intersection['area'] = intersection.geometry.area
-        dst_shapefile = grid_shp.copy()
-        dst_shapefile['involved_area'] = intersection.groupby('FID')['area'].sum()
-        intersection_with_dst_areas = pd.merge(intersection, dst_shapefile.loc[:, ['FID', 'involved_area']],
-                                               how='left', on='FID')
-        intersection_with_dst_areas['involved_area'] = \
-            intersection_with_dst_areas['area'] / intersection_with_dst_areas['involved_area']
-
-        intersection_with_dst_areas[value] = \
-            intersection_with_dst_areas[value] * intersection_with_dst_areas['involved_area']
-        dst_shapefile[value] = intersection_with_dst_areas.groupby('FID')[value].sum()
-        dst_shapefile.drop('involved_area', axis=1, inplace=True)
-        self.logger.write_time_log('AgriculturalCropFertilizersSector', 'to_dst_resolution_parallel',
-                                   timeit.default_timer() - spent_time)
-        dst_shapefile.set_index('FID', inplace=True)
-
-        return dst_shapefile
-
-    def get_gridded_constants(self, gridded_ph_cec_path, ph_path, clipped_ph_path, cec_path, clipped_cec_path):
-        spent_time = timeit.default_timer()
+        gridded_ph_cec_path = os.path.join(self.auxiliary_dir, 'fertilizers', 'gridded_constants')
         if not os.path.exists(gridded_ph_cec_path):
             self.logger.write_log('Getting PH from {0}'.format(ph_path), message_level=2)
-            IoRaster(self.comm).clip_raster_with_shapefile_poly(ph_path, self.clip.shapefile, clipped_ph_path,
-                                                                nodata=255)
+            clipped_ph_path = os.path.join(self.auxiliary_dir, 'fertilizers', 'gridded_PH.tiff')
+            if self.comm.Get_rank() == 0:
+                IoRaster(self.comm).clip_raster_with_shapefile_poly(ph_path, self.clip.shapefile, clipped_ph_path,
+                                                                    nodata=255)
             self.logger.write_log('PH clipped done!', message_level=3)
-            ph_gridded = IoRaster(self.comm).to_shapefile_serie(clipped_ph_path, nodata=255)
+            ph_gridded = IoRaster(self.comm).to_shapefile_parallel(clipped_ph_path, nodata=255)
             self.logger.write_log('PH to shapefile done!', message_level=3)
+            ph_gridded.set_index('CELL_ID', inplace=True)
             ph_gridded.rename(columns={'data': 'ph'}, inplace=True)
+            ph_gridded = IoShapefile(self.comm).balance(ph_gridded)
             # To correct input data
             ph_gridded['ph'] = ph_gridded['ph'] / 10
             self.logger.write_log('PH to destiny resolution ...', message_level=3)
@@ -193,85 +186,58 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
             self.logger.write_log('PH to destiny resolution done!', message_level=3)
 
             self.logger.write_log('Getting CEC from {0}'.format(cec_path), message_level=2)
-            IoRaster(self.comm).clip_raster_with_shapefile_poly(cec_path, self.clip.shapefile, clipped_cec_path,
-                                                                nodata=-32768)
+            clipped_cec_path = os.path.join(self.auxiliary_dir, 'fertilizers', 'gridded_CEC.tiff')
+            if self.comm.Get_rank() == 0:
+                IoRaster(self.comm).clip_raster_with_shapefile_poly(cec_path, self.clip.shapefile, clipped_cec_path,
+                                                                    nodata=-32768)
             self.logger.write_log('CEC clipped done!', message_level=3)
-            cec_gridded = IoRaster(self.comm).to_shapefile_serie(clipped_cec_path, nodata=-32768)
+            cec_gridded = IoRaster(self.comm).to_shapefile_parallel(clipped_cec_path, nodata=-32768)
             self.logger.write_log('CEC to shapefile done!', message_level=3)
             cec_gridded.rename(columns={'data': 'cec'}, inplace=True)
+            cec_gridded.set_index('CELL_ID', inplace=True)
+            cec_gridded = IoShapefile(self.comm).balance(cec_gridded)
             self.logger.write_log('CEC to destiny resolution ...', message_level=3)
-            cec_gridded = self.to_dst_resolution(cec_gridded, value='cec')
+            cec_gridded = self.to_dst_resolution(cec_gridded.reset_index(), value='cec')
             self.logger.write_log('CEC to destiny resolution done!', message_level=3)
-            gridded_ph_cec = ph_gridded
-            gridded_ph_cec['cec'] = cec_gridded['cec']
 
-            gridded_ph_cec.dropna(inplace=True)
+            ph_gridded = IoShapefile(self.comm).gather_shapefile(ph_gridded.reset_index())
+            cec_gridded = IoShapefile(self.comm).gather_shapefile(cec_gridded.reset_index())
+            if self.comm.Get_rank() == 0:
+                gridded_ph_cec = ph_gridded
+                # gridded_ph_cec = ph_gridded.groupby('FID').mean()
+                # cec_gridded = cec_gridded.groupby('FID').mean()
+                # gridded_ph_cec = ph_gridded
+                gridded_ph_cec['cec'] = cec_gridded['cec']
+                gridded_ph_cec.set_index('FID', inplace=True)
+                # gridded_ph_cec = gridded_ph_cec.loc[(gridded_ph_cec['ph'] > 0) & (gridded_ph_cec['cec'] > 0)]
+                gridded_ph_cec = GeoDataFrame(
+                    gridded_ph_cec,
+                    geometry=self.grid.shapefile.loc[gridded_ph_cec.index.get_level_values('FID'), 'geometry'].values,
+                    crs=self.grid.shapefile.crs)
+            else:
+                gridded_ph_cec = None
+            gridded_ph_cec = IoShapefile(self.comm).split_shapefile(gridded_ph_cec)
+            # print('Rank {0} -Z PH: \n{1}\n'.format(self.comm.Get_rank(), np.unique(gridded_ph_cec['ph'])))
+            # print('Rank {0} -Z CEC: \n{1}\n'.format(self.comm.Get_rank(), np.unique(gridded_ph_cec['cec'])))
+            # print('Rank {0} -Z FID: \n{1}\n'.format(self.comm.Get_rank(), np.unique(gridded_ph_cec.index)))
+            # sys.stdout.flush()
+            # exit()
+            gridded_ph_cec = self.add_nut_code(gridded_ph_cec.reset_index(), self.nut_shapefile)
+            gridded_ph_cec = gridded_ph_cec[gridded_ph_cec['nut_code'] != -999]
+            gridded_ph_cec.set_index('FID', inplace=True)
 
-            gridded_ph_cec = self.add_nut_code(gridded_ph_cec, self.nut_shapefile)
-            gridded_ph_cec.index.name = 'FID'
-            # gridded_ph_cec.set_index('FID', inplace=True)
+            IoShapefile(self.comm).write_shapefile_parallel(gridded_ph_cec.reset_index(), gridded_ph_cec_path)
 
-            # # Selecting only PH and CEC cells that have also some crop.
-            # gridded_ph_cec = gridded_ph_cec.loc[self.crop_distribution.index, :]
-            IoShapefile(self.comm).write_shapefile_serial(gridded_ph_cec.reset_index(), gridded_ph_cec_path)
+            gridded_ph_cec = IoShapefile(self.comm).gather_bcast_shapefile(gridded_ph_cec)
         else:
             gridded_ph_cec = IoShapefile(self.comm).read_shapefile_serial(gridded_ph_cec_path)
             gridded_ph_cec.set_index('FID', inplace=True)
+
+        # Selecting only PH and CEC cells that have also some crop.
+        gridded_ph_cec = gridded_ph_cec.loc[self.crop_distribution.index, :]
+        # gridded_ph_cec = gridded_ph_cec.loc[(gridded_ph_cec['ph'] > 0) & (gridded_ph_cec['cec'] > 0)]
+
         self.logger.write_time_log('AgriculturalCropFertilizersSector', 'get_gridded_constants',
-                                   timeit.default_timer() - spent_time)
-        return gridded_ph_cec
-
-    def get_gridded_constants_parallel(self, gridded_ph_cec_path, ph_path, clipped_ph_path, cec_path, clipped_cec_path,
-                                       index):
-        spent_time = timeit.default_timer()
-        if not os.path.exists(gridded_ph_cec_path):
-            if self.comm.Get_rank() == 0:
-                self.logger.write_log('Getting PH from {0}'.format(ph_path), message_level=2)
-                IoRaster(self.comm).clip_raster_with_shapefile_poly(ph_path, self.clip.shapefile, clipped_ph_path,
-                                                                    nodata=255)
-                self.logger.write_log('PH clipped done!', message_level=3)
-                ph_gridded = IoRaster(self.comm).to_shapefile_serie(clipped_ph_path, nodata=255)
-                self.logger.write_log('PH to shapefile done!', message_level=3)
-                ph_gridded.rename(columns={'data': 'ph'}, inplace=True)
-                # To correct input data
-                ph_gridded['ph'] = ph_gridded['ph'] / 10
-            else:
-                ph_gridded = None
-
-            self.logger.write_log('PH to destiny resolution ...', message_level=3)
-            ph_gridded = self.to_dst_resolution_parallel(ph_gridded, index, value='ph')
-            self.logger.write_log('PH to destiny resolution done!', message_level=3)
-            if self.comm.Get_rank() == 0:
-                self.logger.write_log('Getting CEC from {0}'.format(cec_path), message_level=2)
-                IoRaster(self.comm).clip_raster_with_shapefile_poly(cec_path, self.clip.shapefile, clipped_cec_path,
-                                                                    nodata=-32768)
-                self.logger.write_log('CEC clipped done!', message_level=3)
-                cec_gridded = IoRaster(self.comm).to_shapefile_serie(clipped_cec_path, nodata=-32768)
-                self.logger.write_log('CEC to shapefile done!', message_level=3)
-                cec_gridded.rename(columns={'data': 'cec'}, inplace=True)
-            else:
-                cec_gridded = None
-
-            self.logger.write_log('CEC to destiny resolution ...', message_level=3)
-            cec_gridded = self.to_dst_resolution_parallel(cec_gridded, index, value='cec')
-            self.logger.write_log('CEC to destiny resolution done!', message_level=3)
-
-            gridded_ph_cec = ph_gridded
-            gridded_ph_cec['cec'] = cec_gridded['cec']
-
-            gridded_ph_cec.dropna(inplace=True)
-
-            gridded_ph_cec = self.add_nut_code(gridded_ph_cec, self.nut_shapefile)
-            gridded_ph_cec.index.name = 'FID'
-            # gridded_ph_cec.set_index('FID', inplace=True)
-
-            # # Selecting only PH and CEC cells that have also some crop.
-            # gridded_ph_cec = gridded_ph_cec.loc[self.crop_distribution.index, :]
-            IoShapefile(self.comm).write_shapefile_parallel(gridded_ph_cec.reset_index(), gridded_ph_cec_path)
-        else:
-            gridded_ph_cec = IoShapefile(self.comm).read_shapefile_parallel(gridded_ph_cec_path)
-            gridded_ph_cec.set_index('FID', inplace=True)
-        self.logger.write_time_log('AgriculturalCropFertilizersSector', 'get_gridded_constants_parallel',
                                    timeit.default_timer() - spent_time)
         return gridded_ph_cec
 
@@ -425,7 +391,7 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
         spent_time = timeit.default_timer()
         self.logger.write_log('Calculating daily emissions')
         df_by_day = self.get_daily_inputs(emissions)
-        for day, daily_inputs in df_by_day.iteritems():
+        for day, daily_inputs in df_by_day.items():
             df_by_day[day] = self.calculate_nh3_emissions(day, daily_inputs)
         self.logger.write_time_log('AgriculturalCropFertilizersSector', 'calculate_daily_emissions',
                                    timeit.default_timer() - spent_time)

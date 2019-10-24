@@ -4,14 +4,15 @@ import sys
 import os
 from mpi4py import MPI
 from datetime import timedelta
-from hermesv3_bu.io_server.io_server import IoServer
 import numpy as np
 import geopandas as gpd
 from netCDF4 import Dataset
 from shapely.geometry import Point
 from cf_units import num2date, CALENDAR_STANDARD
-
 from geopandas import GeoDataFrame
+
+from hermesv3_bu.io_server.io_server import IoServer
+from hermesv3_bu.tools.checker import check_files, error_exit
 
 
 class IoNetcdf(IoServer):
@@ -42,12 +43,19 @@ class IoNetcdf(IoServer):
         :return: GeoDataframe with the data in the desired points.
         :rtype: geopandas.GeoDataframe
         """
+        check_files(netcdf_path)
         nc = Dataset(netcdf_path, mode='r')
-        lat_o = nc.variables['latitude'][:]
-        lon_o = nc.variables['longitude'][:]
+        try:
+            lat_o = nc.variables['latitude'][:]
+            lon_o = nc.variables['longitude'][:]
+        except KeyError as e:
+            error_exit("{0} variable not found in {1} file.".format(str(e), netcdf_path))
 
         if date_type == 'daily':
-            time = nc.variables['time']
+            try:
+                time = nc.variables['time']
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), netcdf_path))
             # From time array to list of dates.
             time_array = num2date(time[:], time.units, CALENDAR_STANDARD)
             time_array = np.array([aux.date() for aux in time_array])
@@ -70,7 +78,10 @@ class IoNetcdf(IoServer):
         del lat_o, lon_o
 
         # Reads the tas variable of the xone and the times needed.
-        var = nc.variables[var_name][i_time, j_min:j_max, i_min:i_max]
+        try:
+            var = nc.variables[var_name][i_time, j_min:j_max, i_min:i_max]
+        except KeyError as e:
+            error_exit("{0} variable not found in {1} file.".format(str(e), netcdf_path))
         nc.close()
 
         var_df = gpd.GeoDataFrame(var.flatten().T, columns=[var_name], crs={'init': 'epsg:4326'},
@@ -106,11 +117,15 @@ class IoNetcdf(IoServer):
         path = os.path.join(netcdf_dir, '{0}_{1}{2}.nc'.format(var_name, date_array[0].year,
                                                                str(date_array[0].month).zfill(2)))
         # self.logger.write_log('Getting temperature from {0}'.format(path), message_level=2)
-
+        check_files(path)
         nc = Dataset(path, mode='r')
-        lat_o = nc.variables['latitude'][:]
-        lon_o = nc.variables['longitude'][:]
-        time = nc.variables['time']
+        try:
+            lat_o = nc.variables['latitude'][:]
+            lon_o = nc.variables['longitude'][:]
+            n_lat = len(lat_o)
+            time = nc.variables['time']
+        except KeyError as e:
+            error_exit("{0} variable not found in {1} file.".format(str(e), path))
         # From time array to list of dates.
         time_array = num2date(time[:], time.units,  CALENDAR_STANDARD)
         i_time = np.where(time_array == date_array[0])[0][0]
@@ -129,10 +144,13 @@ class IoNetcdf(IoServer):
         # From 1D to 2D
         lat = np.array([lat_o[:]] * len(lon_o[:])).T.flatten()
         lon = np.array([lon_o[:]] * len(lat_o[:])).flatten()
-        del lat_o, lon_o
+        # del lat_o, lon_o
 
         # Reads the var variable of the xone and the times needed.
-        var = nc.variables[var_name][i_time:i_time + (len(date_array)), j_min:j_max, i_min:i_max]
+        try:
+            var = nc.variables[var_name][i_time:i_time + (len(date_array)), j_min:j_max, i_min:i_max]
+        except KeyError as e:
+            error_exit("{0} variable not found in {1} file.".format(str(e), path))
 
         nc.close()
         # That condition is fot the cases that the needed temperature is in a different NetCDF.
@@ -141,9 +159,13 @@ class IoNetcdf(IoServer):
             path = os.path.join(netcdf_dir, '{0}_{1}{2}.nc'.format(var_name, aux_date.year,
                                                                    str(aux_date.month).zfill(2)))
             # self.logger.write_log('Getting {0} from {1}'.format(var_name, path), message_level=2)
+            check_files(path)
             nc = Dataset(path, mode='r')
             i_time = 0
-            new_var = nc.variables[var_name][i_time:i_time + (len(date_array) - len(var)), j_min:j_max, i_min:i_max]
+            try:
+                new_var = nc.variables[var_name][i_time:i_time + (len(date_array) - len(var)), j_min:j_max, i_min:i_max]
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), path))
 
             var = np.concatenate([var, new_var])
 
@@ -152,7 +174,7 @@ class IoNetcdf(IoServer):
         var = var.reshape((var.shape[0], var.shape[1] * var.shape[2]))
         df = gpd.GeoDataFrame(var.T, geometry=[Point(xy) for xy in zip(lon, lat)])
         # df.columns = ['t_{0}'.format(x) for x in df.columns.values[:-1]] + ['geometry']
-        df.loc[:, 'REC'] = df.index
+        df.loc[:, 'REC'] = (((df.index // len(lon_o)) + j_min) * n_lat) + ((df.index % len(lon_o)) + i_min)
 
         return df
 
@@ -229,7 +251,7 @@ def write_coords_netcdf(netcdf_path, center_latitudes, center_longitudes, data_l
             netcdf.createDimension('lat', center_latitudes.shape[0])
             lat_dim = ('lon', 'lat', )
         else:
-            print 'ERROR: Latitudes must be on a 1D or 2D array instead of {0}'.format(len(center_latitudes.shape))
+            print('ERROR: Latitudes must be on a 1D or 2D array instead of {0}'.format(len(center_latitudes.shape)))
             sys.exit(1)
 
         # Longitude
@@ -240,21 +262,21 @@ def write_coords_netcdf(netcdf_path, center_latitudes, center_longitudes, data_l
             netcdf.createDimension('lon', center_longitudes.shape[1])
             lon_dim = ('lon', 'lat', )
         else:
-            print 'ERROR: Longitudes must be on a 1D or 2D array instead of {0}'.format(len(center_longitudes.shape))
+            print('ERROR: Longitudes must be on a 1D or 2D array instead of {0}'.format(len(center_longitudes.shape)))
             sys.exit(1)
     elif rotated:
         var_dim = ('rlat', 'rlon',)
 
         # Rotated Latitude
         if rotated_lats is None:
-            print 'ERROR: For rotated grids is needed the rotated latitudes.'
+            print('ERROR: For rotated grids is needed the rotated latitudes.')
             sys.exit(1)
         netcdf.createDimension('rlat', len(rotated_lats))
         lat_dim = ('rlat', 'rlon',)
 
         # Rotated Longitude
         if rotated_lons is None:
-            print 'ERROR: For rotated grids is needed the rotated longitudes.'
+            print('ERROR: For rotated grids is needed the rotated longitudes.')
             sys.exit(1)
         netcdf.createDimension('rlon', len(rotated_lons))
         lon_dim = ('rlat', 'rlon',)
@@ -297,7 +319,6 @@ def write_coords_netcdf(netcdf_path, center_latitudes, center_longitudes, data_l
     else:
         time = netcdf.createVariable('time', 'd', ('time',), zlib=True)
         u = Unit('hours')
-        # print u.offset_by_time(encode_time(date.year, date.month, date.day, date.hour, date.minute, date.second))
         # Unit('hour since 1970-01-01 00:00:00.0000000 UTC')
         time.units = str(u.offset_by_time(encode_time(date.year, date.month, date.day, date.hour, date.minute,
                                                       date.second)))
@@ -317,7 +338,6 @@ def write_coords_netcdf(netcdf_path, center_latitudes, center_longitudes, data_l
     if boundary_latitudes is not None:
         lats.bounds = "lat_bnds"
         lat_bnds = netcdf.createVariable('lat_bnds', 'f', lat_dim + ('nv',), zlib=True)
-        # print lat_bnds[:].shape, boundary_latitudes.shape
         lat_bnds[:] = boundary_latitudes
 
     # Longitude
@@ -327,7 +347,6 @@ def write_coords_netcdf(netcdf_path, center_latitudes, center_longitudes, data_l
     lons.axis = "X"
     lons.long_name = "longitude coordinate"
     lons.standard_name = "longitude"
-    # print 'lons:', lons[:].shape, center_longitudes.shape
     lons[:] = center_longitudes
     if boundary_longitudes is not None:
         lons.bounds = "lon_bnds"
@@ -375,7 +394,6 @@ def write_coords_netcdf(netcdf_path, center_latitudes, center_longitudes, data_l
         var = netcdf.createVariable('aux_var', 'f', ('time',) + var_dim, zlib=True)
         var[:] = 0
     for variable in data_list:
-        # print ('time',) + var_dim
         var = netcdf.createVariable(variable['name'], 'f', ('time',) + var_dim, zlib=True)
         var.units = Unit(variable['units']).symbol
         if 'long_name' in variable:
@@ -398,7 +416,7 @@ def write_coords_netcdf(netcdf_path, center_latitudes, center_longitudes, data_l
         try:
             var[:] = variable['data']
         except ValueError:
-            print 'VAR ERROR, netcdf shape: {0}, variable shape: {1}'.format(var[:].shape, variable['data'].shape)
+            print('VAR ERROR, netcdf shape: {0}, variable shape: {1}'.format(var[:].shape, variable['data'].shape))
 
     # Grid mapping
     if regular_latlon:
@@ -433,7 +451,6 @@ def write_coords_netcdf(netcdf_path, center_latitudes, center_longitudes, data_l
         c_area.long_name = "area of the grid cell"
         c_area.standard_name = "cell_area"
         c_area.units = Unit("m2").symbol
-        # print c_area[:].shape, cell_area.shape
         c_area[:] = cell_area
 
     if global_attributes is not None:

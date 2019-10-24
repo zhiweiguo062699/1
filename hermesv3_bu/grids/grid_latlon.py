@@ -1,23 +1,5 @@
 #!/usr/bin/env python
 
-# Copyright 2018 Earth Sciences Department, BSC-CNS
-#
-# This file is part of HERMESv3_GR.
-#
-# HERMESv3_GR is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# HERMESv3_GR is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with HERMESv3_GR. If not, see <http://www.gnu.org/licenses/>.
-
-
 import os
 import timeit
 
@@ -29,7 +11,7 @@ from hermesv3_bu.logger.log import Log
 
 class LatLonGrid(Grid):
 
-    def __init__(self, comm, logger, auxiliary_path, tstep_num, vertical_description_path, inc_lat, inc_lon, lat_orig,
+    def __init__(self, logger, auxiliary_path, tstep_num, vertical_description_path, inc_lat, inc_lon, lat_orig,
                  lon_orig, n_lat, n_lon):
         """
         Regional regular lat-lon grid object that contains all the information to do a global output.
@@ -70,7 +52,7 @@ class LatLonGrid(Grid):
         attributes = {'inc_lat': inc_lat, 'inc_lon': inc_lon, 'lat_orig': lat_orig, 'lon_orig': lon_orig,
                       'n_lat': n_lat, 'n_lon': n_lon, 'crs': {'init': 'epsg:4326'}}
         # Initialize the class using parent
-        super(LatLonGrid, self).__init__(comm, logger, attributes, auxiliary_path, vertical_description_path)
+        super(LatLonGrid, self).__init__(logger, attributes, auxiliary_path, vertical_description_path)
 
         self.shape = (tstep_num, len(self.vertical_desctiption), n_lat, n_lon)
 

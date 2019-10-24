@@ -9,6 +9,7 @@ from hermesv3_bu.writer.writer import Writer
 from mpi4py import MPI
 import timeit
 from hermesv3_bu.logger.log import Log
+from hermesv3_bu.tools.checker import error_exit
 
 
 class CmaqWriter(Writer):
@@ -67,8 +68,8 @@ class CmaqWriter(Writer):
         super(CmaqWriter, self).__init__(comm_world, comm_write, logger, netcdf_path, grid, date_array, pollutant_info,
                                          rank_distribution, emission_summary)
         if self.grid.grid_type not in ['Lambert Conformal Conic']:
-            raise TypeError("ERROR: Only Lambert Conformal Conic grid is implemented for CMAQ. " +
-                            "The current grid type is '{0}'".format(self.grid.grid_type))
+            error_exit("Only Lambert Conformal Conic grid is implemented for CMAQ. " +
+                       "The current grid type is '{0}'".format(self.grid.grid_type))
 
         self.global_attributes_order = [
             'IOAPI_VERSION', 'EXEC_ID', 'FTYPE', 'CDATE', 'CTIME', 'WDATE', 'WTIME', 'SDATE', 'STIME', 'TSTEP', 'NTHIK',
@@ -111,8 +112,8 @@ class CmaqWriter(Writer):
 
         for i, (pollutant, variable) in enumerate(self.pollutant_info.iterrows()):
             if variable.get('units') not in ['mol.s-1', 'g.s-1', 'mole/s', 'g/s']:
-                raise ValueError("'{0}' unit is not supported for CMAQ emission ".format(variable.get('units')) +
-                                 "input file. Set mol.s-1 or g.s-1 in the speciation_map file.")
+                error_exit("'{0}' unit is not supported for CMAQ emission ".format(variable.get('units')) +
+                           "input file. Set mol.s-1 or g.s-1 in the speciation_map file.")
             new_pollutant_info.loc[i, 'pollutant'] = pollutant
             if variable.get('units') in ['mol.s-1', 'mole/s']:
                 new_pollutant_info.loc[i, 'units'] = "{:<16}".format('mole/s')
@@ -134,15 +135,17 @@ class CmaqWriter(Writer):
         """
         spent_time = timeit.default_timer()
 
-        a = np.array([[[]]])
+        t_flag = np.empty((len(self.date_array), len(self.pollutant_info), 2))
 
-        for date in self.date_array:
-            b = np.array([[int(date.strftime('%Y%j'))], [int(date.strftime('%H%M%S'))]] * len(self.pollutant_info))
-            a = np.append(a, b)
+        for i_d, date in enumerate(self.date_array):
+            y_d = int(date.strftime('%Y%j'))
+            hms = int(date.strftime('%H%M%S'))
+            for i_p in range(len(self.pollutant_info)):
+                t_flag[i_d, i_p, 0] = y_d
+                t_flag[i_d, i_p, 1] = hms
 
-        a.shape = (len(self.date_array), 2, len(self.pollutant_info))
         self.logger.write_time_log('CmaqWriter', 'create_tflag', timeit.default_timer() - spent_time)
-        return a
+        return t_flag
 
     def str_var_list(self):
         """
@@ -180,7 +183,7 @@ class CmaqWriter(Writer):
 
         df = pd.read_csv(global_attributes_path)
 
-        for att in atts_dict.iterkeys():
+        for att in atts_dict.keys():
             try:
                 if att in int_atts:
                     atts_dict[att] = np.int32(df.loc[df['attribute'] == att, 'value'].item())
@@ -266,7 +269,11 @@ class CmaqWriter(Writer):
         """
         spent_time = timeit.default_timer()
 
-        netcdf = Dataset(self.netcdf_path, mode='w', parallel=True, comm=self.comm_write, info=MPI.Info())
+        if self.comm_write.Get_size() > 1:
+            netcdf = Dataset(self.netcdf_path, format="NETCDF4", mode='w', parallel=True, comm=self.comm_write,
+                             info=MPI.Info())
+        else:
+            netcdf = Dataset(self.netcdf_path, format="NETCDF4", mode='w')
 
         # ===== DIMENSIONS =====
         self.logger.write_log('\tCreating NetCDF dimensions', message_level=2)
@@ -282,14 +289,21 @@ class CmaqWriter(Writer):
         tflag = netcdf.createVariable('TFLAG', 'i', ('TSTEP', 'VAR', 'DATE-TIME',))
         tflag.setncatts({'units': "{:<16}".format('<YYYYDDD,HHMMSS>'), 'long_name': "{:<16}".format('TFLAG'),
                          'var_desc': "{:<80}".format('Timestep-valid flags:  (1) YYYYDDD or (2) HHMMSS')})
+
         tflag[:] = self.create_tflag()
 
         # ========== POLLUTANTS ==========
         for var_name in emissions.columns.values:
             self.logger.write_log('\t\tCreating {0} variable'.format(var_name), message_level=3)
 
+            if self.comm_write.Get_size() > 1:
+                var = netcdf.createVariable(var_name, np.float64, ('TSTEP', 'LAY', 'ROW', 'COL',))
+                var.set_collective(True)
+            else:
+                var = netcdf.createVariable(var_name, np.float64, ('TSTEP', 'LAY', 'ROW', 'COL',), zlib=True)
+
             var_data = self.dataframe_to_array(emissions.loc[:, [var_name]])
-            var = netcdf.createVariable(var_name, np.float64, ('TSTEP', 'LAY', 'ROW', 'COL',))
+
             var[:, :,
                 self.rank_distribution[self.comm_write.Get_rank()]['y_min']:
                 self.rank_distribution[self.comm_write.Get_rank()]['y_max'],

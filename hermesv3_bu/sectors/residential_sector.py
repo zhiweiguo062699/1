@@ -7,25 +7,31 @@ import timeit
 import numpy as np
 import pandas as pd
 import geopandas as gpd
+from warnings import warn
 
 from hermesv3_bu.sectors.sector import Sector
 from hermesv3_bu.io_server.io_raster import IoRaster
 from hermesv3_bu.io_server.io_shapefile import IoShapefile
 from hermesv3_bu.io_server.io_netcdf import IoNetcdf
-from hermesv3_bu.logger.log import Log
+from hermesv3_bu.tools.checker import check_files
 
 
 class ResidentialSector(Sector):
-    def __init__(self, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+    def __init__(self, comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
                  fuel_list, prov_shapefile, ccaa_shapefile, population_density_map, population_type_map,
-                 population_type_by_ccaa, population_type_by_prov, energy_consumption_by_prov,
-                 energy_consumption_by_ccaa, residential_spatial_proxies, residential_ef_files_path,
+                 population_type_nuts2, population_type_nuts3, energy_consumption_nuts3,
+                 energy_consumption_nuts2, residential_spatial_proxies, residential_ef_files_path,
                  heating_degree_day_path, temperature_path, hourly_profiles_path, speciation_map_path,
                  speciation_profiles_path, molecular_weights_path):
         spent_time = timeit.default_timer()
-
+        logger.write_log('===== RESIDENTIAL COMBUSTION SECTOR =====')
+        check_files(
+            [prov_shapefile, ccaa_shapefile, population_density_map, population_type_map, population_type_nuts2,
+             population_type_nuts3, energy_consumption_nuts3, energy_consumption_nuts2, residential_spatial_proxies,
+             residential_ef_files_path, temperature_path, hourly_profiles_path, speciation_map_path,
+             speciation_profiles_path, molecular_weights_path])
         super(ResidentialSector, self).__init__(
-            comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+            comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
             None, None, hourly_profiles_path, speciation_map_path,
             speciation_profiles_path, molecular_weights_path)
 
@@ -37,24 +43,18 @@ class ResidentialSector(Sector):
         self.fuel_list = fuel_list
         self.day_dict = self.calculate_num_days()
 
-        self.pop_type_by_prov = population_type_by_prov
-        self.pop_type_by_ccaa = population_type_by_ccaa
+        self.pop_type_by_prov = population_type_nuts3
+        self.pop_type_by_ccaa = population_type_nuts2
 
-        self.energy_consumption_by_prov = pd.read_csv(energy_consumption_by_prov)
-        self.energy_consumption_by_ccaa = pd.read_csv(energy_consumption_by_ccaa)
+        self.energy_consumption_nuts3 = pd.read_csv(energy_consumption_nuts3)
+        self.energy_consumption_nuts2 = pd.read_csv(energy_consumption_nuts2)
         self.residential_spatial_proxies = self.read_residential_spatial_proxies(residential_spatial_proxies)
         self.ef_profiles = self.read_ef_file(residential_ef_files_path)
 
-        if self.comm.Get_rank() == 0:
-            self.fuel_distribution = self.get_fuel_distribution(prov_shapefile, ccaa_shapefile, population_density_map,
-                                                                population_type_map, create_pop_csv=False)
-        else:
-            self.fuel_distribution = None
-        self.fuel_distribution = IoShapefile(self.comm).split_shapefile(self.fuel_distribution)
-
+        self.fuel_distribution = self.get_fuel_distribution(
+           prov_shapefile, ccaa_shapefile, population_density_map, population_type_map, create_pop_csv=False)
         self.heating_degree_day_path = heating_degree_day_path
         self.temperature_path = temperature_path
-
         self.logger.write_time_log('ResidentialSector', '__init__', timeit.default_timer() - spent_time)
 
     def read_ef_file(self, path):
@@ -125,11 +125,14 @@ class ResidentialSector(Sector):
     def to_dst_resolution(self, src_distribution):
         spent_time = timeit.default_timer()
 
-        src_distribution.to_crs(self.grid_shp.crs, inplace=True)
-        src_distribution.to_file(os.path.join(self.auxiliary_dir, 'residential', 'fuel_distribution_src.shp'))
+        src_distribution.to_crs(self.grid.shapefile.crs, inplace=True)
+        # src_distribution.reset_index().to_file(
+        #     os.path.join(self.auxiliary_dir, 'residential', 'fuel_distribution_src.shp'))
         src_distribution['src_inter_fraction'] = src_distribution.geometry.area
-        src_distribution = self.spatial_overlays(src_distribution, self.grid_shp.reset_index(), how='intersection')
-        src_distribution.to_file(os.path.join(self.auxiliary_dir, 'residential', 'fuel_distribution_raw.shp'))
+        src_distribution = self.spatial_overlays(src_distribution, self.grid.shapefile.reset_index(),
+                                                 how='intersection')
+        # src_distribution.reset_index().to_file(
+        #     os.path.join(self.auxiliary_dir, 'residential', 'fuel_distribution_raw.shp'))
         src_distribution['src_inter_fraction'] = src_distribution.geometry.area / src_distribution[
             'src_inter_fraction']
 
@@ -137,8 +140,8 @@ class ResidentialSector(Sector):
             src_distribution["src_inter_fraction"], axis="index")
 
         src_distribution = src_distribution.loc[:, self.fuel_list + ['FID']].groupby('FID').sum()
-        src_distribution = gpd.GeoDataFrame(src_distribution, crs=self.grid_shp.crs,
-                                            geometry=self.grid_shp.loc[src_distribution.index, 'geometry'])
+        src_distribution = gpd.GeoDataFrame(src_distribution, crs=self.grid.shapefile.crs,
+                                            geometry=self.grid.shapefile.loc[src_distribution.index, 'geometry'])
         src_distribution.reset_index(inplace=True)
 
         self.logger.write_time_log('ResidentialSector', 'to_dst_resolution', timeit.default_timer() - spent_time)
@@ -151,30 +154,33 @@ class ResidentialSector(Sector):
         fuel_distribution_path = os.path.join(self.auxiliary_dir, 'residential', 'fuel_distribution.shp')
 
         if not os.path.exists(fuel_distribution_path):
-
-            population_density = IoRaster(self.comm).clip_raster_with_shapefile_poly(
-                population_density_map, self.clip.shapefile,
-                os.path.join(self.auxiliary_dir, 'residential', 'population_density.tif'))
-            population_density = IoRaster(self.comm).to_shapefile_serie(population_density)
+            population_density = os.path.join(self.auxiliary_dir, 'residential', 'population_density.tif')
+            if self.comm.Get_rank() == 0:
+                population_density = IoRaster(self.comm).clip_raster_with_shapefile_poly(
+                    population_density_map, self.clip.shapefile, population_density)
+            population_density = IoRaster(self.comm).to_shapefile_parallel(population_density)
 
             population_density.rename(columns={'data': 'pop'}, inplace=True)
 
-            population_type = IoRaster(self.comm).clip_raster_with_shapefile_poly(
-                population_type_map, self.clip.shapefile,
-                os.path.join(self.auxiliary_dir, 'residential', 'population_type.tif'))
-            population_type = IoRaster(self.comm).to_shapefile_serie(population_type)
+            population_type = os.path.join(self.auxiliary_dir, 'residential', 'population_type.tif')
+            if self.comm.Get_rank() == 0:
+                population_type = IoRaster(self.comm).clip_raster_with_shapefile_poly(
+                    population_type_map, self.clip.shapefile, population_type)
+            population_type = IoRaster(self.comm).to_shapefile_parallel(population_type)
             population_type.rename(columns={'data': 'type'}, inplace=True)
 
+            population_type['type'] = population_type['type'].astype(np.int16)
+            population_type.loc[population_type['type'] == 2, 'type'] = 3
+
             population_density['type'] = population_type['type']
-            population_density.loc[population_density['type'] == 2, 'type'] = 3
 
-            population_density = self.add_nut_code(population_density, prov_shapefile, nut_value='ORDER07')
+            population_density = self.add_nut_code(population_density, prov_shapefile, nut_value='nuts3_id')
             population_density.rename(columns={'nut_code': 'prov'}, inplace=True)
-
             population_density = population_density.loc[population_density['prov'] != -999, :]
-            population_density = self.add_nut_code(population_density, ccaa_shapefile, nut_value='ORDER06')
+            population_density = self.add_nut_code(population_density, ccaa_shapefile, nut_value='nuts2_id')
             population_density.rename(columns={'nut_code': 'ccaa'}, inplace=True)
             population_density = population_density.loc[population_density['ccaa'] != -999, :]
+            population_density = IoShapefile(self.comm).balance(population_density)
 
             if create_pop_csv:
                 population_density.loc[:, ['prov', 'pop', 'type']].groupby(['prov', 'type']).sum().reset_index().to_csv(
@@ -182,10 +188,13 @@ class ResidentialSector(Sector):
                 population_density.loc[:, ['ccaa', 'pop', 'type']].groupby(['ccaa', 'type']).sum().reset_index().to_csv(
                     self.pop_type_by_ccaa)
 
-            self.pop_type_by_ccaa = pd.read_csv(self.pop_type_by_ccaa).set_index(['ccaa', 'type'])
-            self.pop_type_by_prov = pd.read_csv(self.pop_type_by_prov).set_index(['prov', 'type'])
+            self.pop_type_by_ccaa = pd.read_csv(self.pop_type_by_ccaa).rename(
+                columns={'nuts2_id': 'ccaa'}).set_index(['ccaa', 'type'])
+            self.pop_type_by_prov = pd.read_csv(self.pop_type_by_prov).rename(
+                columns={'nuts3_id': 'prov'}).set_index(['prov', 'type'])
 
-            fuel_distribution = population_density.loc[:, ['CELL_ID', 'geometry']].copy()
+            fuel_distribution = population_density[['geometry']].copy()
+            fuel_distribution.index.name = 'CELL_ID'
 
             for fuel in self.fuel_list:
                 fuel_distribution[fuel] = 0
@@ -197,50 +206,73 @@ class ResidentialSector(Sector):
                         if spatial_proxy['proxy_type'] == 'all':
                             total_pop = self.pop_type_by_ccaa.loc[
                                 self.pop_type_by_ccaa.index.get_level_values('ccaa') == ccaa, 'pop'].sum()
-                            energy_consumption = self.energy_consumption_by_ccaa.loc[
-                                self.energy_consumption_by_ccaa['code'] == ccaa, fuel].values[0]
+                            energy_consumption = self.energy_consumption_nuts2.loc[
+                                self.energy_consumption_nuts2['nuts2_id'] == ccaa, fuel].values[0]
 
                             fuel_distribution.loc[
                                 population_density['ccaa'] == ccaa, fuel] = population_density['pop'].multiply(
                                 energy_consumption / total_pop)
                         else:
-                            total_pop = self.pop_type_by_ccaa.loc[
-                                (self.pop_type_by_ccaa.index.get_level_values('ccaa') == ccaa) &
-                                (self.pop_type_by_ccaa.index.get_level_values('type') == spatial_proxy['proxy_type']),
-                                'pop'].values[0]
-                            energy_consumption = self.energy_consumption_by_ccaa.loc[
-                                self.energy_consumption_by_ccaa['code'] == ccaa, fuel].values[0]
-
-                            fuel_distribution.loc[(population_density['ccaa'] == ccaa) &
-                                                  (population_density['type'] == spatial_proxy['proxy_type']),
-                                                  fuel] = population_density['pop'].multiply(
-                                energy_consumption / total_pop)
+                            try:
+                                total_pop = self.pop_type_by_ccaa.loc[
+                                    (self.pop_type_by_ccaa.index.get_level_values('ccaa') == ccaa) &
+                                    (self.pop_type_by_ccaa.index.get_level_values('type') == spatial_proxy[
+                                        'proxy_type']),
+                                    'pop'].values[0]
+                                try:
+                                    energy_consumption = self.energy_consumption_nuts2.loc[
+                                        self.energy_consumption_nuts2['nuts2_id'] == ccaa, fuel].values[0]
+                                except IndexError:
+                                    warn("*WARNING*: NUT2_ID {0} not found in the ".format(ccaa) +
+                                         "energy_consumption_nuts2 file. Setting it to 0.")
+                                    energy_consumption = 0.0
+                                fuel_distribution.loc[(population_density['ccaa'] == ccaa) &
+                                                      (population_density['type'] == spatial_proxy['proxy_type']),
+                                                      fuel] = population_density['pop'].multiply(
+                                    energy_consumption / total_pop)
+                            except IndexError:
+                                warn("*WARNING*: NUT2_ID {0} not found in the ".format(ccaa) +
+                                     "population_type_nuts2 file. Setting it to 0.")
+                                fuel_distribution.loc[(population_density['ccaa'] == ccaa) &
+                                                      (population_density['type'] == spatial_proxy['proxy_type']),
+                                                      fuel] = 0.0
                 if spatial_proxy['nut_level'] == 'prov':
                     for prov in np.unique(population_density['prov']):
                         if spatial_proxy['proxy_type'] == 'all':
                             total_pop = self.pop_type_by_prov.loc[self.pop_type_by_prov.index.get_level_values(
                                 'prov') == prov, 'pop'].sum()
-                            energy_consumption = self.energy_consumption_by_prov.loc[
-                                self.energy_consumption_by_prov['code'] == prov, fuel].values[0]
-
-                            fuel_distribution.loc[population_density['prov'] == prov, fuel] = population_density[
-                                'pop'].multiply(energy_consumption / total_pop)
+                            try:
+                                energy_consumption = self.energy_consumption_nuts3.loc[
+                                    self.energy_consumption_nuts3['nuts3_id'] == prov, fuel].values[0]
+                                fuel_distribution.loc[population_density['prov'] == prov, fuel] = population_density[
+                                    'pop'].multiply(energy_consumption / total_pop)
+                            except IndexError:
+                                warn("*WARNING*: NUT3_ID {0} not found in the ".format(prov) +
+                                     "energy_consumption_nuts3 file. Setting it to 0.")
+                                fuel_distribution.loc[population_density['prov'] == prov, fuel] = 0.0
                         else:
                             total_pop = self.pop_type_by_prov.loc[
                                 (self.pop_type_by_prov.index.get_level_values('prov') == prov) &
                                 (self.pop_type_by_prov.index.get_level_values('type') == spatial_proxy['proxy_type']),
                                 'pop'].values[0]
-                            energy_consumption = self.energy_consumption_by_prov.loc[
-                                self.energy_consumption_by_prov['code'] == prov, fuel].values[0]
+                            energy_consumption = self.energy_consumption_nuts3.loc[
+                                self.energy_consumption_nuts3['nuts3_id'] == prov, fuel].values[0]
 
                             fuel_distribution.loc[(population_density['prov'] == prov) &
                                                   (population_density['type'] == spatial_proxy['proxy_type']),
                                                   fuel] = population_density['pop'].multiply(
                                 energy_consumption / total_pop)
             fuel_distribution = self.to_dst_resolution(fuel_distribution)
-            IoShapefile(self.comm).write_shapefile_serial(fuel_distribution, fuel_distribution_path)
+            fuel_distribution = IoShapefile(self.comm).gather_shapefile(fuel_distribution, rank=0)
+            if self.comm.Get_rank() == 0:
+                fuel_distribution.groupby('FID').sum()
+                IoShapefile(self.comm).write_shapefile_serial(fuel_distribution, fuel_distribution_path)
+            else:
+                fuel_distribution = None
+            fuel_distribution = IoShapefile(self.comm).split_shapefile(fuel_distribution)
         else:
-            fuel_distribution = IoShapefile(self.comm).read_shapefile_serial(fuel_distribution_path)
+            fuel_distribution = IoShapefile(self.comm).read_shapefile_parallel(fuel_distribution_path)
+            fuel_distribution.set_index('FID', inplace=True)
 
         self.logger.write_time_log('ResidentialSector', 'get_fuel_distribution', timeit.default_timer() - spent_time)
         return fuel_distribution

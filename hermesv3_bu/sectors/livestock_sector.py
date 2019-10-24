@@ -12,6 +12,10 @@ from hermesv3_bu.sectors.sector import Sector
 from hermesv3_bu.io_server.io_shapefile import IoShapefile
 from hermesv3_bu.io_server.io_raster import IoRaster
 from hermesv3_bu.io_server.io_netcdf import IoNetcdf
+from hermesv3_bu.grids.grid import Grid
+from hermesv3_bu.tools.checker import check_files, error_exit
+
+from geopandas import GeoDataFrame
 
 # Constants for grassing daily factor estimation
 SIGMA = 60
@@ -22,7 +26,7 @@ class LivestockSector(Sector):
     """
     Class that contains all the information and methods to calculate the livestock emissions.
     """
-    def __init__(self, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+    def __init__(self, comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
                  animal_list, gridded_livestock_path, correction_split_factors_path, temperature_dir, wind_speed_dir,
                  denominator_yearly_factor_dir, ef_dir, monthly_profiles_path, weekly_profiles_path,
                  hourly_profiles_path, speciation_map_path, speciation_profiles_path, molecular_weights_path,
@@ -43,8 +47,8 @@ class LivestockSector(Sector):
             ['nox_no', 'nh3', 'nmvoc', 'pm10', 'pm25']
         :type source_pollutants: list
 
-        :param grid_shp: Shapefile that contains the destination grid. It must contains the 'FID' (cell num).
-        :type grid_shp: GeoPandas.GeoDataframe
+        :param grid: Grid object.
+        :type grid: Grid
 
         :param clip: Clip.
         :type clip: Clip
@@ -148,13 +152,26 @@ class LivestockSector(Sector):
         :type molecular_weights_path: str
 
         :param nut_shapefile_path: Path to the shapefile that contain the NUT polygons. The shapefile must contain
-            the 'ORDER07' information with the NUT_code.
+            the 'nuts3_id' information with the NUT_code.
         :type nut_shapefile_path: str
         """
         spent_time = timeit.default_timer()
         logger.write_log('===== LIVESTOCK SECTOR =====')
+
+        check_files(
+            [gridded_livestock_path.replace('<animal>', animal) for animal in animal_list] +
+            [correction_split_factors_path.replace('<animal>', animal) for animal in animal_list] +
+            [temperature_dir, wind_speed_dir,
+             denominator_yearly_factor_dir, monthly_profiles_path, weekly_profiles_path, hourly_profiles_path,
+             speciation_map_path, speciation_profiles_path, molecular_weights_path, nut_shapefile_path] +
+            [os.path.join(ef_dir, ef_file) for ef_file in
+             ['{0}.csv'.format(pol) for pol in source_pollutants if pol not in ['pm10', 'pm25']]])
+        for pol in source_pollutants:
+            if pol in ['pm10', 'pm25']:
+                check_files(os.path.join(ef_dir, 'pm.csv'))
+
         super(LivestockSector, self).__init__(
-            comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+            comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
             monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
             speciation_profiles_path, molecular_weights_path)
 
@@ -187,37 +204,32 @@ class LivestockSector(Sector):
         :type gridded_livestock_path: str
 
         :param nut_shapefile_path: Path to the shapefile that contain the NUT polygons. The shapefile must contain
-            the 'ORDER07' information with the NUT ID.
+            the 'nuts3_id' information with the NUT ID.
         :type nut_shapefile_path: str
 
         :param correction_split_factors_path: Path to the CSV file that contains the correction factors and the
             splitting factors to discretizise each animal into theirs different animal types.
             '<animal>' will be replaced by each animal of the animal list.
 
-            The CSV file must contain the following columns ["NUT", "nut_code", "<animal>_fact", "<animal>_01", ...]
+            The CSV file must contain the following columns ["nuts3_na", "nuts3_id", "<animal>_fact", "<animal>_01",...]
             "nut_code" column must contain the NUT ID.
         :type correction_split_factors_path: str
 
-        :return: GeoDataframe with the amount of each animal subtype by destiny cell (FID)
+        :return: GeoDataFrame with the amount of each animal subtype by destiny cell (FID)
             Columns:
             'FID', 'cattle_01', 'cattle_02', 'cattle_03' 'cattle_04', 'cattle_05', 'cattle_06', 'cattle_07',
             'cattle_08', 'cattle_09', 'cattle_10', 'cattle_11', 'chicken_01', 'chicken_02', 'goats_01', 'goats_02',
             'goats_03', goats_04', 'goats_05',  'goats_06', 'pigs_01', 'pigs_02', 'pigs_03', 'pigs_04', 'pigs_05',
             'pigs_06', 'pigs_07', 'pigs_08', 'pigs_09', 'pigs_10', 'timezone',  'geometry'
-        :rtype: geopandas.GeoDataframe
+        :rtype: GeoDataFrame
         """
         spent_time = timeit.default_timer()
         self.logger.write_log('\tCreating animal distribution', message_level=2)
-        # Work for master MPI process
-        if self.comm.Get_rank() == 0:
-            animals_df = self.create_animals_shapefile(gridded_livestock_path)
-            animals_df = self.animal_distribution_by_category(animals_df, nut_shapefile_path,
-                                                              correction_split_factors_path)
-        else:
-            animals_df = None
 
-        # Split distribution, in a balanced way, between MPI process
-        animals_df = IoShapefile(self.comm).split_shapefile(animals_df)
+        animals_df = self.create_animals_shapefile(gridded_livestock_path)
+        animals_df = self.animal_distribution_by_category(animals_df, nut_shapefile_path,
+                                                          correction_split_factors_path)
+
         self.logger.write_log('Animal distribution done', message_level=2)
         self.logger.write_time_log('LivestockSector', 'create_animals_distribution',
                                    timeit.default_timer() - spent_time)
@@ -253,14 +265,14 @@ class LivestockSector(Sector):
         <auxiliary_dir>/livestock/animal_distribution/<animal>/<animal>.shp
 
         Will be created also the clipped raster (TIFF) following the example path
-        <auxiliary_dir>/livestock/animal_distribution/<animal>/<animal>_clip.tiff
+        <auxiliary_dir>/livestock/animal_distribution/<animal>/<animal>_clip.tif
 
         :param gridded_livestock_path: Path to the Raster (TIFF) that contains the animal distribution.
             '<animal>' will be replaced by each animal of the animal list.
         :type gridded_livestock_path: str
 
         :return: Shapefile with the amount of each animal of the animal list in the source resolution.
-        :rtype: geopandas.GeoDataframe
+        :rtype: GeoDataFrame
         """
         spent_time = timeit.default_timer()
         self.logger.write_log('\t\tCreating animal shapefile into source resolution', message_level=3)
@@ -269,22 +281,22 @@ class LivestockSector(Sector):
         for animal in self.animal_list:
             self.logger.write_log('\t\t\t {0}'.format(animal), message_level=3)
             # Each one of the animal distributions will be stored separately
-            animal_distribution_path = os.path.join(self.auxiliary_dir, 'livestock', 'animal_distribution', animal,
-                                                    '{0}.shp'.format(animal))
+            animal_distribution_path = os.path.join(self.auxiliary_dir, 'livestock', animal, '{0}.shp'.format(animal))
             if not os.path.exists(animal_distribution_path):
                 # Create clipped raster file
-                clipped_raster_path = IoRaster(self.comm).clip_raster_with_shapefile_poly(
-                    gridded_livestock_path.replace('<animal>', animal), self.clip.shapefile,
-                    os.path.join(self.auxiliary_dir, 'livestock', 'animal_distribution', animal,
-                                 '{0}_clip.tiff'.format(animal)))
+                clipped_raster_path = os.path.join(
+                    self.auxiliary_dir, 'livestock', animal, '{0}_clip.tif'.format(animal))
+                if self.comm.Get_rank() == 0:
+                    clipped_raster_path = IoRaster(self.comm).clip_raster_with_shapefile_poly(
+                        gridded_livestock_path.replace('<animal>', animal), self.clip.shapefile, clipped_raster_path)
 
-                animal_df = IoRaster(self.comm).to_shapefile_serie(clipped_raster_path, animal_distribution_path,
-                                                                   write=True)
+                animal_df = IoRaster(self.comm).to_shapefile_parallel(clipped_raster_path)
+                animal_df.rename(columns={'data': animal}, inplace=True)
+                animal_df.set_index('CELL_ID', inplace=True)
+                IoShapefile(self.comm).write_shapefile_parallel(animal_df.reset_index(), animal_distribution_path)
             else:
-                animal_df = IoShapefile(self.comm).read_shapefile_serial(animal_distribution_path)
-
-            animal_df.rename(columns={'data': animal}, inplace=True)
-            animal_df.set_index('CELL_ID', inplace=True)
+                animal_df = IoShapefile(self.comm).read_shapefile_parallel(animal_distribution_path)
+                animal_df.set_index('CELL_ID', inplace=True)
 
             # Creating full animal shapefile
             if animal_distribution is None:
@@ -298,9 +310,9 @@ class LivestockSector(Sector):
 
         # Removing empty data
         animal_distribution = animal_distribution.loc[(animal_distribution[self.animal_list] != 0).any(axis=1), :]
+
         self.logger.write_time_log('LivestockSector', 'create_animals_shapefile_src_resolution',
                                    timeit.default_timer() - spent_time)
-
         return animal_distribution
 
     def animals_shapefile_to_dst_resolution(self, animal_distribution):
@@ -308,21 +320,24 @@ class LivestockSector(Sector):
         Interpolates the source distribution into the destiny grid.
 
         :param animal_distribution: Animal distribution shapefile in the source resolution.
-        :type animal_distribution: geopandas.GeoDataframe
+        :type animal_distribution: GeoDataFrame
 
         :return: Animal distribution shapefile in the destiny resolution.
-        :rtype: geopandas.GeoDataframe
+        :rtype: GeoDataFrame
         """
         spent_time = timeit.default_timer()
         self.logger.write_log('\t\tCreating animal shapefile into destiny resolution', message_level=3)
-        self.grid_shp.reset_index(inplace=True)
+        self.grid.shapefile.reset_index(inplace=True)
+
+        animal_distribution = IoShapefile(self.comm).balance(animal_distribution)
         # Changing coordinates system to the grid one
-        animal_distribution.to_crs(self.grid_shp.crs, inplace=True)
+        animal_distribution.to_crs(self.grid.shapefile.crs, inplace=True)
         # Getting src area
         animal_distribution['src_inter_fraction'] = animal_distribution.geometry.area
 
         # Making the intersection between the src distribution and the destiny grid
-        animal_distribution = self.spatial_overlays(animal_distribution, self.grid_shp, how='intersection')
+        animal_distribution = self.spatial_overlays(animal_distribution.reset_index(), self.grid.shapefile,
+                                                    how='intersection')
         # Getting proportion of intersection in the src cell (src_area/portion_area)
         animal_distribution['src_inter_fraction'] = \
             animal_distribution.geometry.area / animal_distribution['src_inter_fraction']
@@ -332,11 +347,17 @@ class LivestockSector(Sector):
         # Sum by destiny cell
         animal_distribution = animal_distribution.loc[:, self.animal_list + ['FID']].groupby('FID').sum()
 
-        self.grid_shp.set_index('FID', drop=False, inplace=True)
-        # Adding geometry and coordinates system from the destiny grid shapefile
-        animal_distribution = gpd.GeoDataFrame(animal_distribution, crs=self.grid_shp.crs,
-                                               geometry=self.grid_shp.loc[animal_distribution.index, 'geometry'])
-        animal_distribution.reset_index(inplace=True)
+        animal_distribution = IoShapefile(self.comm).gather_shapefile(animal_distribution.reset_index())
+        if self.comm.Get_rank() == 0:
+            animal_distribution = animal_distribution.groupby('FID').sum()
+            # Adding geometry and coordinates system from the destiny grid shapefile
+            animal_distribution = gpd.GeoDataFrame(
+                animal_distribution, crs=self.grid.shapefile.crs,
+                geometry=self.grid.shapefile.loc[animal_distribution.index, 'geometry'])
+        else:
+            animal_distribution = None
+
+        animal_distribution = IoShapefile(self.comm).split_shapefile(animal_distribution)
         self.logger.write_time_log('LivestockSector', 'animals_shapefile_to_dst_resolution',
                                    timeit.default_timer() - spent_time)
 
@@ -358,15 +379,15 @@ class LivestockSector(Sector):
         :return:
         """
         spent_time = timeit.default_timer()
-        animal_distribution_path = os.path.join(self.auxiliary_dir, 'livestock', 'animal_distribution',
-                                                'animal_distribution.shp')
+        animal_distribution_path = os.path.join(self.auxiliary_dir, 'livestock', 'animal_distribution')
 
         if not os.path.exists(animal_distribution_path):
             dataframe = self.create_animals_shapefile_src_resolution(gridded_livestock_path)
             dataframe = self.animals_shapefile_to_dst_resolution(dataframe)
-            IoShapefile(self.comm).write_shapefile_serial(dataframe, animal_distribution_path)
+            IoShapefile(self.comm).write_shapefile_parallel(dataframe.reset_index(), animal_distribution_path)
         else:
-            dataframe = IoShapefile(self.comm).read_shapefile_serial(animal_distribution_path)
+            dataframe = IoShapefile(self.comm).read_shapefile_parallel(animal_distribution_path)
+            dataframe.set_index('FID', inplace=True)
         self.logger.write_time_log('LivestockSector', 'create_animals_shapefile', timeit.default_timer() - spent_time)
 
         return dataframe
@@ -382,7 +403,7 @@ class LivestockSector(Sector):
             splitting factors to discretizise each animal into theirs different animal types.
             '<animal>' will be replaced by each animal of the animal list.
 
-            The CSV file must contain the following columns ["NUT", "nut_code", "<animal>_fact", "<animal>_01", ...]
+            The CSV file must contain the following columns ["nuts3_na", "nuts3_id", "<animal>_fact", "<animal>_01",...]
             "nut_code" column must contain the NUT ID.
         :type correction_split_factors_path: str
 
@@ -393,40 +414,41 @@ class LivestockSector(Sector):
         splitting_factors_list = []
         for animal in self.animal_list:
             correction_split_factors = pd.read_csv(correction_split_factors_path.replace('<animal>', animal))
-            correction_split_factors.set_index('nut_code', inplace=True)
+            correction_split_factors.set_index('nuts3_id', inplace=True)
 
             categories = list(correction_split_factors.columns.values)
-            categories = [e for e in categories if e not in ['NUT', 'nut_code', '{0}_fact'.format(animal)]]
+            categories = [e for e in categories if e not in ['nuts3_na', 'nuts3_id', '{0}_fact'.format(animal)]]
 
             correction_split_factors[categories] = correction_split_factors.loc[:, categories].multiply(
                 correction_split_factors['{0}_fact'.format(animal)], axis='index')
-            correction_split_factors.drop(columns=['NUT', '{0}_fact'.format(animal)], inplace=True)
+
+            correction_split_factors.drop(columns=['nuts3_na', '{0}_fact'.format(animal)], inplace=True)
             splitting_factors_list.append(correction_split_factors)
         splitting_factors = pd.concat(splitting_factors_list, axis=1)
 
         splitting_factors.reset_index(inplace=True)
-        splitting_factors['nut_code'] = splitting_factors['nut_code'].astype(np.int16)
+        splitting_factors['nuts3_id'] = splitting_factors['nuts3_id'].astype(np.int16)
         self.logger.write_time_log('LivestockSector', 'get_splitting_factors', timeit.default_timer() - spent_time)
 
         return splitting_factors
 
-    def animal_distribution_by_category(self, dataframe, nut_shapefile_path, correction_split_factors_path):
+    def animal_distribution_by_category(self, animal_distribution, nut_shapefile_path, correction_split_factors_path):
         """
         Split the animal categories into as many categories as each animal type has.
 
-        :param dataframe: GeoDataframe with the animal distribution by animal type.
-        :type dataframe: geopandas.GeoDataframe
+        :param animal_distribution: GeoDataFrame with the animal distribution by animal type.
+        :type animal_distribution: GeoDataFrame
 
         :param nut_shapefile_path: Path to the shapefile that contain the NUT polygons. The shapefile must contain
-            the 'ORDER07' information with the NUT_code.
+            the 'nuts3_id' information with the NUT_code.
         :type nut_shapefile_path: str
 
         :param correction_split_factors_path: Path to the CSV file that contains the correction factors and the
             splitting factors to discretizise each animal into theirs different animal types.
             '<animal>' will be replaced by each animal of the animal list.
-            The CSV file must contain the following columns ["NUT", "nut_code", "<animal>_fact", "<animal>_01",
+            The CSV file must contain the following columns ["nuts3_na", "nuts3_id", "<animal>_fact", "<animal>_01",
             ...]
-            "nut_code" column must contain the NUT ID
+            "nuts3_id" column must contain the NUT ID
         :type correction_split_factors_path: str
 
         :return: GeoDataframe with the amount of each animal subtype by destiny cell (FID)
@@ -435,36 +457,44 @@ class LivestockSector(Sector):
             'cattle_08', 'cattle_09', 'cattle_10', 'cattle_11', 'chicken_01', 'chicken_02', 'goats_01', 'goats_02',
             'goats_03', goats_04', 'goats_05',  'goats_06', 'pigs_01', 'pigs_02', 'pigs_03', 'pigs_04', 'pigs_05',
             'pigs_06', 'pigs_07', 'pigs_08', 'pigs_09', 'pigs_10', 'timezone',  'geometry'
-        :rtype: geopandas.GeoDataframe
+        :rtype: GeoDataFrame
         """
         spent_time = timeit.default_timer()
-        animal_distribution_path = os.path.join(self.auxiliary_dir, 'livestock', 'animal_distribution',
-                                                'animal_distribution_by_cat.shp')
+        animal_distribution_path = os.path.join(self.auxiliary_dir, 'livestock', 'animal_distribution_by_cat')
 
         if not os.path.exists(animal_distribution_path):
-            dataframe = self.add_nut_code(dataframe, nut_shapefile_path, nut_value='ORDER07')
+            animal_distribution = self.add_nut_code(animal_distribution.reset_index(), nut_shapefile_path,
+                                                    nut_value='nuts3_id')
+            animal_distribution.rename(columns={'nut_code': 'nuts3_id'}, inplace=True)
+            animal_distribution = animal_distribution[animal_distribution['nuts3_id'] != -999]
+            animal_distribution = IoShapefile(self.comm).balance(animal_distribution)
 
+            animal_distribution.set_index('FID', inplace=True)
             splitting_factors = self.get_splitting_factors(correction_split_factors_path)
 
             # Adding the splitting factors by NUT code
-            dataframe = pd.merge(dataframe, splitting_factors, how='left', on='nut_code')
-
-            dataframe.drop(columns=['nut_code'], inplace=True)
+            animal_distribution = pd.merge(animal_distribution.reset_index(), splitting_factors, how='left',
+                                           on='nuts3_id')
+            animal_distribution.set_index('FID', inplace=True)
+            animal_distribution.drop(columns=['nuts3_id'], inplace=True)
 
             for animal in self.animal_list:
-                animal_types = [i for i in list(dataframe.columns.values) if i.startswith(animal)]
-                dataframe.loc[:, animal_types] = dataframe.loc[:, animal_types].multiply(dataframe[animal],
-                                                                                         axis='index')
-                dataframe.drop(columns=[animal], inplace=True)
+                animal_types = [i for i in list(animal_distribution.columns.values) if i.startswith(animal)]
+                animal_distribution.loc[:, animal_types] = animal_distribution.loc[:, animal_types].multiply(
+                    animal_distribution[animal], axis='index')
+                animal_distribution.drop(columns=[animal], inplace=True)
 
-            dataframe = self.add_timezone(dataframe)
-            IoShapefile(self.comm).write_shapefile_serial(dataframe, animal_distribution_path)
+            animal_distribution = self.add_timezone(animal_distribution)
+            animal_distribution.set_index('FID', inplace=True)
+
+            IoShapefile(self.comm).write_shapefile_parallel(animal_distribution.reset_index(), animal_distribution_path)
         else:
-            dataframe = IoShapefile(self.comm).read_shapefile_serial(animal_distribution_path)
+            animal_distribution = IoShapefile(self.comm).read_shapefile_parallel(animal_distribution_path)
+            animal_distribution.set_index('FID', inplace=True)
         self.logger.write_time_log('LivestockSector', 'animal_distribution_by_category',
                                    timeit.default_timer() - spent_time)
 
-        return dataframe
+        return animal_distribution
 
     def get_daily_factors(self, animal_shp, day):
         """
@@ -484,13 +514,13 @@ class LivestockSector(Sector):
             'cattle_08', 'cattle_09', 'cattle_10', 'cattle_11', 'chicken_01', 'chicken_02', 'goats_01', 'goats_02',
             'goats_03', goats_04', 'goats_05',  'goats_06', 'pigs_01', 'pigs_02', 'pigs_03', 'pigs_04', 'pigs_05',
             'pigs_06', 'pigs_07', 'pigs_08', 'pigs_09', 'pigs_10', 'timezone',  'geometry'
-        :type animal_shp: geopandas.GeoDataframe
+        :type animal_shp: GeoDataFrame
 
         :param day: Date of the day to generate.
         :type day: datetime.date
 
         :return: Shapefile with the daily factors.
-        :rtype: geopandas.GeoDataframe
+        :rtype: GeoDataFrame
         """
         import math
         spent_time = timeit.default_timer()
@@ -645,15 +675,15 @@ class LivestockSector(Sector):
             'cattle_08', 'cattle_09', 'cattle_10', 'cattle_11', 'chicken_01', 'chicken_02', 'goats_01', 'goats_02',
             'goats_03', goats_04', 'goats_05',  'goats_06', 'pigs_01', 'pigs_02', 'pigs_03', 'pigs_04', 'pigs_05',
             'pigs_06', 'pigs_07', 'pigs_08', 'pigs_09', 'pigs_10', 'timezone',  'geometry'
-        :type animals_df: geopandas.GeoDataframe
+        :type animals_df: GeoDataFrame
 
         :param daily_factors: GeoDataframe with the daily factors.
             Columns:
             'REC', 'geometry', 'FD_housing_open', 'FD_housing_closed, 'FD_storage', 'FD_grassing'
-        :type daily_factors: geopandas.GeoDataframe
+        :type daily_factors: GeoDataFrame
 
         :return: Animal distribution with the daily factors.
-        :rtype: geopandas.GeoDataframe
+        :rtype: GeoDataFrame
         """
         spent_time = timeit.default_timer()
         animals_df = animals_df.to_crs({'init': 'epsg:4326'})
@@ -675,21 +705,23 @@ class LivestockSector(Sector):
         """
         Calculate the emissions, already speciated, corresponding to the given day.
 
-        :param animals_df: GeoDataframe with the amount of each animal subtype by destiny cell (FID)
+        :param animals_df: GeoDataFrame with the amount of each animal subtype by destiny cell (FID)
             Columns:
             'FID', 'cattle_01', 'cattle_02', 'cattle_03' 'cattle_04', 'cattle_05', 'cattle_06', 'cattle_07',
             'cattle_08', 'cattle_09', 'cattle_10', 'cattle_11', 'chicken_01', 'chicken_02', 'goats_01', 'goats_02',
             'goats_03', goats_04', 'goats_05',  'goats_06', 'pigs_01', 'pigs_02', 'pigs_03', 'pigs_04', 'pigs_05',
             'pigs_06', 'pigs_07', 'pigs_08', 'pigs_09', 'pigs_10', 'timezone',  'geometry'
-        :type animals_df: geopandas.GeoDataframe
+        :type animals_df: GeoDataFrame
 
         :param day: Date of the day to generate.
         :type day: datetime.date
 
-        :return: GeoDataframe with the daily emissions by destiny cell.
-        :rtype: geopandas.GeoDataframe
+        :return: GeoDataFrame with the daily emissions by destiny cell.
+        :rtype: GeoDataFrame
         """
         spent_time = timeit.default_timer()
+
+        animals_df.reset_index(inplace=True)
         daily_factors = self.get_daily_factors(animals_df.loc[:, ['FID', 'geometry']], day)
         animals_df = self.add_daily_factors_to_animal_distribution(animals_df, daily_factors)
 
@@ -719,7 +751,7 @@ class LivestockSector(Sector):
                                 (animals_df[animal['Code']] * animals_df['FD_housing_closed']).multiply(
                                     animal['EF_housing'])
                         else:
-                            raise KeyError('Animal {0} not found on the nh3 emission factors file.'.format(animal.Code))
+                            error_exit('Animal {0} not found on the nh3 emission factors file.'.format(animal.Code))
                         # Storage emissions
                         out_df.loc[:, out_p] += \
                             (animals_df[animal['Code']] * animals_df['FD_storage']).multiply(animal['EF_yarding'])
@@ -794,7 +826,7 @@ class LivestockSector(Sector):
                 out_df.loc[:, out_p] = out_df.loc[:, out_p].multiply(1000. * (1. / self.molecular_weights['pm10']))
 
             # Preparing PM10 for PMC
-            if 'pmc' in [x.lower() for x in self.speciation_map.iterkeys()]:
+            if 'pmc' in [x.lower() for x in self.speciation_map.keys()]:
                 out_df['aux_pm10'] = 0
                 for i, animal in pd.read_csv(os.path.join(self.ef_dir, 'pm.csv')).iterrows():
                     # Iterating by animal subtype
@@ -846,7 +878,7 @@ class LivestockSector(Sector):
                 out_df.loc[:, out_p] = out_df.loc[:, out_p].multiply(1000. * (1. / self.molecular_weights['pm25']))
 
             # Preparing PM2.5 for PMC
-            if 'pmc' in [x.lower() for x in self.speciation_map.iterkeys()]:
+            if 'pmc' in [x.lower() for x in self.speciation_map.keys()]:
                 out_df['aux_pm25'] = 0
                 for i, animal in pd.read_csv(os.path.join(self.ef_dir, 'pm.csv')).iterrows():
                     if animal.Code.startswith(tuple(self.animal_list)):
@@ -890,7 +922,7 @@ class LivestockSector(Sector):
                     (30. / 14.) * 1000. * (1. / self.molecular_weights['nox_no']))
 
         # ===== PMC =====
-        if 'pmc' in [x.lower() for x in self.speciation_map.iterkeys()]:
+        if 'pmc' in [x.lower() for x in self.speciation_map.keys()]:
             pmc_name = 'PMC'
             self.logger.write_log('\t\t\tCalculating {0} emissions'.format(pmc_name), message_level=3)
             if all(x in [x.lower() for x in self.source_pollutants] for x in ['pm10', 'pm25']):
@@ -921,7 +953,7 @@ class LivestockSector(Sector):
             'cattle_08', 'cattle_09', 'cattle_10', 'cattle_11', 'chicken_01', 'chicken_02', 'goats_01', 'goats_02',
             'goats_03', goats_04', 'goats_05',  'goats_06', 'pigs_01', 'pigs_02', 'pigs_03', 'pigs_04', 'pigs_05',
             'pigs_06', 'pigs_07', 'pigs_08', 'pigs_09', 'pigs_10', 'timezone',  'geometry'
-        :type animals_df: geopandas.GeoDataframe
+        :type animals_df: GeoDataFrame
 
         :return: Dictionary with the day as key (same key as self.day_dict) and the daily emissions as value.
         :rtype: dict
@@ -943,7 +975,7 @@ class LivestockSector(Sector):
         :type df_by_day: dict
 
         :return: GeoDataframe with all the time steps (each time step have the daily emission)
-        :rtype: geopandas.GeoDataframe
+        :rtype: GeoDataFrame
         """
         spent_time = timeit.default_timer()
         df_list = []
@@ -970,7 +1002,7 @@ class LivestockSector(Sector):
         :type dict_by_day: dict
 
         :return: GeoDataframe with the hourly distribution.
-        :rtype: geopandas.GeoDataframe
+        :rtype: GeoDataFrame
         """
         spent_time = timeit.default_timer()
 
@@ -1024,7 +1056,7 @@ class LivestockSector(Sector):
         Calculate the livestock emissions hourly distributed.
 
         :return: GeoDataframe with all the emissions.
-        :rtype: geopandas.GeoDataframe
+        :rtype: GeoDataFrame
         """
         spent_time = timeit.default_timer()
         self.logger.write_log('\tCalculating emissions')

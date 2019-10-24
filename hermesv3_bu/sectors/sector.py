@@ -3,16 +3,22 @@
 import sys
 import os
 import timeit
-from hermesv3_bu.logger.log import Log
 import numpy as np
 import pandas as pd
 import geopandas as gpd
 from mpi4py import MPI
 
+from hermesv3_bu.io_server.io_raster import IoRaster
+from hermesv3_bu.io_server.io_shapefile import IoShapefile
+from geopandas import GeoDataFrame
+from hermesv3_bu.logger.log import Log
+from hermesv3_bu.grids.grid import Grid
+from geopandas import GeoDataFrame
+
 
 class Sector(object):
 
-    def __init__(self, comm, logger, auxiliary_dir, grid_shp, clip, date_array, source_pollutants, vertical_levels,
+    def __init__(self, comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
                  monthly_profiles_path, weekly_profiles_path, hourly_profiles_path, speciation_map_path,
                  speciation_profiles_path, molecular_weights_path):
         """
@@ -28,8 +34,8 @@ class Sector(object):
             created yet.
         :type auxiliary_dir: str
 
-        :param grid_shp: Shapefile with the grid horizontal distribution.
-        :type grid_shp: GeoDataFrame
+        :param grid: Grid object
+        :type grid: Grid
 
         :param date_array: List of datetimes.
         :type date_array: list(datetime.datetime, ...)
@@ -73,7 +79,7 @@ class Sector(object):
         self.comm = comm
         self.logger = logger
         self.auxiliary_dir = auxiliary_dir
-        self.grid_shp = grid_shp
+        self.grid = grid
         self.clip = clip
         self.date_array = date_array
         self.source_pollutants = source_pollutants
@@ -90,7 +96,7 @@ class Sector(object):
         self.speciation_profile = self.read_speciation_profiles(speciation_profiles_path)
         self.molecular_weights = self.read_molecular_weights(molecular_weights_path)
 
-        self.output_pollutants = self.speciation_map.keys()
+        self.output_pollutants = list(self.speciation_map.keys())
 
         self.logger.write_time_log('Sector', '__init__', timeit.default_timer() - spent_time)
 
@@ -320,11 +326,11 @@ class Sector(object):
         spent_time = timeit.default_timer()
         weekdays_factors = 0
         num_days = 0
-        for day in xrange(7):
+        for day in range(7):
             weekdays_factors += profile[day] * weekdays[day]
             num_days += weekdays[day]
         increment = float(num_days - weekdays_factors) / num_days
-        for day in xrange(7):
+        for day in range(7):
             profile[day] = (increment + profile[day]) / num_days
         self.logger.write_time_log('Sector', 'calculate_weekday_factor_full_month', timeit.default_timer() - spent_time)
 
@@ -343,7 +349,7 @@ class Sector(object):
         from calendar import monthrange, weekday, MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY
         spent_time = timeit.default_timer()
         weekdays = [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY]
-        days = [weekday(date.year, date.month, d + 1) for d in xrange(monthrange(date.year, date.month)[1])]
+        days = [weekday(date.year, date.month, d + 1) for d in range(monthrange(date.year, date.month)[1])]
 
         weekdays_dict = {}
         for i, day in enumerate(weekdays):
@@ -420,7 +426,7 @@ class Sector(object):
 
         return dataframe
 
-    def add_nut_code(self, shapefile, nut_shapefile_path, nut_value='ORDER06'):
+    def add_nut_code(self, shapefile, nut_shapefile_path, nut_value='nuts2_id'):
         """
         Add 'nut_code' column into the shapefile based on the 'nut_value' column of the 'nut_shapefile_path' shapefile.
 
@@ -438,18 +444,18 @@ class Sector(object):
         :type nut_value: str
 
         :return: Shapefile with the 'nut_code' column set.
-        :rtype: geopandas.GeoDataframe
+        :rtype: GeoDataFrame
         """
         spent_time = timeit.default_timer()
         nut_shapefile = gpd.read_file(nut_shapefile_path).to_crs(shapefile.crs)
         shapefile = gpd.sjoin(shapefile, nut_shapefile.loc[:, [nut_value, 'geometry']], how='left', op='intersects')
-
+        del nut_shapefile
         shapefile = shapefile[~shapefile.index.duplicated(keep='first')]
         shapefile.drop('index_right', axis=1, inplace=True)
 
         shapefile.rename(columns={nut_value: 'nut_code'}, inplace=True)
         shapefile.loc[shapefile['nut_code'].isna(), 'nut_code'] = -999
-        shapefile['nut_code'] = shapefile['nut_code'].astype(np.int16)
+        shapefile['nut_code'] = shapefile['nut_code'].astype(np.int64)
         self.logger.write_time_log('Sector', 'add_nut_code', timeit.default_timer() - spent_time)
 
         return shapefile
@@ -465,6 +471,8 @@ class Sector(object):
         :param how: Operation to do
         :return: GeoDataFrame
         """
+        from functools import reduce
+
         spent_time = timeit.default_timer()
         df1 = df1.copy()
         df2 = df2.copy()
@@ -556,6 +564,77 @@ class Sector(object):
 
     def get_output_pollutants(self, input_pollutant):
         spent_time = timeit.default_timer()
-        return_value = [outs for outs, ints in self.speciation_map.iteritems() if ints == input_pollutant]
+        return_value = [outs for outs, ints in self.speciation_map.items() if ints == input_pollutant]
         self.logger.write_time_log('Sector', 'get_output_pollutants', timeit.default_timer() - spent_time)
         return return_value
+
+    def calculate_land_use_by_nut(self, land_use_raster_path, nut_shapefile_path, out_land_use_by_nut_path):
+        # 1st Clip the raster
+        lu_raster_path = os.path.join(self.auxiliary_dir, 'clipped_land_use.tif')
+
+        if self.comm.Get_rank() == 0:
+            if not os.path.exists(lu_raster_path):
+                lu_raster_path = IoRaster(self.comm).clip_raster_with_shapefile_poly(
+                    land_use_raster_path, self.clip.shapefile, lu_raster_path)
+
+        # 2nd Raster to shapefile
+        land_use_shp = IoRaster(self.comm).to_shapefile_parallel(lu_raster_path, gather=False, bcast=False)
+
+        # 3rd Add NUT code
+        land_use_shp.drop(columns='CELL_ID', inplace=True)
+        land_use_shp.rename(columns={'data': 'land_use'}, inplace=True)
+        land_use_shp = self.add_nut_code(land_use_shp, nut_shapefile_path, nut_value='nuts2_id')
+        land_use_shp = land_use_shp[land_use_shp['nut_code'] != -999]
+        land_use_shp = IoShapefile(self.comm).balance(land_use_shp)
+
+        # 4th Calculate land_use percent
+        land_use_shp['area'] = land_use_shp.geometry.area
+
+        land_use_by_nut = GeoDataFrame(index=pd.MultiIndex.from_product(
+            [np.unique(land_use_shp['nut_code']), np.unique(land_use_shp['land_use'])], names=['nuts2_id', 'land_use']))
+
+        for nut_code in np.unique(land_use_shp['nut_code']):
+            for land_use in np.unique(land_use_shp['land_use']):
+                land_use_by_nut.loc[(nut_code, land_use), 'area'] = land_use_shp.loc[
+                    (land_use_shp['land_use'] == land_use) & (land_use_shp['nut_code'] == nut_code),  'area'].sum()
+
+        land_use_by_nut.reset_index(inplace=True)
+        land_use_by_nut = IoShapefile(self.comm).gather_shapefile(land_use_by_nut, rank=0)
+
+        if self.comm.Get_rank() == 0:
+            land_use_by_nut = land_use_by_nut.groupby(['nuts2_id', 'land_use']).sum()
+            land_use_by_nut.to_csv(out_land_use_by_nut_path)
+            print('DONE -> {0}'.format(out_land_use_by_nut_path))
+        self.comm.Barrier()
+
+    def create_population_by_nut(self, population_raster_path, nut_shapefile_path, output_path, nut_column='nuts3_id'):
+        # 1st Clip the raster
+        self.logger.write_log("\t\tCreating clipped population raster", message_level=3)
+        if self.comm.Get_rank() == 0:
+            clipped_population_path = IoRaster(self.comm).clip_raster_with_shapefile_poly(
+                population_raster_path, self.clip.shapefile,
+                os.path.join(self.auxiliary_dir, 'traffic_area', 'pop.tif'))
+        else:
+            clipped_population_path = None
+
+        # 2nd Raster to shapefile
+        self.logger.write_log("\t\tRaster to shapefile", message_level=3)
+        pop_shp = IoRaster(self.comm).to_shapefile_parallel(
+            clipped_population_path, gather=False, bcast=False, crs={'init': 'epsg:4326'})
+
+        # 3rd Add NUT code
+        self.logger.write_log("\t\tAdding nut codes to the shapefile", message_level=3)
+        # if self.comm.Get_rank() == 0:
+        pop_shp.drop(columns='CELL_ID', inplace=True)
+        pop_shp.rename(columns={'data': 'population'}, inplace=True)
+        pop_shp = self.add_nut_code(pop_shp, nut_shapefile_path, nut_value=nut_column)
+        pop_shp = pop_shp[pop_shp['nut_code'] != -999]
+        pop_shp.rename(columns={'nut_code': nut_column}, inplace=True)
+
+        pop_shp = IoShapefile(self.comm).gather_shapefile(pop_shp)
+        if self.comm.Get_rank() == 0:
+            popu_dist = pop_shp.groupby(nut_column).sum()
+            popu_dist.to_csv(output_path)
+        self.comm.Barrier()
+
+        return True

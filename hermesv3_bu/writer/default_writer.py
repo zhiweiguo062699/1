@@ -198,14 +198,16 @@ class DefaultWriter(Writer):
         #     emissions.drop(columns=['Unnamed: 0'], inplace=True)
         for var_name in emissions.columns.values:
             self.logger.write_log('\t\tCreating {0} variable'.format(var_name), message_level=3)
-            if CHUNK:
-                var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim,
-                                            chunksizes=self.rank_distribution[0]['shape'])
-            else:
-                var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim)
-
             if self.comm_write.Get_size() > 1:
+                if CHUNK:
+                    var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim,
+                                                chunksizes=self.rank_distribution[0]['shape'])
+                else:
+                    var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim)
+
                 var.set_collective(True)
+            else:
+                var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim, zlib=True)
 
             var_data = self.dataframe_to_array(emissions.loc[:, [var_name]])
             var[:, :,

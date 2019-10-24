@@ -35,7 +35,6 @@ setup(
         'pyproj',
         'configargparse',
         'cf_units>=1.1.3',
-        'holidays',
         'pytz',
         'timezonefinder',
         'mpi4py',
@@ -45,7 +44,7 @@ setup(
     ],
     packages=find_packages(),
     classifiers=[
-        "Programming Language :: Python :: 2.7",
+        "Programming Language :: Python :: 3.7",
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Operating System :: OS Independent",
         "Topic :: Scientific/Engineering :: Atmospheric Science"
@@ -60,6 +59,7 @@ setup(
     entry_points={
         'console_scripts': [
             'hermesv3_bu = hermesv3_bu.hermes:run',
+            'hermesv3_bu_download_benchmark = hermesv3_bu.tools.download_benchmark:download_benchmark',
         ],
     },
 )
