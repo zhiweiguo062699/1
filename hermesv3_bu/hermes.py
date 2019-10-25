@@ -48,11 +48,11 @@ class Hermes(object):
         self.sector_manager = SectorManager(
             self.comm, self.logger, self.grid, self.clip, self.date_array, self.arguments)
 
-        self.writer = select_writer(self.logger, self.arguments, self.grid, self.date_array)
+        self.writer = select_writer(self.logger, self.comm, self.arguments, self.grid, self.date_array)
 
         self.logger.write_time_log('HERMES', '__init__', timeit.default_timer() - self.initial_time)
 
-    def main(self):
+    def main(self, return_emis=False):
         """
         Main functionality of the model.
         """
@@ -62,6 +62,8 @@ class Hermes(object):
             self.logger.write_log('***** HERMESv3_BU First Time finished successfully *****')
         else:
             emis = self.sector_manager.run()
+            if return_emis:
+                return emis
             waiting_time = timeit.default_timer()
             self.comm.Barrier()
             self.logger.write_log('All emissions calculated!')
@@ -80,8 +82,8 @@ class Hermes(object):
         return None
 
 
-def run(comm=None):
-    date = Hermes(Config(comm), comm).main()
+def run():
+    date = Hermes(Config()).main()
     while date is not None:
         date = Hermes(Config(new_date=date)).main()
     sys.exit(0)
