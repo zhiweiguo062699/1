@@ -1,5 +1,5 @@
-0.0.0
-    2019/XX/XX
+0.1.1
+    2019/10/29
 
     First beta version:
 
@@ -26,8 +26,10 @@
         9. Point sources sector
         10. Road traffic sector
         11. Traffic area (evaporative & small cities) sector
+        12. Solvents sector
 
     - Writing options:
+        0. Return emissions on memory
         1. Default writer
         2. CMAQ writer
         3. MONARCH writer
