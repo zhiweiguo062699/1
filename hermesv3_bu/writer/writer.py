@@ -15,7 +15,7 @@ BALANCED = False
 MPI_TAG_CONSTANT = 10**6
 
 
-def select_writer(logger, arguments, grid, date_array):
+def select_writer(logger, comm_world, arguments, grid, date_array):
     """
     Select the writer depending on the arguments passed to HERMESv3_BU
 
@@ -35,7 +35,6 @@ def select_writer(logger, arguments, grid, date_array):
     :rtype: Writer
     """
     spent_time = timeit.default_timer()
-    comm_world = MPI.COMM_WORLD
 
     if grid.shape[2] % 2 == 0:
         max_procs = grid.shape[2] // 2
