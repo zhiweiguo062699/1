@@ -67,7 +67,7 @@ class SectorManager(object):
                     arguments.auxiliary_files_path, grid, clip, date_array,
                     arguments.livestock_source_pollutants, grid.vertical_desctiption, arguments.animal_list,
                     arguments.gridded_livestock, arguments.correction_split_factors,
-                    arguments.temperature_daily_files_path, arguments.wind_speed_daily_files_path,
+                    arguments.era5_temperature_daily_files_path, arguments.era5_wind_speed_daily_files_path,
                     arguments.denominator_yearly_factor_dir, arguments.livestock_ef_files_dir,
                     arguments.livestock_monthly_profiles, arguments.livestock_weekly_profiles,
                     arguments.livestock_hourly_profiles, arguments.speciation_map,
@@ -103,7 +103,7 @@ class SectorManager(object):
                     arguments.cultivated_ratio, arguments.fertilizers_rate, arguments.crop_f_parameter,
                     arguments.crop_f_fertilizers, arguments.gridded_ph, arguments.gridded_cec,
                     arguments.fertilizers_denominator_yearly_factor_path, arguments.crop_calendar,
-                    arguments.temperature_daily_files_path, arguments.wind_speed_daily_files_path,
+                    arguments.era5_temperature_daily_files_path, arguments.era5_wind_speed_daily_files_path,
                     arguments.crop_growing_degree_day_path)
 
             elif sector == 'agricultural_machinery' and comm_world.Get_rank() in sector_procs:
@@ -135,7 +135,7 @@ class SectorManager(object):
                     arguments.population_type_map, arguments.population_type_nuts2, arguments.population_type_nuts3,
                     arguments.energy_consumption_nuts3, arguments.energy_consumption_nuts2,
                     arguments.residential_spatial_proxies, arguments.residential_ef_files_path,
-                    arguments.residential_heating_degree_day_path, arguments.temperature_daily_files_path,
+                    arguments.residential_heating_degree_day_path, arguments.era5_temperature_daily_files_path,
                     arguments.residential_hourly_profiles, arguments.speciation_map,
                     arguments.residential_speciation_profiles, arguments.molecular_weights)
 
@@ -185,8 +185,8 @@ class SectorManager(object):
                     arguments.load, arguments.speciation_map, arguments.traffic_speciation_profile_hot_cold,
                     arguments.traffic_speciation_profile_tyre, arguments.traffic_speciation_profile_road,
                     arguments.traffic_speciation_profile_brake, arguments.traffic_speciation_profile_resuspension,
-                    arguments.temperature_hourly_files_path, arguments.output_dir, arguments.molecular_weights,
-                    arguments.resuspension_correction, arguments.precipitation_files_path, arguments.do_hot,
+                    arguments.era5_temperature_hourly_files_path, arguments.output_dir, arguments.molecular_weights,
+                    arguments.resuspension_correction, arguments.era5_precipitation_files_path, arguments.do_hot,
                     arguments.do_cold, arguments.do_tyre_wear, arguments.do_brake_wear, arguments.do_road_wear,
                     arguments.do_resuspension, arguments.write_rline)
 
@@ -199,7 +199,7 @@ class SectorManager(object):
                     arguments.molecular_weights, arguments.do_evaporative, arguments.traffic_area_gas_path,
                     arguments.population_nuts3, arguments.nuts3_shapefile,
                     arguments.traffic_area_speciation_profiles_evaporative, arguments.traffic_area_evaporative_ef_file,
-                    arguments.temperature_hourly_files_path, arguments.do_small_cities,
+                    arguments.era5_temperature_hourly_files_path, arguments.do_small_cities,
                     arguments.traffic_area_small_cities_path, arguments.traffic_area_speciation_profiles_small_cities,
                     arguments.traffic_area_small_cities_ef_file, arguments.small_cities_monthly_profile,
                     arguments.small_cities_weekly_profile, arguments.small_cities_hourly_profile
