@@ -27,7 +27,7 @@ class LivestockSector(Sector):
     Class that contains all the information and methods to calculate the livestock emissions.
     """
     def __init__(self, comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
-                 animal_list, gridded_livestock_path, correction_split_factors_path, temperature_dir, wind_speed_dir,
+                 animal_list, gridded_livestock_path, correction_split_factors_path, meteo_info,
                  denominator_yearly_factor_dir, ef_dir, monthly_profiles_path, weekly_profiles_path,
                  hourly_profiles_path, speciation_map_path, speciation_profiles_path, molecular_weights_path,
                  nut_shapefile_path):
@@ -71,27 +71,35 @@ class LivestockSector(Sector):
         :param date_array: List of datetimes.
         :type date_array: list(datetime.datetime, ...)
 
-        :param temperature_dir: Path to the directory that contains the needed temperature files. The temperature
-            file names have to follow the 'tas_<YYYYMM>.nc' convention where YYYY is the year and MM the month.
-            (e.g. 'tas_201601.nc')
-            That NetCDF file have to contain:
-                - 'time', 'longitude' and 'latitude' dimensions.
-                - As many times as days of the month.
-                - 'latitude' variable
-                - 'longitude' variable
-                - 'tas' variable (time, latitude, longitude), 2m temperature, Kelvins
-        :type temperature_dir: str
+        :param meteo_info: Dictionary with the meteo info to calculate livestock:
+            meteo_type: era5 or WRF
 
-        :param wind_speed_dir: Path to the directory that contains the needed wind speed files. The wind speed file
-            names have to follow the 'sfcWind_<YYYYMM>.nc' convention where YYYY is the year and MM the month.
-            (e.g. 'scfWind_201601.nc')
-            That NetCDF file have to contain:
-                - 'time', 'longitude' and 'latitude' dimensions.
-                - As many times as days of the month.
-                - 'latitude' variable
-                - 'longitude' variable
-                - 'sfcWind' variable (time, latitude, longitude), 10 m wind speed, m/s
-        :type wind_speed_dir: str
+            if meteo_type == 'ERA5':
+                daily_temperature_dir:
+                    Path to the directory that contains the needed temperature files. The temperature
+                    file names have to follow the 'tas_<YYYYMM>.nc' convention where YYYY is the year and MM the month.
+                    (e.g. 'tas_201601.nc')
+                    That NetCDF file have to contain:
+                        - 'time', 'longitude' and 'latitude' dimensions.
+                        - As many times as days of the month.
+                        - 'latitude' variable
+                        - 'longitude' variable
+                        - 'tas' variable (time, latitude, longitude), 2m temperature, Kelvins
+
+                daily_wind_speed_dir:
+                    Path to the directory that contains the needed wind speed files. The wind speed file
+                    names have to follow the 'sfcWind_<YYYYMM>.nc' convention where YYYY is the year and MM the month.
+                    (e.g. 'scfWind_201601.nc')
+                    That NetCDF file have to contain:
+                        - 'time', 'longitude' and 'latitude' dimensions.
+                        - As many times as days of the month.
+                        - 'latitude' variable
+                        - 'longitude' variable
+                        - 'sfcWind' variable (time, latitude, longitude), 10 m wind speed, m/s
+
+            if meteo_type == 'WRF':
+
+        :type meteo_info: dict
 
         :param denominator_yearly_factor_dir: Path to the directory that contains the needed denominator files.
             The denominator file names have to follow the 'grassing_<YYYY>.nc' convention where YYYY is the year.
@@ -161,8 +169,7 @@ class LivestockSector(Sector):
         check_files(
             [gridded_livestock_path.replace('<animal>', animal) for animal in animal_list] +
             [correction_split_factors_path.replace('<animal>', animal) for animal in animal_list] +
-            [temperature_dir, wind_speed_dir,
-             denominator_yearly_factor_dir, monthly_profiles_path, weekly_profiles_path, hourly_profiles_path,
+            [denominator_yearly_factor_dir, monthly_profiles_path, weekly_profiles_path, hourly_profiles_path,
              speciation_map_path, speciation_profiles_path, molecular_weights_path, nut_shapefile_path] +
             [os.path.join(ef_dir, ef_file) for ef_file in
              ['{0}.csv'.format(pol) for pol in source_pollutants if pol not in ['pm10', 'pm25']]])
@@ -181,9 +188,8 @@ class LivestockSector(Sector):
 
         # Paths
         self.ef_dir = ef_dir
+        self.meteo_info = meteo_info
         self.paths = {
-            'temperature_dir': temperature_dir,
-            'wind_speed_dir': wind_speed_dir,
             'denominator_dir': denominator_yearly_factor_dir,
             'ef_dir': ef_dir,
         }
@@ -532,14 +538,17 @@ class LivestockSector(Sector):
         geometry_shp.drop(columns='geometry', inplace=True)
 
         # Extracting temperature
-        meteo = IoNetcdf(self.comm).get_data_from_netcdf(
-            os.path.join(self.paths['temperature_dir'], 'tas_{0}{1}.nc'.format(day.year, str(day.month).zfill(2))),
-            'tas', 'daily', day, geometry_shp)
-        meteo['tas'] = meteo['tas'] - 273.15  # From Celsius to Kelvin degrees
-        # Extracting wind speed
-        meteo['sfcWind'] = IoNetcdf(self.comm).get_data_from_netcdf(
-            os.path.join(self.paths['wind_speed_dir'], 'sfcWind_{0}{1}.nc'.format(day.year, str(day.month).zfill(2))),
-            'sfcWind', 'daily', day, geometry_shp).loc[:, 'sfcWind']
+        if self.meteo_info['meteo_type'] == 'era5':
+            meteo = IoNetcdf(self.comm).get_data_from_netcdf(
+                os.path.join(self.meteo_info['daily_temperature_dir'], 'tas_{0}{1}.nc'.format(
+                    day.year, str(day.month).zfill(2))), 'tas', 'daily', day, geometry_shp)
+            meteo['tas'] = meteo['tas'] - 273.15  # From Celsius to Kelvin degrees
+            # Extracting wind speed
+            meteo['sfcWind'] = IoNetcdf(self.comm).get_data_from_netcdf(
+                os.path.join(self.meteo_info['daily_wind_speed_dir'], 'sfcWind_{0}{1}.nc'.format(
+                    day.year, str(day.month).zfill(2))), 'sfcWind', 'daily', day, geometry_shp).loc[:, 'sfcWind']
+        else:
+            meteo = None
 
         # Extracting denominators already calculated for all the emission types
         meteo['D_grassing'] = IoNetcdf(self.comm).get_data_from_netcdf(

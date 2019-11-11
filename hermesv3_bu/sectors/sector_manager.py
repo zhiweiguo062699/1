@@ -67,8 +67,7 @@ class SectorManager(object):
                     arguments.auxiliary_files_path, grid, clip, date_array,
                     arguments.livestock_source_pollutants, grid.vertical_desctiption, arguments.animal_list,
                     arguments.gridded_livestock, arguments.correction_split_factors,
-                    arguments.era5_temperature_daily_files_path, arguments.era5_wind_speed_daily_files_path,
-                    arguments.denominator_yearly_factor_dir, arguments.livestock_ef_files_dir,
+                    arguments.meteo_info, arguments.denominator_yearly_factor_dir, arguments.livestock_ef_files_dir,
                     arguments.livestock_monthly_profiles, arguments.livestock_weekly_profiles,
                     arguments.livestock_hourly_profiles, arguments.speciation_map,
                     arguments.livestock_speciation_profiles, arguments.molecular_weights, arguments.nuts3_shapefile)
