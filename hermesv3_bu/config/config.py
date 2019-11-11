@@ -215,14 +215,27 @@ class Config(ArgParser):
                             "to make a polygon or nothing to use the default clip: domain extension")
 
         # ===== METEO PATHS =====
-        p.add_argument('--temperature_hourly_files_path', required=False, type=str, default='True',
+        p.add_argument('--meteo_type', required=False, type=str, default='era5', choices=['era5', 'WRF'],
+                       help="Defines the type of meteo files that you are going to use.")
+
+        # ERA5
+        p.add_argument('--era5_temperature_hourly_files_path', required=False, type=str, default=None,
                        help="Defines the path to the NetCDF files containing hourly mean 2m temperature data.")
-        p.add_argument('--temperature_daily_files_path', required=False, type=str, default='True',
+        p.add_argument('--era5_temperature_daily_files_path', required=False, type=str, default=None,
                        help="Defines the path to the NetCDF files containing daily mean 2m temperature data.")
-        p.add_argument('--wind_speed_daily_files_path', required=False, type=str, default='True',
+        p.add_argument('--era5_wind_speed_daily_files_path', required=False, type=str, default=None,
                        help="Defines the path to the NetCDF files containing daily mean 10m wind speed data.")
-        p.add_argument('--precipitation_files_path', required=False, type=str, default='True',
+        p.add_argument('--era5_precipitation_files_path', required=False, type=str, default=None,
                        help="Defines the path to the NetCDF files containing hourly mean precipitation data.")
+
+        # WRF
+        p.add_argument('--wfr_gridcro2d_path', required=False, type=str, default=None,
+                       help="Defines the path to the WRF GRIDCRO2D file.")
+        p.add_argument('--wfr_metcro2d_path', required=False, type=str, default=None,
+                       help="Defines the path to the WRF METCRO2D file.")
+
+
+        # MONARCH
         p.add_argument('--temperature_4d_dir', required=False, type=str, default='True',
                        help="Defines the path to the NetCDF files containing hourly mean 4D temperature data.")
         p.add_argument('--temperature_sfc_dir', required=False, type=str, default='True',
@@ -784,6 +797,8 @@ class Config(ArgParser):
         # Solvents lists
         arguments.solvents_pollutants = self._parse_list(arguments.solvents_pollutants)
 
+        arguments.meteo_info = self._get_meteo_info(arguments)
+
         return arguments
 
     @staticmethod
@@ -905,3 +920,36 @@ class Config(ArgParser):
             return list(map(str, re.split(' , |, | ,|,| ; |; | ;|;| ', str_list)))
         except TypeError:
             return None
+
+    @staticmethod
+    def _get_meteo_info(arguments):
+        """
+        Create the dictionary with the meteo information.
+
+        ERA5:
+            daily_temperature_dir
+            daily_wind_speed_dir
+            hourly_temperature_dir
+            hourly_precipitation_dir
+
+        WRF:
+            gridcro2D_path
+            metcro2D_path
+
+        :return: Dictionary with the meteorological data information
+        :rtype: dict
+        """
+        meteo_info = {}
+
+        if arguments.meteo_type.lower() == 'era5':
+            meteo_info['meteo_type'] = 'era5'
+            meteo_info['daily_temperature_dir'] = arguments.era5_temperature_daily_files_path
+            meteo_info['daily_wind_speed_dir'] = arguments.era5_wind_speed_daily_files_path
+            meteo_info['hourly_temperature_dir'] = arguments.era5_temperature_hourly_files_path
+            meteo_info['hourly_precipitation_dir'] = arguments.era5_precipitation_files_path
+        elif arguments.meteo_type.lower() == 'wrf':
+            meteo_info['meteo_type'] = 'wrf'
+            meteo_info['gridcro2D_path'] = arguments.wfr_gridcro2d_path
+            meteo_info['metcro2D_path'] = arguments.wfr_metcro2d_path
+
+        return meteo_info
