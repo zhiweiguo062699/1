@@ -535,25 +535,13 @@ class LivestockSector(Sector):
         geometry_shp['c_lat'] = geometry_shp.centroid.y
         geometry_shp['c_lon'] = geometry_shp.centroid.x
         geometry_shp['centroid'] = geometry_shp.centroid
-        geometry_shp.drop(columns='geometry', inplace=True)
-
-        # Extracting temperature
-        if self.meteo_info['meteo_type'] == 'era5':
-            meteo = IoNetcdf(self.comm).get_data_from_netcdf(
-                os.path.join(self.meteo_info['daily_temperature_dir'], 'tas_{0}{1}.nc'.format(
-                    day.year, str(day.month).zfill(2))), 'tas', 'daily', day, geometry_shp)
-            meteo['tas'] = meteo['tas'] - 273.15  # From Celsius to Kelvin degrees
-            # Extracting wind speed
-            meteo['sfcWind'] = IoNetcdf(self.comm).get_data_from_netcdf(
-                os.path.join(self.meteo_info['daily_wind_speed_dir'], 'sfcWind_{0}{1}.nc'.format(
-                    day.year, str(day.month).zfill(2))), 'sfcWind', 'daily', day, geometry_shp).loc[:, 'sfcWind']
-        else:
-            meteo = None
 
         # Extracting denominators already calculated for all the emission types
-        meteo['D_grassing'] = IoNetcdf(self.comm).get_data_from_netcdf(
+        meteo = IoNetcdf(self.comm).get_data_from_netcdf(
             os.path.join(self.paths['denominator_dir'], 'grassing_{0}.nc'.format(day.year)),
-            'FD', 'yearly', day, geometry_shp).loc[:, 'FD']
+            'FD', 'yearly', day, geometry_shp)
+        meteo.rename(columns={'FD': 'D_grassing'}, inplace=True)
+
         meteo['D_housing_closed'] = IoNetcdf(self.comm).get_data_from_netcdf(
             os.path.join(self.paths['denominator_dir'], 'housing_closed_{0}.nc'.format(day.year)),
             'FD', 'yearly', day, geometry_shp).loc[:, 'FD']
@@ -563,6 +551,37 @@ class LivestockSector(Sector):
         meteo['D_storage'] = IoNetcdf(self.comm).get_data_from_netcdf(
             os.path.join(self.paths['denominator_dir'], 'storage_{0}.nc'.format(day.year)),
             'FD', 'yearly', day, geometry_shp).loc[:, 'FD']
+
+        # Extracting temperature
+        if self.meteo_info['meteo_type'] == 'era5':
+            geometry_shp.drop(columns='geometry', inplace=True)
+
+            meteo['tas'] = IoNetcdf(self.comm).get_data_from_netcdf(
+                os.path.join(self.meteo_info['daily_temperature_dir'], 'tas_{0}{1}.nc'.format(
+                    day.year, str(day.month).zfill(2))), 'tas', 'daily', day, geometry_shp).loc[:, 'tas']
+            meteo['tas'] = meteo['tas'] - 273.15  # From Celsius to Kelvin degrees
+            # Extracting wind speed
+            meteo['sfcWind'] = IoNetcdf(self.comm).get_data_from_netcdf(
+                os.path.join(self.meteo_info['daily_wind_speed_dir'], 'sfcWind_{0}{1}.nc'.format(
+                    day.year, str(day.month).zfill(2))), 'sfcWind', 'daily', day, geometry_shp).loc[:, 'sfcWind']
+
+        elif self.meteo_info['meteo_type'] == 'wrf':
+            wrf_meteo = IoNetcdf(self.comm).get_data_from_wrf(self.meteo_info['metcro2D_path'], ['TEMP2', 'WSPD10'],
+                                                              day, 'daily', geometry_shp.set_index('FID'))
+            wrf_meteo.reset_index(inplace=True)
+            wrf_meteo.rename(columns={'TEMP2': 'tas', 'WSPD10': 'sfcWind'}, inplace=True)
+            wrf_meteo['tas'] = wrf_meteo['tas'] - 273.15  # From Celsius to Kelvin degrees
+
+            wrf_meteo['REC'] = wrf_meteo.apply(self.nearest, geom_union=meteo.unary_union, df1=wrf_meteo,
+                                               df2=meteo, geom1_col='centroid', src_column='REC', axis=1)
+
+            meteo = pd.merge(wrf_meteo, meteo, how='left', on='REC')
+
+            meteo.drop(columns=['REC'], inplace=True)
+        else:
+            meteo = None
+
+        meteo.to_csv('~/temp/meteo_wrf.csv')
 
         # ===== Daily Factor for housing open =====
         meteo.loc[meteo['tas'] < 1, 'FD_housing_open'] = ((4.0 ** 0.89) * (0.228 ** 0.26)) / (meteo['D_housing_open'])
@@ -590,9 +609,11 @@ class LivestockSector(Sector):
             meteo.loc[:, 'FD_grassing'].multiply((1 / (SIGMA * math.sqrt(2 * math.pi))) * math.exp(
                 (float(int(day.strftime('%j')) - TAU) ** 2) / (-2 * (SIGMA ** 2))))
 
-        self.logger.write_time_log('LivestockSector', 'get_daily_factors', timeit.default_timer() - spent_time)
+        meteo.drop(columns=['D_grassing', 'D_housing_closed', 'D_housing_open','D_storage', 'tas', 'sfcWind'],
+                   inplace=True)
 
-        return meteo.loc[:, ['REC', 'FD_housing_open', 'FD_housing_closed', 'FD_storage', 'FD_grassing', 'geometry']]
+        self.logger.write_time_log('LivestockSector', 'get_daily_factors', timeit.default_timer() - spent_time)
+        return meteo
 
     def get_nh3_ef(self):
         """
@@ -696,14 +717,18 @@ class LivestockSector(Sector):
         """
         spent_time = timeit.default_timer()
         animals_df = animals_df.to_crs({'init': 'epsg:4326'})
-        animals_df['centroid'] = animals_df.centroid
+        if self.meteo_info['meteo_type'] == 'era5':
+            animals_df['centroid'] = animals_df.centroid
 
-        animals_df['REC'] = animals_df.apply(self.nearest, geom_union=daily_factors.unary_union, df1=animals_df,
-                                             df2=daily_factors, geom1_col='centroid', src_column='REC', axis=1)
+            animals_df['REC'] = animals_df.apply(self.nearest, geom_union=daily_factors.unary_union, df1=animals_df,
+                                                 df2=daily_factors, geom1_col='centroid', src_column='REC', axis=1)
 
-        animals_df = pd.merge(animals_df, daily_factors, how='left', on='REC')
+            animals_df = pd.merge(animals_df, daily_factors, how='left', on='REC')
 
-        animals_df.drop(columns=['centroid', 'REC', 'geometry_y'], axis=1, inplace=True)
+            animals_df.drop(columns=['centroid', 'REC', 'geometry_y'], inplace=True)
+        elif self.meteo_info['meteo_type'] == 'wrf':
+            animals_df = pd.merge(animals_df, daily_factors, how='left', on='FID')
+
         animals_df.rename(columns={'geometry_x': 'geometry'}, inplace=True)
         self.logger.write_time_log('LivestockSector', 'add_daily_factors_to_animal_distribution',
                                    timeit.default_timer() - spent_time)

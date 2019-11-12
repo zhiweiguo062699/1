@@ -3,13 +3,14 @@
 import sys
 import os
 from mpi4py import MPI
-from datetime import timedelta
+from datetime import date
 import numpy as np
 import geopandas as gpd
 from netCDF4 import Dataset
 from shapely.geometry import Point
 from cf_units import num2date, CALENDAR_STANDARD
 from geopandas import GeoDataFrame
+from pandas import DataFrame
 
 from hermesv3_bu.io_server.io_server import IoServer
 from hermesv3_bu.tools.checker import check_files, error_exit
@@ -223,6 +224,48 @@ class IoNetcdf(IoServer):
         j_min = np.where(aux == np.nanmin(aux))[0][0]
 
         return i_min, i_max + 1, j_min, j_max + 1
+
+    @staticmethod
+    def _parse_wrf_path(path, day):
+        """
+        Parse the path adding the date in the correct format.
+
+        :param path: Path to the file.
+        :type path: str
+
+        :param day: Date of the day
+        :return: date
+        """
+        path = path.replace('<YYYYMMDD>', day.strftime('%Y%m%d'))
+        path = path.replace('<YYYYJJJ>', day.strftime('%Y%j'))
+
+        return path
+
+    def get_data_from_wrf(self, path, var_list, day, type, geometry):
+        """
+
+        :param path:
+        :param var_list:
+        :param day:
+        :param type:
+        :param geometry:
+        :return:
+        :rtype: DataFrame
+        """
+        path = self._parse_wrf_path(path, day)
+
+        wrf_nc = Dataset(path, mode='r')
+        for var_name in var_list:
+            if type == 'daily':
+                var = np.mean(wrf_nc.variables[var_name][:24, 0, :], axis=0)
+                var = var.flatten()
+            else:
+                var = None
+
+            geometry[var_name] = var[geometry.index]
+        wrf_nc.close()
+
+        return geometry
 
 
 def write_coords_netcdf(netcdf_path, center_latitudes, center_longitudes, data_list, levels=None, date=None, hours=None,
