@@ -609,7 +609,7 @@ class LivestockSector(Sector):
             meteo.loc[:, 'FD_grassing'].multiply((1 / (SIGMA * math.sqrt(2 * math.pi))) * math.exp(
                 (float(int(day.strftime('%j')) - TAU) ** 2) / (-2 * (SIGMA ** 2))))
 
-        meteo.drop(columns=['D_grassing', 'D_housing_closed', 'D_housing_open','D_storage', 'tas', 'sfcWind'],
+        meteo.drop(columns=['D_grassing', 'D_housing_closed', 'D_housing_open', 'D_storage', 'tas', 'sfcWind'],
                    inplace=True)
 
         self.logger.write_time_log('LivestockSector', 'get_daily_factors', timeit.default_timer() - spent_time)

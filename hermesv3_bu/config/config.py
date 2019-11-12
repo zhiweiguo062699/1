@@ -234,7 +234,6 @@ class Config(ArgParser):
         p.add_argument('--wfr_metcro2d_path', required=False, type=str, default=None,
                        help="Defines the path to the WRF METCRO2D file.")
 
-
         # MONARCH
         p.add_argument('--temperature_4d_dir', required=False, type=str, default='True',
                        help="Defines the path to the NetCDF files containing hourly mean 4D temperature data.")
