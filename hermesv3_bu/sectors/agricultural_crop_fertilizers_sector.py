@@ -240,7 +240,7 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
         geometry_shp['c_lat'] = geometry_shp.centroid.y
         geometry_shp['c_lon'] = geometry_shp.centroid.x
         geometry_shp['centroid'] = geometry_shp.centroid
-        #geometry_shp.drop(columns='geometry', inplace=True)
+        # geometry_shp.drop(columns='geometry', inplace=True)
 
         aux_yearly_emissions = yearly_emissions.copy().reset_index()
         aux_yearly_emissions = aux_yearly_emissions.to_crs({'init': 'epsg:4326'})

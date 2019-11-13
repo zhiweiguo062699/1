@@ -17,7 +17,7 @@ prepare:
   script:
     - conda update conda
 
-test_python2:
+test_python3:
   stage: test
   script:
     - conda env update -f environment.yml -n hermesv3_gr python=3.6
