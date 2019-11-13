@@ -22,15 +22,14 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
                  vertical_levels, crop_list, nut_shapefile, land_uses_path, hourly_profiles_path, speciation_map_path,
                  speciation_profiles_path, molecular_weights_path, landuse_by_nut, crop_by_nut, crop_from_landuse_path,
                  cultivated_ratio, fertilizer_rate, crop_f_parameter, crop_f_fertilizers, gridded_ph, gridded_cec,
-                 fertilizer_denominator_yearly_factor_path, crop_calendar, temperature_path, wind_speed_path,
-                 crop_growing_degree_day_path):
+                 fertilizer_denominator_yearly_factor_path, crop_calendar, meteo_info, crop_growing_degree_day_path):
+
         spent_time = timeit.default_timer()
         logger.write_log('===== AGRICULTURAL CROP FERTILIZERS SECTOR =====')
         check_files(
             [nut_shapefile, land_uses_path, hourly_profiles_path, speciation_map_path, speciation_profiles_path,
              molecular_weights_path, landuse_by_nut, crop_by_nut, crop_from_landuse_path, cultivated_ratio,
-             fertilizer_rate, crop_f_parameter, crop_f_fertilizers, gridded_ph, gridded_cec, crop_calendar,
-             temperature_path, wind_speed_path])
+             fertilizer_rate, crop_f_parameter, crop_f_fertilizers, gridded_ph, gridded_cec, crop_calendar])
         super(AgriculturalCropFertilizersSector, self).__init__(
             comm_agr, comm, logger, auxiliary_dir, grid, clip, date_array, nut_shapefile, source_pollutants,
             vertical_levels, crop_list, land_uses_path, landuse_by_nut, crop_by_nut, crop_from_landuse_path, None, None,
@@ -50,8 +49,7 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
         self.fertilizer_denominator_yearly_factor_path = fertilizer_denominator_yearly_factor_path
         self.crop_calendar = self.read_profiles(crop_calendar)
 
-        self.temperature_path = temperature_path
-        self.wind_speed_path = wind_speed_path
+        self.meteo_info = meteo_info
         self.crop_growing_degree_day_path = crop_growing_degree_day_path
         self.logger.write_time_log('AgriculturalCropFertilizersSector', '__init__', timeit.default_timer() - spent_time)
 
@@ -204,12 +202,10 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
             cec_gridded = IoShapefile(self.comm).gather_shapefile(cec_gridded.reset_index())
             if self.comm.Get_rank() == 0:
                 gridded_ph_cec = ph_gridded
-                # gridded_ph_cec = ph_gridded.groupby('FID').mean()
-                # cec_gridded = cec_gridded.groupby('FID').mean()
-                # gridded_ph_cec = ph_gridded
+
                 gridded_ph_cec['cec'] = cec_gridded['cec']
                 gridded_ph_cec.set_index('FID', inplace=True)
-                # gridded_ph_cec = gridded_ph_cec.loc[(gridded_ph_cec['ph'] > 0) & (gridded_ph_cec['cec'] > 0)]
+
                 gridded_ph_cec = GeoDataFrame(
                     gridded_ph_cec,
                     geometry=self.grid.shapefile.loc[gridded_ph_cec.index.get_level_values('FID'), 'geometry'].values,
@@ -217,11 +213,7 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
             else:
                 gridded_ph_cec = None
             gridded_ph_cec = IoShapefile(self.comm).split_shapefile(gridded_ph_cec)
-            # print('Rank {0} -Z PH: \n{1}\n'.format(self.comm.Get_rank(), np.unique(gridded_ph_cec['ph'])))
-            # print('Rank {0} -Z CEC: \n{1}\n'.format(self.comm.Get_rank(), np.unique(gridded_ph_cec['cec'])))
-            # print('Rank {0} -Z FID: \n{1}\n'.format(self.comm.Get_rank(), np.unique(gridded_ph_cec.index)))
-            # sys.stdout.flush()
-            # exit()
+
             gridded_ph_cec = self.add_nut_code(gridded_ph_cec.reset_index(), self.nut_shapefile)
             gridded_ph_cec = gridded_ph_cec[gridded_ph_cec['nut_code'] != -999]
             gridded_ph_cec.set_index('FID', inplace=True)
@@ -235,7 +227,6 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
 
         # Selecting only PH and CEC cells that have also some crop.
         gridded_ph_cec = gridded_ph_cec.loc[self.crop_distribution.index, :]
-        # gridded_ph_cec = gridded_ph_cec.loc[(gridded_ph_cec['ph'] > 0) & (gridded_ph_cec['cec'] > 0)]
 
         self.logger.write_time_log('AgriculturalCropFertilizersSector', 'get_gridded_constants',
                                    timeit.default_timer() - spent_time)
@@ -249,23 +240,28 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
         geometry_shp['c_lat'] = geometry_shp.centroid.y
         geometry_shp['c_lon'] = geometry_shp.centroid.x
         geometry_shp['centroid'] = geometry_shp.centroid
-        geometry_shp.drop(columns='geometry', inplace=True)
+        #geometry_shp.drop(columns='geometry', inplace=True)
+
+        aux_yearly_emissions = yearly_emissions.copy().reset_index()
+        aux_yearly_emissions = aux_yearly_emissions.to_crs({'init': 'epsg:4326'})
+        aux_yearly_emissions['centroid'] = aux_yearly_emissions.centroid
 
         for day in self.day_dict.keys():
-            aux_df = yearly_emissions.copy().reset_index()
+            aux_df = aux_yearly_emissions.copy()
 
-            self.logger.write_log('Getting temperature from {0}'.format(
-                os.path.join(self.temperature_path, 'tas_{0}{1}.nc'.format(day.year, str(day.month).zfill(2)))))
+            self.logger.write_log('Getting growing degree day from {0}'.format(
+                self.crop_growing_degree_day_path.replace('<season>', 'winter').replace('<year>', str(day.year))))
             meteo_df = IoNetcdf(self.comm).get_data_from_netcdf(
-                os.path.join(self.temperature_path, 'tas_{0}{1}.nc'.format(day.year, str(day.month).zfill(2))),
-                'tas', 'daily', day, geometry_shp)
-            meteo_df['tas'] = meteo_df['tas'] - 273.15
+                self.crop_growing_degree_day_path.replace('<season>', 'winter').replace('<year>', str(day.year)),
+                'Tsum', 'yearly', day, geometry_shp)
+            meteo_df.rename(columns={'Tsum': 'winter'}, inplace=True)
+            meteo_df['winter'] = meteo_df['winter'].astype(np.int16)
 
-            self.logger.write_log('Getting surface wind speed from {0}'.format(
-                os.path.join(self.wind_speed_path, 'sfcWind_{0}{1}.nc'.format(day.year, str(day.month).zfill(2)))))
-            meteo_df['sfcWind'] = IoNetcdf(self.comm).get_data_from_netcdf(
-                os.path.join(self.wind_speed_path, 'sfcWind_{0}{1}.nc'.format(day.year, str(day.month).zfill(2))),
-                'sfcWind', 'daily', day, geometry_shp).loc[:, 'sfcWind']
+            self.logger.write_log('Getting growing degree day from {0}'.format(
+                self.crop_growing_degree_day_path.replace('<season>', 'spring').replace('<year>', str(day.year))))
+            meteo_df['spring'] = IoNetcdf(self.comm).get_data_from_netcdf(
+                self.crop_growing_degree_day_path.replace('<season>', 'spring').replace('<year>', str(day.year)),
+                'Tsum', 'yearly', day, geometry_shp).loc[:, 'Tsum'].astype(np.int16)
 
             for crop in self.crop_list:
                 self.logger.write_log('Getting fertilizer denominator yearly factor from {0}'.format(
@@ -274,27 +270,52 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
                 meteo_df['d_{0}'.format(crop)] = IoNetcdf(self.comm).get_data_from_netcdf(
                     self.fertilizer_denominator_yearly_factor_path.replace('<crop>', crop).replace(
                         '<year>', str(day.year)), 'FD', 'yearly', day, geometry_shp).loc[:, 'FD']
-            self.logger.write_log('Getting growing degree day from {0}'.format(
-                self.crop_growing_degree_day_path.replace('<season>', 'winter').replace('<year>', str(day.year))))
-            meteo_df['winter'] = IoNetcdf(self.comm).get_data_from_netcdf(
-                self.crop_growing_degree_day_path.replace('<season>', 'winter').replace('<year>', str(day.year)),
-                'Tsum', 'yearly', day, geometry_shp).loc[:, 'Tsum'].astype(np.int16)
-            self.logger.write_log('Getting growing degree day from {0}'.format(
-                self.crop_growing_degree_day_path.replace('<season>', 'spring').replace('<year>', str(day.year))))
-            meteo_df['spring'] = IoNetcdf(self.comm).get_data_from_netcdf(
-                self.crop_growing_degree_day_path.replace('<season>', 'spring').replace('<year>', str(day.year)),
-                'Tsum', 'yearly', day, geometry_shp).loc[:, 'Tsum'].astype(np.int16)
 
-            aux_df = aux_df.to_crs({'init': 'epsg:4326'})
-            aux_df['centroid'] = aux_df.centroid
+            if self.meteo_info['meteo_type'] == 'era5':
+                self.logger.write_log('Getting temperature from {0}'.format(
+                    os.path.join(self.meteo_info['daily_temperature_dir'], 'tas_{0}{1}.nc'.format(
+                        day.year, str(day.month).zfill(2)))))
+                meteo_df['tas'] = IoNetcdf(self.comm).get_data_from_netcdf(
+                    os.path.join(self.meteo_info['daily_temperature_dir'], 'tas_{0}{1}.nc'.format(
+                        day.year, str(day.month).zfill(2))),
+                    'tas', 'daily', day, geometry_shp).loc[:, 'tas']
+                meteo_df['tas'] = meteo_df['tas'] - 273.15
 
-            aux_df['REC'] = aux_df.apply(self.nearest, geom_union=meteo_df.unary_union, df1=aux_df,
-                                         df2=meteo_df, geom1_col='centroid', src_column='REC', axis=1)
-            aux_df = pd.merge(aux_df, meteo_df, how='left', on='REC')
+                self.logger.write_log('Getting surface wind speed from {0}'.format(
+                    os.path.join(self.meteo_info['daily_wind_speed_dir'], 'sfcWind_{0}{1}.nc'.format(
+                        day.year, str(day.month).zfill(2)))))
+                meteo_df['sfcWind'] = IoNetcdf(self.comm).get_data_from_netcdf(
+                    os.path.join(self.meteo_info['daily_wind_speed_dir'], 'sfcWind_{0}{1}.nc'.format(
+                        day.year, str(day.month).zfill(2))),
+                    'sfcWind', 'daily', day, geometry_shp).loc[:, 'sfcWind']
 
-            aux_df.drop(columns=['centroid', 'REC', 'geometry_y'], axis=1, inplace=True)
-            aux_df.rename(columns={'geometry_x': 'geometry'}, inplace=True)
-            aux_df.set_index('FID', inplace=True)
+                aux_df['REC'] = aux_df.apply(self.nearest, geom_union=meteo_df.unary_union, df1=aux_df,
+                                             df2=meteo_df, geom1_col='centroid', src_column='REC', axis=1)
+                aux_df = pd.merge(aux_df, meteo_df, how='left', on='REC')
+
+                aux_df.drop(columns=['centroid', 'REC', 'geometry_y'], axis=1, inplace=True)
+                aux_df.rename(columns={'geometry_x': 'geometry'}, inplace=True)
+                aux_df.set_index('FID', inplace=True)
+
+            elif self.meteo_info['meteo_type'] == 'wrf':
+                wrf_meteo = IoNetcdf(self.comm).get_data_from_wrf(self.meteo_info['metcro2D_path'], ['TEMP2', 'WSPD10'],
+                                                                  day, 'daily', geometry_shp.set_index('FID'))
+                wrf_meteo.reset_index(inplace=True)
+                wrf_meteo.rename(columns={'TEMP2': 'tas', 'WSPD10': 'sfcWind'}, inplace=True)
+                wrf_meteo['tas'] = wrf_meteo['tas'] - 273.15  # From Celsius to Kelvin degrees
+
+                wrf_meteo['REC'] = wrf_meteo.apply(self.nearest, geom_union=meteo_df.unary_union, df1=wrf_meteo,
+                                                   df2=meteo_df, geom1_col='centroid', src_column='REC', axis=1)
+
+                meteo_df = pd.merge(wrf_meteo, meteo_df, how='left', on='REC')
+
+                meteo_df.drop(columns=['REC'], inplace=True)
+
+                aux_df = pd.merge(aux_df, meteo_df, how='left', on='FID')
+                aux_df.set_index('FID', inplace=True)
+            else:
+                meteo_df = None
+
             daily_inputs[day] = aux_df
 
         self.logger.write_time_log('AgriculturalCropFertilizersSector', 'get_daily_inputs',
@@ -309,7 +330,6 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
                                           self.ef_by_crop.loc[:, ['nut_code']].reset_index(), how='left', on='FID')
 
         self.crop_distribution.set_index('FID', inplace=True)
-        # self.ef_by_crop = self.ef_by_crop.loc[self.crop_distribution.index, :]
 
         for crop in self.crop_list:
             self.crop_distribution[crop] = self.crop_distribution.groupby('nut_code')[crop].apply(
@@ -377,7 +397,6 @@ class AgriculturalCropFertilizersSector(AgriculturalSector):
             df_aux['date'] = pd.to_datetime(date, utc=True)
             df_aux['date_utc'] = pd.to_datetime(date, utc=True)
             df_aux['tstep'] = tstep
-            # df_aux = self.to_timezone(df_aux)
             df_list.append(df_aux)
         dataframe_by_day = pd.concat(df_list, ignore_index=True)
         dataframe_by_day = self.to_timezone(dataframe_by_day)

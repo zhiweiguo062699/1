@@ -581,8 +581,6 @@ class LivestockSector(Sector):
         else:
             meteo = None
 
-        meteo.to_csv('~/temp/meteo_wrf.csv')
-
         # ===== Daily Factor for housing open =====
         meteo.loc[meteo['tas'] < 1, 'FD_housing_open'] = ((4.0 ** 0.89) * (0.228 ** 0.26)) / (meteo['D_housing_open'])
         meteo.loc[meteo['tas'] >= 1, 'FD_housing_open'] = (((meteo['tas'] + 3.0) ** 0.89) * (0.228 ** 0.26)) / (

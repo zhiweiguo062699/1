@@ -102,7 +102,7 @@ class SectorManager(object):
                     arguments.cultivated_ratio, arguments.fertilizers_rate, arguments.crop_f_parameter,
                     arguments.crop_f_fertilizers, arguments.gridded_ph, arguments.gridded_cec,
                     arguments.fertilizers_denominator_yearly_factor_path, arguments.crop_calendar,
-                    arguments.era5_temperature_daily_files_path, arguments.era5_wind_speed_daily_files_path,
+                    arguments.meteo_info,
                     arguments.crop_growing_degree_day_path)
 
             elif sector == 'agricultural_machinery' and comm_world.Get_rank() in sector_procs:
