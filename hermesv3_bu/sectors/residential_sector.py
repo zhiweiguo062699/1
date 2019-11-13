@@ -21,14 +21,14 @@ class ResidentialSector(Sector):
                  fuel_list, prov_shapefile, ccaa_shapefile, population_density_map, population_type_map,
                  population_type_nuts2, population_type_nuts3, energy_consumption_nuts3,
                  energy_consumption_nuts2, residential_spatial_proxies, residential_ef_files_path,
-                 heating_degree_day_path, temperature_path, hourly_profiles_path, speciation_map_path,
+                 heating_degree_day_path, meteo_info, hourly_profiles_path, speciation_map_path,
                  speciation_profiles_path, molecular_weights_path):
         spent_time = timeit.default_timer()
         logger.write_log('===== RESIDENTIAL COMBUSTION SECTOR =====')
         check_files(
             [prov_shapefile, ccaa_shapefile, population_density_map, population_type_map, population_type_nuts2,
              population_type_nuts3, energy_consumption_nuts3, energy_consumption_nuts2, residential_spatial_proxies,
-             residential_ef_files_path, temperature_path, hourly_profiles_path, speciation_map_path,
+             residential_ef_files_path, hourly_profiles_path, speciation_map_path,
              speciation_profiles_path, molecular_weights_path])
         super(ResidentialSector, self).__init__(
             comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
@@ -54,7 +54,7 @@ class ResidentialSector(Sector):
         self.fuel_distribution = self.get_fuel_distribution(
            prov_shapefile, ccaa_shapefile, population_density_map, population_type_map, create_pop_csv=False)
         self.heating_degree_day_path = heating_degree_day_path
-        self.temperature_path = temperature_path
+        self.meteo_info = meteo_info
         self.logger.write_time_log('ResidentialSector', '__init__', timeit.default_timer() - spent_time)
 
     def read_ef_file(self, path):
@@ -126,13 +126,9 @@ class ResidentialSector(Sector):
         spent_time = timeit.default_timer()
 
         src_distribution.to_crs(self.grid.shapefile.crs, inplace=True)
-        # src_distribution.reset_index().to_file(
-        #     os.path.join(self.auxiliary_dir, 'residential', 'fuel_distribution_src.shp'))
         src_distribution['src_inter_fraction'] = src_distribution.geometry.area
         src_distribution = self.spatial_overlays(src_distribution, self.grid.shapefile.reset_index(),
                                                  how='intersection')
-        # src_distribution.reset_index().to_file(
-        #     os.path.join(self.auxiliary_dir, 'residential', 'fuel_distribution_raw.shp'))
         src_distribution['src_inter_fraction'] = src_distribution.geometry.area / src_distribution[
             'src_inter_fraction']
 
@@ -290,11 +286,28 @@ class ResidentialSector(Sector):
         geometry_shp['c_lat'] = geometry_shp.centroid.y
         geometry_shp['c_lon'] = geometry_shp.centroid.x
         geometry_shp['centroid'] = geometry_shp.centroid
-        geometry_shp.drop(columns='geometry', inplace=True)
+        # geometry_shp.drop(columns='geometry', inplace=True)
 
-        meteo = IoNetcdf(self.comm).get_data_from_netcdf(
-            os.path.join(self.temperature_path, 'tas_{0}{1}.nc'.format(day.year, str(day.month).zfill(2))),
-            'tas', 'daily', day, geometry_shp)
+        meteo = IoNetcdf(self.comm).get_data_from_netcdf(self.heating_degree_day_path.replace(
+            '<year>', str(day.year)), 'HDD', 'yearly', day, geometry_shp)
+        meteo.rename(columns={'HDD': 'hdd_mean'}, inplace=True)
+
+        if self.meteo_info['meteo_type'] == 'era5':
+            meteo['tas'] = IoNetcdf(self.comm).get_data_from_netcdf(
+                os.path.join(self.meteo_info['daily_temperature_dir'], 'tas_{0}{1}.nc'.format(day.year, str(day.month).zfill(2))),
+                'tas', 'daily', day, geometry_shp).loc[:, 'tas']
+
+        elif self.meteo_info['meteo_type'] == 'wrf':
+            wrf_meteo = IoNetcdf(self.comm).get_data_from_wrf(self.meteo_info['metcro2D_path'], ['TEMP2'],
+                                                              day, 'daily', geometry_shp.set_index('FID'))
+            wrf_meteo.reset_index(inplace=True)
+            wrf_meteo.rename(columns={'TEMP2': 'tas'}, inplace=True)
+
+            wrf_meteo['REC'] = wrf_meteo.apply(self.nearest, geom_union=meteo.unary_union, df1=wrf_meteo,
+                                               df2=meteo, geom1_col='centroid', src_column='REC', axis=1)
+
+            meteo = pd.merge(wrf_meteo, meteo, how='left', on='REC')
+
         # From K to Celsius degrees
         meteo['tas'] = meteo['tas'] - 273.15
 
@@ -302,21 +315,21 @@ class ResidentialSector(Sector):
         meteo['hdd'] = np.maximum(self.hdd_base_temperature - meteo['tas'], 1)
         meteo.drop('tas', axis=1, inplace=True)
 
-        meteo['hdd_mean'] = IoNetcdf(self.comm).get_data_from_netcdf(self.heating_degree_day_path.replace(
-            '<year>', str(day.year)), 'HDD', 'yearly', day, geometry_shp).loc[:, 'HDD']
-
         daily_distribution = self.fuel_distribution.copy()
 
         daily_distribution = daily_distribution.to_crs({'init': 'epsg:4326'})
         daily_distribution['centroid'] = daily_distribution.centroid
+        if self.meteo_info['meteo_type'] == 'era5':
+            daily_distribution['REC'] = daily_distribution.apply(
+                self.nearest, geom_union=meteo.unary_union, df1=daily_distribution, df2=meteo, geom1_col='centroid',
+                src_column='REC', axis=1)
+            daily_distribution = pd.merge(daily_distribution, meteo, how='left', on='REC')
+            daily_distribution.rename(columns={'geometry_x': 'geometry'}, inplace=True)
+            daily_distribution.drop(columns=['centroid', 'REC', 'geometry_y'], inplace=True)
 
-        daily_distribution['REC'] = daily_distribution.apply(
-            self.nearest, geom_union=meteo.unary_union, df1=daily_distribution, df2=meteo, geom1_col='centroid',
-            src_column='REC', axis=1)
-        daily_distribution = pd.merge(daily_distribution, meteo, how='left', on='REC')
-
-        daily_distribution.drop(columns=['centroid', 'REC', 'geometry_y'], axis=1, inplace=True)
-        daily_distribution.rename(columns={'geometry_x': 'geometry'}, inplace=True)
+        elif self.meteo_info['meteo_type'] == 'wrf':
+            daily_distribution = pd.merge(daily_distribution, meteo, how='left', on='FID')
+            daily_distribution.drop(columns=['REC', 'geometry_y'], inplace=True)
 
         for fuel in self.fuel_list:
             # Selection of factor for HDD as a function of fuel type

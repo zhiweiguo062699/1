@@ -134,7 +134,7 @@ class SectorManager(object):
                     arguments.population_type_map, arguments.population_type_nuts2, arguments.population_type_nuts3,
                     arguments.energy_consumption_nuts3, arguments.energy_consumption_nuts2,
                     arguments.residential_spatial_proxies, arguments.residential_ef_files_path,
-                    arguments.residential_heating_degree_day_path, arguments.era5_temperature_daily_files_path,
+                    arguments.residential_heating_degree_day_path, arguments.meteo_info,
                     arguments.residential_hourly_profiles, arguments.speciation_map,
                     arguments.residential_speciation_profiles, arguments.molecular_weights)
 
