@@ -50,8 +50,8 @@ class TrafficSector(Sector):
                  hourly_mean_profiles_path, hourly_weekday_profiles_path, hourly_saturday_profiles_path,
                  hourly_sunday_profiles_path, ef_common_path, vehicle_list=None, load=0.5, speciation_map_path=None,
                  hot_cold_speciation=None, tyre_speciation=None, road_speciation=None, brake_speciation=None,
-                 resuspension_speciation=None, temp_common_path=None, output_dir=None, molecular_weights_path=None,
-                 resuspension_correction=True, precipitation_path=None, do_hot=True, do_cold=True, do_tyre_wear=True,
+                 resuspension_speciation=None, meteo_info=None, output_dir=None, molecular_weights_path=None,
+                 resuspension_correction=True, do_hot=True, do_cold=True, do_tyre_wear=True,
                  do_brake_wear=True, do_road_wear=True, do_resuspension=True, write_rline=False):
 
         spent_time = timeit.default_timer()
@@ -66,8 +66,7 @@ class TrafficSector(Sector):
             check_files(
                 [road_link_path, fleet_compo_path, speed_hourly_path, monthly_profiles_path, weekly_profiles_path,
                  hourly_mean_profiles_path, hourly_weekday_profiles_path, hourly_saturday_profiles_path,
-                 hourly_sunday_profiles_path, speciation_map_path, molecular_weights_path, hot_cold_speciation,
-                 temp_common_path] +
+                 hourly_sunday_profiles_path, speciation_map_path, molecular_weights_path, hot_cold_speciation] +
                 [os.path.join(ef_common_path, "cold_{0}.csv".format(pol)) for pol in source_pollutants])
         if do_tyre_wear:
             check_files(
@@ -93,14 +92,12 @@ class TrafficSector(Sector):
                  hourly_mean_profiles_path, hourly_weekday_profiles_path, hourly_saturday_profiles_path,
                  hourly_sunday_profiles_path, speciation_map_path, molecular_weights_path, resuspension_speciation] +
                 [os.path.join(ef_common_path, "resuspension_{0}.csv".format(pol)) for pol in ['pm']])
-            if resuspension_correction:
-                check_files(precipitation_path)
+
         super(TrafficSector, self).__init__(
             comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
             monthly_profiles_path, weekly_profiles_path, None, speciation_map_path, None, molecular_weights_path)
 
         self.resuspension_correction = resuspension_correction
-        self.precipitation_path = precipitation_path
 
         self.output_dir = output_dir
 
@@ -115,7 +112,7 @@ class TrafficSector(Sector):
 
         self.load = load
         self.ef_common_path = ef_common_path
-        self.temp_common_path = temp_common_path
+        self.meteo_info = meteo_info
 
         self.add_local_date(self.date_array[0])
 
@@ -845,27 +842,44 @@ class TrafficSector(Sector):
                                  'aadt_m_mn', 'aadt_h_mn', 'aadt_h_wd', 'aadt_h_sat', 'aadt_h_sun', 'aadt_week',
                                  'fleet_comp', 'road_grad', 'PcLight', 'start_date'], inplace=True)
         libc.malloc_trim(0)
+        if self.meteo_info['meteo_type'] == 'era5':
+            cold_links['centroid'] = cold_links['geometry'].centroid
+            link_lons = cold_links['geometry'].centroid.x
+            link_lats = cold_links['geometry'].centroid.y
 
-        cold_links['centroid'] = cold_links['geometry'].centroid
-        link_lons = cold_links['geometry'].centroid.x
-        link_lats = cold_links['geometry'].centroid.y
+            temperature = IoNetcdf(self.comm).get_hourly_data_from_netcdf(
+                link_lons.min(), link_lons.max(), link_lats.min(), link_lats.max(),
+                self.meteo_info['hourly_temperature_dir'], 'tas', self.date_array)
+            temperature.rename(columns={x: 't_{0}'.format(x) for x in range(len(self.date_array))}, inplace=True)
+            # From Kelvin to Celsius degrees
+            temperature[['t_{0}'.format(x) for x in range(len(self.date_array))]] = \
+                temperature[['t_{0}'.format(x) for x in range(len(self.date_array))]] - 273.15
 
-        temperature = IoNetcdf(self.comm).get_hourly_data_from_netcdf(
-            link_lons.min(), link_lons.max(), link_lats.min(), link_lats.max(), self.temp_common_path, 'tas',
-            self.date_array)
-        temperature.rename(columns={x: 't_{0}'.format(x) for x in range(len(self.date_array))}, inplace=True)
-        # From Kelvin to Celsius degrees
-        temperature[['t_{0}'.format(x) for x in range(len(self.date_array))]] = \
-            temperature[['t_{0}'.format(x) for x in range(len(self.date_array))]] - 273.15
+            unary_union = temperature.unary_union
+            cold_links['REC'] = cold_links.apply(self.nearest, geom_union=unary_union, df1=cold_links, df2=temperature,
+                                                 geom1_col='centroid', src_column='REC', axis=1)
+            cold_links.drop(columns=['geometry', 'centroid', 'geometry'], inplace=True)
 
-        unary_union = temperature.unary_union
-        cold_links['REC'] = cold_links.apply(self.nearest, geom_union=unary_union, df1=cold_links, df2=temperature,
-                                             geom1_col='centroid', src_column='REC', axis=1)
+        elif self.meteo_info['meteo_type'] == 'wrf':
+            temperature = IoNetcdf(self.comm).get_data_from_wrf(
+                self.meteo_info['metcro2D_path'], ['TEMP2'], self.date_array[0], 'hourly',
+                cold_links[['FID']].set_index('FID'), time_steps=len(self.date_array))
+            temperature.rename(columns={"{0}_{1}".format('TEMP2', x): 't_{0}'.format(x) for x in
+                                        range(len(self.date_array))}, inplace=True)
+            temperature['REC'] = temperature.index
 
-        cold_links.drop(columns=['geometry', 'centroid', 'geometry'], inplace=True)
+            # From Kelvin to Celsius degrees
+            temperature.loc[:, ['t_{0}'.format(x) for x in range(len(self.date_array))]] = \
+                temperature.loc[:, ['t_{0}'.format(x) for x in range(len(self.date_array))]] - 273.15
+
+            cold_links.drop(columns=['geometry'], inplace=True)
+            cold_links['REC'] = cold_links['FID']
+            print (np.unique(cold_links['FID']))
+        else:
+            temperature = None
         libc.malloc_trim(0)
 
-        cold_links = cold_links.merge(temperature, left_on='REC', right_on='REC', how='left')
+        cold_links = cold_links.merge(temperature, on='REC', how='left')
         cold_links.drop(columns=['REC'], inplace=True)
         libc.malloc_trim(0)
 
@@ -1226,6 +1240,7 @@ class TrafficSector(Sector):
                                 mol_w = self.molecular_weights[in_p]
                         except KeyError:
                             error_exit('{0} not found in the molecular weights file.'.format(in_p))
+                            mol_w = None
                         # from g/km.h to mol/km.h or g/km.h (aerosols)
                         df_aux[p] = df_aux.loc[:, p] / mol_w
 
@@ -1260,6 +1275,8 @@ class TrafficSector(Sector):
             if self.do_hot or self.do_cold:
                 self.logger.write_log('\t\tCalculating Hot emissions.', message_level=2)
                 hot_emis = self.calculate_hot()
+            else:
+                hot_emis = None
 
             if self.do_hot:
                 self.logger.write_log('\t\tCompacting Hot emissions.', message_level=2)

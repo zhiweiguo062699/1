@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import sys
 import os
 import timeit
 import geopandas as gpd
@@ -12,7 +11,7 @@ from hermesv3_bu.io_server.io_shapefile import IoShapefile
 from hermesv3_bu.io_server.io_netcdf import IoNetcdf
 from hermesv3_bu.tools.checker import check_files, error_exit
 
-from pandas import DataFrame
+from pandas import DataFrame, Timestamp
 from geopandas import GeoDataFrame
 
 
@@ -363,9 +362,9 @@ class TrafficAreaSector(Sector):
             temperature_mean['REC'] = temperature['REC']
 
             if 'T_REC' not in self.evaporative.columns.values:
-                self.evaporative['T_REC'] = self.evaporative.apply(self.nearest, geom_union=temperature_mean.unary_union,
-                                                                   df1=self.evaporative, df2=temperature_mean,
-                                                                   geom1_col='centroid', src_column='REC', axis=1)
+                self.evaporative['T_REC'] = self.evaporative.apply(
+                    self.nearest, geom_union=temperature_mean.unary_union, df1=self.evaporative, df2=temperature_mean,
+                    geom1_col='centroid', src_column='REC', axis=1)
                 self.evaporative.drop(columns=['c_lat', 'c_lon', 'centroid'], inplace=True)
                 IoShapefile(self.comm).write_shapefile_parallel(
                     self.evaporative, os.path.join(self.auxiliary_dir, 'traffic_area', 'vehicle_by_cell'))
@@ -518,7 +517,7 @@ class TrafficAreaSector(Sector):
             small_cities.loc[small_cities['weekday'] == 6, 'day_type'] = 'Sunday'
 
             for i, aux in small_cities.groupby(['month', 'weekday', 'hour', 'day_type']):
-                aux_date = pd.Timestamp(aux['date'].values[0])
+                aux_date = Timestamp(aux['date'].values[0])
 
                 balanced_weekly_profile = self.calculate_rebalanced_weekly_profile(
                     self.small_cities_weekly_profile.loc['default', :].to_dict(), aux_date)
@@ -570,6 +569,7 @@ class TrafficAreaSector(Sector):
             dataset = self.small_cities
         else:
             error_exit('No traffic area emission selected. do_evaporative and do_small_cities are False')
+            dataset = None
 
         dataset['layer'] = 0
         dataset = dataset.groupby(['FID', 'layer', 'tstep']).sum()

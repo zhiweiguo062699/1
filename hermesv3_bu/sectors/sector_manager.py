@@ -184,8 +184,8 @@ class SectorManager(object):
                     arguments.load, arguments.speciation_map, arguments.traffic_speciation_profile_hot_cold,
                     arguments.traffic_speciation_profile_tyre, arguments.traffic_speciation_profile_road,
                     arguments.traffic_speciation_profile_brake, arguments.traffic_speciation_profile_resuspension,
-                    arguments.era5_temperature_hourly_files_path, arguments.output_dir, arguments.molecular_weights,
-                    arguments.resuspension_correction, arguments.era5_precipitation_files_path, arguments.do_hot,
+                    arguments.meteo_info, arguments.output_dir, arguments.molecular_weights,
+                    arguments.resuspension_correction, arguments.do_hot,
                     arguments.do_cold, arguments.do_tyre_wear, arguments.do_brake_wear, arguments.do_road_wear,
                     arguments.do_resuspension, arguments.write_rline)
 
