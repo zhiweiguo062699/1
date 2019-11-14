@@ -23,7 +23,7 @@ class TrafficAreaSector(Sector):
     def __init__(self, comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
                  population_tif_path, speciation_map_path, molecular_weights_path,
                  do_evaporative, gasoline_path, population_nuts3, nuts_shapefile, speciation_profiles_evaporative,
-                 evaporative_ef_file, temperature_dir,
+                 evaporative_ef_file, meteo_info,
                  do_small_cities, small_cities_shp, speciation_profiles_small_cities, small_cities_ef_file,
                  small_cities_monthly_profile, small_cities_weekly_profile, small_cities_hourly_profile):
         spent_time = timeit.default_timer()
@@ -32,7 +32,7 @@ class TrafficAreaSector(Sector):
         if do_evaporative:
             check_files([population_tif_path, speciation_map_path, molecular_weights_path,
                          gasoline_path, population_nuts3, nuts_shapefile, speciation_profiles_evaporative,
-                         evaporative_ef_file, temperature_dir])
+                         evaporative_ef_file])
         if do_small_cities:
             check_files([population_tif_path, speciation_map_path, molecular_weights_path,
                          small_cities_shp, speciation_profiles_small_cities, small_cities_ef_file,
@@ -42,7 +42,7 @@ class TrafficAreaSector(Sector):
             None, None, None, speciation_map_path, None, molecular_weights_path)
 
         self.do_evaporative = do_evaporative
-        self.temperature_dir = temperature_dir
+        self.meteo_info = meteo_info
         self.speciation_profiles_evaporative = self.read_speciation_profiles(speciation_profiles_evaporative)
         self.evaporative_ef_file = evaporative_ef_file
 
@@ -342,33 +342,57 @@ class TrafficAreaSector(Sector):
         geom = self.evaporative.geometry
 
         # get average daily temperature by cell
-        aux_df = self.evaporative.loc[:, 'geometry'].to_crs({'init': 'epsg:4326'})
-        self.evaporative['c_lat'] = aux_df.centroid.y
-        self.evaporative['c_lon'] = aux_df.centroid.x
-        self.evaporative['centroid'] = aux_df.centroid
+        if self.meteo_info['meteo_type'] == 'era5':
+            aux_df = self.evaporative.loc[:, 'geometry'].to_crs({'init': 'epsg:4326'})
+            self.evaporative['c_lat'] = aux_df.centroid.y
+            self.evaporative['c_lon'] = aux_df.centroid.x
+            self.evaporative['centroid'] = aux_df.centroid
 
-        temperature = IoNetcdf(self.comm).get_hourly_data_from_netcdf(
-            self.evaporative['c_lon'].min(), self.evaporative['c_lon'].max(), self.evaporative['c_lat'].min(),
-            self.evaporative['c_lat'].max(), self.temperature_dir, 'tas', self.date_array)
-        temperature.rename(columns={x: 't_{0}'.format(x) for x in range(len(self.date_array))}, inplace=True)
-        # From Kelvin to Celsius degrees
-        temperature.loc[:, ['t_{0}'.format(x) for x in range(len(self.date_array))]] = \
-            temperature.loc[:, ['t_{0}'.format(x) for x in range(len(self.date_array))]] - 273.15
+            temperature = IoNetcdf(self.comm).get_hourly_data_from_netcdf(
+                self.evaporative['c_lon'].min(), self.evaporative['c_lon'].max(), self.evaporative['c_lat'].min(),
+                self.evaporative['c_lat'].max(), self.meteo_info['hourly_temperature_dir'], 'tas', self.date_array)
 
-        temperature_mean = gpd.GeoDataFrame(temperature[['t_{0}'.format(x) for x in
-                                                         range(len(self.date_array))]].mean(axis=1),
-                                            columns=['temp'], geometry=temperature.geometry)
-        temperature_mean['REC'] = temperature['REC']
+            temperature.rename(columns={x: 't_{0}'.format(x) for x in range(len(self.date_array))}, inplace=True)
+            # From Kelvin to Celsius degrees
+            temperature.loc[:, ['t_{0}'.format(x) for x in range(len(self.date_array))]] = \
+                temperature.loc[:, ['t_{0}'.format(x) for x in range(len(self.date_array))]] - 273.15
 
-        if 'T_REC' not in self.evaporative.columns.values:
-            self.evaporative['T_REC'] = self.evaporative.apply(self.nearest, geom_union=temperature_mean.unary_union,
-                                                               df1=self.evaporative, df2=temperature_mean,
-                                                               geom1_col='centroid', src_column='REC', axis=1)
-            del self.evaporative['c_lat'], self.evaporative['c_lon'], self.evaporative['centroid']
-            IoShapefile(self.comm).write_shapefile_parallel(
-                self.evaporative, os.path.join(self.auxiliary_dir, 'traffic_area', 'vehicle_by_cell'))
+            temperature_mean = gpd.GeoDataFrame(temperature[['t_{0}'.format(x) for x in
+                                                             range(len(self.date_array))]].mean(axis=1),
+                                                columns=['temp'], geometry=temperature.geometry)
+            temperature_mean['REC'] = temperature['REC']
+
+            if 'T_REC' not in self.evaporative.columns.values:
+                self.evaporative['T_REC'] = self.evaporative.apply(self.nearest, geom_union=temperature_mean.unary_union,
+                                                                   df1=self.evaporative, df2=temperature_mean,
+                                                                   geom1_col='centroid', src_column='REC', axis=1)
+                self.evaporative.drop(columns=['c_lat', 'c_lon', 'centroid'], inplace=True)
+                IoShapefile(self.comm).write_shapefile_parallel(
+                    self.evaporative, os.path.join(self.auxiliary_dir, 'traffic_area', 'vehicle_by_cell'))
+            else:
+                self.evaporative.drop(columns=['c_lat', 'c_lon', 'centroid'], inplace=True)
+
+        elif self.meteo_info['meteo_type'] == 'wrf':
+            temperature = IoNetcdf(self.comm).get_data_from_wrf(
+                self.meteo_info['metcro2D_path'], ['TEMP2'], self.date_array[0], 'hourly',
+                self.evaporative[['FID']].set_index('FID'), time_steps=len(self.date_array))
+            temperature.rename(columns={"{0}_{1}".format('TEMP2', x): 't_{0}'.format(x) for x in
+                                        range(len(self.date_array))}, inplace=True)
+            temperature['REC'] = temperature.index
+
+            # From Kelvin to Celsius degrees
+            temperature.loc[:, ['t_{0}'.format(x) for x in range(len(self.date_array))]] = \
+                temperature.loc[:, ['t_{0}'.format(x) for x in range(len(self.date_array))]] - 273.15
+
+            temperature_mean = gpd.GeoDataFrame(temperature[['t_{0}'.format(x) for x in
+                                                             range(len(self.date_array))]].mean(axis=1),
+                                                columns=['temp'], geometry=self.evaporative.geometry)
+            temperature_mean['REC'] = temperature['REC']
+
+            self.evaporative['T_REC'] = self.evaporative['FID']
         else:
-            del self.evaporative['c_lat'], self.evaporative['c_lon'], self.evaporative['centroid']
+            temperature_mean = None
+            temperature = None
 
         self.evaporative = self.evaporative.merge(temperature_mean, left_on='T_REC', right_on='REC', how='left')
 

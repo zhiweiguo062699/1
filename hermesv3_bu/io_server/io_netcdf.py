@@ -241,13 +241,13 @@ class IoNetcdf(IoServer):
 
         return path
 
-    def get_data_from_wrf(self, path, var_list, day, type, geometry):
+    def get_data_from_wrf(self, path, var_list, day, date_type, geometry, time_steps=None):
         """
 
         :param path:
         :param var_list:
         :param day:
-        :param type:
+        :param date_type:
         :param geometry:
         :return:
         :rtype: DataFrame
@@ -256,13 +256,18 @@ class IoNetcdf(IoServer):
 
         wrf_nc = Dataset(path, mode='r')
         for var_name in var_list:
-            if type == 'daily':
+            if date_type == 'daily':
                 var = np.mean(wrf_nc.variables[var_name][:24, 0, :], axis=0)
                 var = var.flatten()
+                geometry[var_name] = var[geometry.index]
+            elif date_type == 'hourly':
+                for step in range(time_steps):
+                    var = wrf_nc.variables[var_name][step, 0, :]
+                    var = var.flatten()
+                    geometry["{0}_{1}".format(var_name, step)] = var[geometry.index]
             else:
-                var = None
+                error_exit("Unknown '{0}' date tye".format(date_type))
 
-            geometry[var_name] = var[geometry.index]
         wrf_nc.close()
 
         return geometry
