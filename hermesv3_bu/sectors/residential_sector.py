@@ -294,7 +294,8 @@ class ResidentialSector(Sector):
 
         if self.meteo_info['meteo_type'] == 'era5':
             meteo['tas'] = IoNetcdf(self.comm).get_data_from_netcdf(
-                os.path.join(self.meteo_info['daily_temperature_dir'], 'tas_{0}{1}.nc'.format(day.year, str(day.month).zfill(2))),
+                os.path.join(self.meteo_info['daily_temperature_dir'], 'tas_{0}{1}.nc'.format(
+                    day.year, str(day.month).zfill(2))),
                 'tas', 'daily', day, geometry_shp).loc[:, 'tas']
 
         elif self.meteo_info['meteo_type'] == 'wrf':

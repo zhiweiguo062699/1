@@ -532,20 +532,101 @@ class TrafficSector(Sector):
         self.logger.write_time_log('TrafficSector', 'read_ef', timeit.default_timer() - spent_time)
         return df
 
-    def calculate_precipitation_factor(self, lon_min, lon_max, lat_min, lat_max, precipitation_dir):
+    def calculate_precipitation_factor(self, road_links):
         spent_time = timeit.default_timer()
 
-        dates_to_extract = [self.date_array[0] + timedelta(hours=x - 47) for x in range(47)] + self.date_array
+        if self.meteo_info['meteo_type'] == 'era5':
+            link_lons = road_links['geometry'].centroid.x
+            link_lats = road_links['geometry'].centroid.y
 
-        precipitation = IoNetcdf(self.comm).get_hourly_data_from_netcdf(
-            lon_min, lon_max, lat_min, lat_max, precipitation_dir, 'prlr', dates_to_extract)
+            meteo_dates = [self.date_array[0] + timedelta(hours=x - 47) for x in range(47)] + self.date_array
 
-        precipitation.set_index('REC', inplace=True, drop=True)
+            precipitation = IoNetcdf(self.comm).get_hourly_data_from_netcdf(
+                link_lons.min(), link_lons.max(), link_lats.min(), link_lats.max(),
+                self.meteo_info['hourly_precipitation_dir'], 'prlr', meteo_dates)
 
-        prlr = precipitation.drop(columns='geometry').values.T
+            precipitation.set_index('REC', inplace=True, drop=True)
 
-        # From m/s to mm/h
-        prlr = prlr * (3600 * 1000)
+            prlr = precipitation.drop(columns='geometry').values.T
+            # From m/s to mm/h
+            prlr = prlr * (3600 * 1000)
+
+        elif self.meteo_info['meteo_type'] == 'wrf':
+            road_links['road'] = road_links['geometry']
+            road_links['geometry'] = road_links['geometry'].centroid
+
+            road_links_fid = road_links[['FID']].set_index('FID')
+            road_links_fid = road_links_fid.loc[~road_links_fid.index.duplicated(keep='first')]
+
+            precipitation = IoNetcdf(self.comm).get_data_from_wrf(
+                self.meteo_info['metcro2D_path'], ['RN', 'RC'], self.date_array[0], 'hourly', road_links_fid,
+                time_steps=len(self.date_array))
+            print(precipitation.sum())
+            for i in range(len(self.date_array)):
+                precipitation.loc[precipitation['RC_{0}'.format(i)] < 0, 'RC_{0}'.format(i)] = 0.0
+                print('1'*20)
+                print(precipitation.sum())
+                precipitation['rain_{0}'.format(i + 48)] = precipitation['RN_{0}'.format(i)] + precipitation[
+                    'RC_{0}'.format(i)]
+                print('2' * 20)
+                print(precipitation.sum())
+                precipitation.drop(columns=['RN_{0}'.format(i), 'RC_{0}'.format(i)], inplace=True)
+            print(precipitation.sum())
+            # -1 day
+            try:
+                precipitation_1 = IoNetcdf(self.comm).get_data_from_wrf(
+                    self.meteo_info['metcro2D_path'], ['RN', 'RC'], self.date_array[0] - timedelta(days=1), 'hourly',
+                    road_links_fid, time_steps=24)
+                for i in range(24):
+                    precipitation_1.loc[precipitation_1['RC_{0}'.format(i)] < 0, 'RC_{0}'.format(i)] = 0.0
+                    precipitation_1['rain_{0}'.format(i + 24)] = precipitation_1['RN_{0}'.format(i)] + precipitation_1[
+                        'RC_{0}'.format(i)]
+                    precipitation_1.drop(columns=['RN_{0}'.format(i), 'RC_{0}'.format(i)], inplace=True)
+
+                # -2 days
+                try:
+                    precipitation_2 = IoNetcdf(self.comm).get_data_from_wrf(
+                        self.meteo_info['metcro2D_path'], ['RN', 'RC'], self.date_array[0] - timedelta(days=2),
+                        'hourly',
+                        road_links_fid, time_steps=24)
+                    for i in range(24):
+                        precipitation_2.loc[precipitation_2['RC_{0}'.format(i)] < 0, 'RC_{0}'.format(i)] = 0.0
+                        precipitation_2['rain_{0}'.format(i)] = \
+                            precipitation_2['RN_{0}'.format(i)] + precipitation_2['RC_{0}'.format(i)]
+                        precipitation_2.drop(columns=['RN_{0}'.format(i), 'RC_{0}'.format(i)], inplace=True)
+
+                except FileNotFoundError:
+                    warnings.warn("WARNING: Not -2 days precipitation found. Setting it to 0.")
+                    precipitation_2 = DataFrame(index=precipitation.index)
+                    for i in range(24):
+                        precipitation_2['rain_{0}'.format(i)] = 0.0
+
+            except FileNotFoundError:
+                warnings.warn("WARNING: Not -1 days precipitation found. Setting it to 0.")
+                precipitation_1 = DataFrame(index=precipitation.index)
+                precipitation_2 = DataFrame(index=precipitation.index)
+                for i in range(24):
+                    precipitation_1['rain_{0}'.format(i + 24)] = 0.0
+                    precipitation_2['rain_{0}'.format(i)] = 0.0
+
+            precipitation = pd.concat([precipitation_2, precipitation_1, precipitation], axis=1)
+            print(precipitation.sum())
+            del precipitation_1, precipitation_2
+
+            precipitation.rename(columns={"rain_{0}".format(x): x - 1 for x in range(len(self.date_array) + 48)},
+                                 inplace=True)
+            precipitation.drop(columns=[-1], inplace=True)
+            precipitation.index.name = 'REC'
+
+            prlr = precipitation.values.T
+            # From cm/h to mm/h
+            prlr = prlr * 10
+
+        else:
+            precipitation = None
+            prlr = None
+
+        print(precipitation.sum())
         prlr = prlr <= MIN_RAIN
         dst = np.empty(prlr.shape)
         last = np.zeros((prlr.shape[-1]))
@@ -558,10 +639,14 @@ class TrafficSector(Sector):
         # It is assumed that after 48 h without rain the potential emission is equal to one
         dst[dst >= (1 - np.exp(- RECOVERY_RATIO * 48))] = 1.
         # Creates the GeoDataFrame
-        df = gpd.GeoDataFrame(dst.T, geometry=precipitation['geometry'].values)
-        df.columns = ['PR_{0}'.format(x) for x in df.columns.values[:-1]] + ['geometry']
-
-        df.loc[:, 'REC'] = df.index
+        if self.meteo_info['meteo_type'] == 'era5':
+            df = gpd.GeoDataFrame(dst.T, geometry=precipitation['geometry'].values)
+            df.columns = ['PR_{0}'.format(x) for x in df.columns.values[:-1]] + ['geometry']
+            df.loc[:, 'REC'] = df.index
+        elif self.meteo_info['meteo_type'] == 'wrf':
+            df = DataFrame(dst.T)
+            df.columns = ['PR_{0}'.format(x) for x in df.columns]
+            df.loc[:, 'REC'] = precipitation.index
 
         self.logger.write_time_log('TrafficSector', 'calculate_precipitation_factor',
                                    timeit.default_timer() - spent_time)
@@ -1139,32 +1224,35 @@ class TrafficSector(Sector):
     def calculate_resuspension(self):
         spent_time = timeit.default_timer()
 
+        road_link_aux = self.road_links[['FID', 'geometry']].copy().reset_index()
+
         if self.resuspension_correction:
-            road_link_aux = self.road_links[['geometry']].copy().reset_index()
+            p_factor = self.calculate_precipitation_factor(road_link_aux)
 
-            road_link_aux['centroid'] = road_link_aux['geometry'].centroid
-            link_lons = road_link_aux['geometry'].centroid.x
-            link_lats = road_link_aux['geometry'].centroid.y
+            if self.meteo_info['meteo_type'] == 'era5':
+                unary_union = p_factor.unary_union
 
-            p_factor = self.calculate_precipitation_factor(link_lons.min(), link_lons.max(), link_lats.min(),
-                                                           link_lats.max(), self.precipitation_path)
-            unary_union = p_factor.unary_union
+                road_link_aux['centroid'] = road_link_aux['geometry'].centroid
+                road_link_aux['REC'] = road_link_aux.apply(self.nearest, geom_union=unary_union, df1=road_link_aux,
+                                                           df2=p_factor, geom1_col='centroid', src_column='REC', axis=1)
+                road_link_aux.drop(columns=['centroid'], inplace=True)
+                p_factor.drop(columns=['geometry'], inplace=True)
 
-            road_link_aux['REC'] = road_link_aux.apply(self.nearest, geom_union=unary_union, df1=road_link_aux,
-                                                       df2=p_factor, geom1_col='centroid', src_column='REC', axis=1)
-            road_link_aux.drop(columns=['centroid'], inplace=True)
-            p_factor.drop(columns=['geometry'], inplace=True)
+            elif self.meteo_info['meteo_type'] == 'wrf':
+                road_link_aux['REC'] = road_link_aux['FID']
 
             road_link_aux = road_link_aux.merge(p_factor, left_on='REC', right_on='REC', how='left')
 
             road_link_aux.drop(columns=['REC'], inplace=True)
 
+        road_link_aux.drop(columns=['FID'], inplace=True)
         pollutants = ['pm']
         for pollutant in pollutants:
             ef_tyre = self.read_ef('resuspension', pollutant)
+
             df = pd.merge(self.expanded.reset_index(), ef_tyre, left_on='Fleet_Code', right_on='Code', how='inner')
             if self.resuspension_correction:
-                df = df.merge(road_link_aux, left_on='Link_ID', right_on='Link_ID', how='left')
+                df = df.merge(road_link_aux, on='Link_ID', how='left')
 
             df.drop(columns=['road_grad', 'Road_type', 'Code'], inplace=True)
             for tstep in range(len(self.date_array)):
