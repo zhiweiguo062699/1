@@ -97,6 +97,8 @@ class TrafficSector(Sector):
             comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
             monthly_profiles_path, weekly_profiles_path, None, speciation_map_path, None, molecular_weights_path)
 
+        self.meteo_info = meteo_info
+
         self.resuspension_correction = resuspension_correction
 
         self.output_dir = output_dir
@@ -112,7 +114,6 @@ class TrafficSector(Sector):
 
         self.load = load
         self.ef_common_path = ef_common_path
-        self.meteo_info = meteo_info
 
         self.add_local_date(self.date_array[0])
 
@@ -311,6 +312,31 @@ class TrafficSector(Sector):
         self.logger.write_time_log('TrafficSector', 'read_fleet_compo', timeit.default_timer() - spent_time)
         return df
 
+    def add_fid(self, road_links):
+        spent_time = timeit.default_timer()
+
+        road_links.reset_index(inplace=True)
+        grid_geom = self.grid.shapefile.to_crs(road_links.crs).reset_index()
+        road_links.drop(columns='FID', inplace=True)
+        road_links['roads'] = road_links['geometry']
+        road_links['geometry'] = road_links['geometry'].centroid
+        road_links = gpd.sjoin(road_links, grid_geom, how='left', op='within')
+
+        grid_geom['geometry'] = grid_geom['geometry'].centroid
+        road_links.loc[road_links['FID'].isna(), 'FID'] = road_links.loc[road_links['FID'].isna()].apply(
+            self.nearest, geom_union=grid_geom.unary_union, df1=road_links.loc[road_links['FID'].isna()], df2=grid_geom,
+            src_column='FID', axis=1)
+
+        road_links['FID'] = road_links['FID'].astype(np.int)
+
+        road_links['geometry'] = road_links['roads']
+        road_links.drop(columns=['roads', 'index_right'], inplace=True)
+
+        road_links.set_index('Link_ID', inplace=True)
+
+        self.logger.write_time_log('TrafficSector', 'add_fid', timeit.default_timer() - spent_time)
+        return road_links
+
     def read_road_links(self, path):
         def chunk_road_links(df, nprocs):
             def index_marks(nrows, nprocs):
@@ -405,6 +431,9 @@ class TrafficSector(Sector):
 
         if self.write_rline:
             self.write_rline_roadlinks(df)
+
+        if self.meteo_info['meteo_type'] == 'wrf':
+            df = self.add_fid(df)
 
         self.logger.write_time_log('TrafficSector', 'read_road_links', timeit.default_timer() - spent_time)
         libc.malloc_trim(0)
@@ -861,20 +890,26 @@ class TrafficSector(Sector):
             cold_links.drop(columns=['geometry', 'centroid', 'geometry'], inplace=True)
 
         elif self.meteo_info['meteo_type'] == 'wrf':
+            cold_links['road'] = cold_links['geometry']
+            cold_links['geometry'] = cold_links['geometry'].centroid
+
+            cols_links_fid = cold_links[['FID']].set_index('FID')
+            cols_links_fid = cols_links_fid.loc[~cols_links_fid.index.duplicated(keep='first')]
+
             temperature = IoNetcdf(self.comm).get_data_from_wrf(
-                self.meteo_info['metcro2D_path'], ['TEMP2'], self.date_array[0], 'hourly',
-                cold_links[['FID']].set_index('FID'), time_steps=len(self.date_array))
+                self.meteo_info['metcro2D_path'], ['TEMP2'], self.date_array[0], 'hourly', cols_links_fid,
+                time_steps=len(self.date_array))
             temperature.rename(columns={"{0}_{1}".format('TEMP2', x): 't_{0}'.format(x) for x in
                                         range(len(self.date_array))}, inplace=True)
+
             temperature['REC'] = temperature.index
 
             # From Kelvin to Celsius degrees
             temperature.loc[:, ['t_{0}'.format(x) for x in range(len(self.date_array))]] = \
                 temperature.loc[:, ['t_{0}'.format(x) for x in range(len(self.date_array))]] - 273.15
 
-            cold_links.drop(columns=['geometry'], inplace=True)
+            cold_links.drop(columns=['geometry', 'road'], inplace=True)
             cold_links['REC'] = cold_links['FID']
-            print (np.unique(cold_links['FID']))
         else:
             temperature = None
         libc.malloc_trim(0)
