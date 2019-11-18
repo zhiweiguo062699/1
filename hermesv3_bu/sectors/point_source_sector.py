@@ -200,6 +200,7 @@ class PointSourceSector(Sector):
             catalog_df = catalog_df.loc[catalog_df['AF'] != -1, :]
 
             if sector_list is not None:
+                catalog_df['SNAP'] = catalog_df['SNAP'].apply(lambda x: x.zfill(6))
                 catalog_df = catalog_df.loc[catalog_df['SNAP'].str[:2].isin(sector_list)]
             catalog_df.drop('SNAP', axis=1, inplace=True)
 
@@ -249,6 +250,7 @@ class PointSourceSector(Sector):
         catalog_df.drop('AF', axis=1, inplace=True)
 
         if sector_list is not None:
+            catalog_df['SNAP'] = catalog_df['SNAP'].apply(lambda x: x.zfill(6))
             catalog_df = catalog_df.loc[catalog_df['SNAP'].str[:2].isin(sector_list)]
         catalog_df.drop('SNAP', axis=1, inplace=True)
 
