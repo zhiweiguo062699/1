@@ -561,17 +561,13 @@ class TrafficSector(Sector):
             precipitation = IoNetcdf(self.comm).get_data_from_wrf(
                 self.meteo_info['metcro2D_path'], ['RN', 'RC'], self.date_array[0], 'hourly', road_links_fid,
                 time_steps=len(self.date_array))
-            print(precipitation.sum())
             for i in range(len(self.date_array)):
                 precipitation.loc[precipitation['RC_{0}'.format(i)] < 0, 'RC_{0}'.format(i)] = 0.0
-                print('1'*20)
-                print(precipitation.sum())
+
                 precipitation['rain_{0}'.format(i + 48)] = precipitation['RN_{0}'.format(i)] + precipitation[
                     'RC_{0}'.format(i)]
-                print('2' * 20)
-                print(precipitation.sum())
+
                 precipitation.drop(columns=['RN_{0}'.format(i), 'RC_{0}'.format(i)], inplace=True)
-            print(precipitation.sum())
             # -1 day
             try:
                 precipitation_1 = IoNetcdf(self.comm).get_data_from_wrf(
@@ -610,7 +606,6 @@ class TrafficSector(Sector):
                     precipitation_2['rain_{0}'.format(i)] = 0.0
 
             precipitation = pd.concat([precipitation_2, precipitation_1, precipitation], axis=1)
-            print(precipitation.sum())
             del precipitation_1, precipitation_2
 
             precipitation.rename(columns={"rain_{0}".format(x): x - 1 for x in range(len(self.date_array) + 48)},
@@ -626,7 +621,6 @@ class TrafficSector(Sector):
             precipitation = None
             prlr = None
 
-        print(precipitation.sum())
         prlr = prlr <= MIN_RAIN
         dst = np.empty(prlr.shape)
         last = np.zeros((prlr.shape[-1]))
