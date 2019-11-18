@@ -293,7 +293,7 @@ class CmaqWriter(Writer):
         tflag[:] = self.create_tflag()
 
         # ========== POLLUTANTS ==========
-        for var_name in emissions.columns.values:
+        for var_name in self.pollutant_info.index:
             self.logger.write_log('\t\tCreating {0} variable'.format(var_name), message_level=3)
 
             if self.comm_write.Get_size() > 1:
@@ -301,14 +301,20 @@ class CmaqWriter(Writer):
                 var.set_collective(True)
             else:
                 var = netcdf.createVariable(var_name, np.float64, ('TSTEP', 'LAY', 'ROW', 'COL',), zlib=True)
+            try:
+                var_data = self.dataframe_to_array(emissions.loc[:, [var_name]])
 
-            var_data = self.dataframe_to_array(emissions.loc[:, [var_name]])
-
-            var[:, :,
-                self.rank_distribution[self.comm_write.Get_rank()]['y_min']:
-                self.rank_distribution[self.comm_write.Get_rank()]['y_max'],
-                self.rank_distribution[self.comm_write.Get_rank()]['x_min']:
-                self.rank_distribution[self.comm_write.Get_rank()]['x_max']] = var_data
+                var[:, :,
+                    self.rank_distribution[self.comm_write.Get_rank()]['y_min']:
+                    self.rank_distribution[self.comm_write.Get_rank()]['y_max'],
+                    self.rank_distribution[self.comm_write.Get_rank()]['x_min']:
+                    self.rank_distribution[self.comm_write.Get_rank()]['x_max']] = var_data
+            except KeyError:
+                var[:, :,
+                    self.rank_distribution[self.comm_write.Get_rank()]['y_min']:
+                    self.rank_distribution[self.comm_write.Get_rank()]['y_max'],
+                    self.rank_distribution[self.comm_write.Get_rank()]['x_min']:
+                    self.rank_distribution[self.comm_write.Get_rank()]['x_max']] = 0
 
             var.long_name = self.pollutant_info.loc[var_name, 'long_name']
             var.units = self.pollutant_info.loc[var_name, 'units']
