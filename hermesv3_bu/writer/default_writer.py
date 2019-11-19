@@ -243,7 +243,7 @@ class DefaultWriter(Writer):
         elif self.grid.grid_type == 'Lambert Conformal Conic':
             mapping = netcdf.createVariable('Lambert_Conformal', 'i')
             mapping.grid_mapping_name = "lambert_conformal_conic"
-            mapping.standard_parallel = "{0}, {1}".format(self.grid.attributes['lat_1'], self.grid.attributes['lat_2'])
+            mapping.standard_parallel = [self.grid.attributes['lat_1'], self.grid.attributes['lat_2']]
             mapping.longitude_of_central_meridian = self.grid.attributes['lon_0']
             mapping.latitude_of_projection_origin = self.grid.attributes['lat_0']
 
