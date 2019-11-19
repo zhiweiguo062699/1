@@ -1,22 +1,21 @@
 #!/usr/bin/env python
 
 import sys
-import os
 import timeit
 from mpi4py import MPI
 from datetime import timedelta
 
 from hermesv3_bu.config.config import Config
-from hermesv3_bu.grids.grid import select_grid, Grid
+from hermesv3_bu.grids.grid import select_grid
 from hermesv3_bu.clipping.clip import select_clip
 from hermesv3_bu.writer.writer import select_writer
 from hermesv3_bu.sectors.sector_manager import SectorManager
 from hermesv3_bu.logger.log import Log
 
 
-class Hermes(object):
+class HermesBu(object):
     """
-    Interface class for HERMESv3.
+    Interface class for HERMESv3_BU.
     """
     def __init__(self, config, comm=None):
         """
@@ -83,9 +82,9 @@ class Hermes(object):
 
 
 def run():
-    date = Hermes(Config()).main()
+    date = HermesBu(Config()).main()
     while date is not None:
-        date = Hermes(Config(new_date=date)).main()
+        date = HermesBu(Config(new_date=date)).main()
     sys.exit(0)
 
 
