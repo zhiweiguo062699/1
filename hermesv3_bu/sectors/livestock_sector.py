@@ -915,7 +915,7 @@ class LivestockSector(Sector):
                     if animal.Code.startswith(tuple(self.animal_list)):
                         # Storage emissions
                         out_df.loc[:, out_p] += (animals_df[animal['Code']] * animals_df['FD_storage']).multiply(
-                            animal['EF_storage'])
+                            animal['EF_storage'] * self.speciation_profile.loc[animal['Code'][:-3], out_p])
 
                 # From kg NOX-N to mol NO
                 out_df.loc[:, out_p] = out_df.loc[:, out_p].multiply(
@@ -939,8 +939,8 @@ class LivestockSector(Sector):
         if len(not_pollutants) > 0:
             if self.comm.Get_rank() == 0:
                 warn('The pollutants {0} cannot be calculated on the Livestock sector'.format(not_pollutants))
-        self.logger.write_time_log('LivestockSector', 'calculate_day_emissions', timeit.default_timer() - spent_time)
 
+        self.logger.write_time_log('LivestockSector', 'calculate_day_emissions', timeit.default_timer() - spent_time)
         return out_df
 
     def calculate_daily_emissions_dict(self, animals_df):
