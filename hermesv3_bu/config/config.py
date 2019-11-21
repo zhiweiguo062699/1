@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from warnings import warn
 from configargparse import ArgParser
 import os
 from mpi4py import MPI
@@ -668,7 +669,9 @@ class Config(ArgParser):
         p.add_argument('--solvents_speciation_profiles', required=False,
                        help="Defines the path to the CSV file that contains the speciation profiles.")
 
-        arguments = p.parse_args()
+        arguments, unknown = p.parse_known_args()
+        if len(unknown) > 0:
+            warn("Unrecognized arguments: {0}".format(unknown))
 
         for item in vars(arguments):
             is_str = isinstance(arguments.__dict__[item], str)
