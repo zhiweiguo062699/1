@@ -38,7 +38,6 @@ setup(
         'pytz',
         'timezonefinder',
         'mpi4py',
-        'pytest',
         'shapely',
         'rasterio',
     ],
