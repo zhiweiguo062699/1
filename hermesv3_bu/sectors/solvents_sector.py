@@ -776,5 +776,6 @@ class SolventsSector(Sector):
         emissions['layer'] = 0
         emissions = emissions.groupby(['FID', 'layer', 'tstep']).sum()
 
+        self.logger.write_log('\tSolvents emissions calculated', message_level=2)
         self.logger.write_time_log('SolventsSector', 'calculate_emissions', timeit.default_timer() - spent_time)
         return emissions
