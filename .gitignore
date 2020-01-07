@@ -1,3 +1,6 @@
 .idea
 .directory
 *.pyc
+dist
+build
+hermesv3_bu.egg*

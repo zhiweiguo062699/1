@@ -583,19 +583,52 @@ class SolventsSector(Sector):
                 proxies = GeoDataFrame(
                     proxies, geometry=self.grid.shapefile.loc[proxies.index.get_level_values('FID'), 'geometry'].values,
                     crs=self.grid.shapefile.crs)
-                IoShapefile(self.comm).write_shapefile_serial(proxies.reset_index(), proxy_path)
+                # IoShapefile(self.comm).write_shapefile_serial(proxies.reset_index(), proxy_path)
             else:
                 proxies = None
+            proxies = IoShapefile(self.comm).split_shapefile(proxies)
+            proxies = self.add_timezone(proxies)
+            IoShapefile(self.comm).write_shapefile_parallel(proxies.reset_index(), proxy_path)
+
         else:
-            if self.comm.Get_rank() == 0:
-                proxies = IoShapefile(self.comm).read_shapefile_serial(proxy_path)
-                proxies.set_index(['FID', 'nut_code'], inplace=True)
-            else:
-                proxies = None
-        proxies = IoShapefile(self.comm).split_shapefile(proxies)
+            proxies = IoShapefile(self.comm).read_shapefile_parallel(proxy_path)
+
+        proxies.set_index(['FID', 'nut_code'], inplace=True)
 
         self.logger.write_time_log('SolventsSector', 'get_proxy_shapefile', timeit.default_timer() - spent_time)
         return proxies
+
+    def add_dates(self, dataframe, drop_utc=True):
+        """
+        Add the 'date' and 'tstep' column to the dataframe.
+
+        The dataframe will be replicated as many times as time steps to calculate.
+
+        :param dataframe: Geodataframe to be extended with the dates.
+        :type dataframe: GeoDataFrame
+
+        :return: Geodataframe with the dates. The length of the new dataframe is the length of the input dataframe
+            multiplied by the number of time steps.
+        :rtype: GeoDataFrame
+        """
+        spent_time = timeit.default_timer()
+        # dataframe = self.add_timezone(dataframe)
+        df_list = []
+
+        for tstep, date in enumerate(self.date_array):
+            df_aux = dataframe.copy()
+            df_aux['date'] = pd.to_datetime(date, utc=True)
+            df_aux['date_utc'] = pd.to_datetime(date, utc=True)
+            df_aux['tstep'] = tstep
+            # df_aux = self.to_timezone(df_aux)
+            df_list.append(df_aux)
+        dataframe = pd.concat(df_list, ignore_index=True)
+        dataframe = self.to_timezone(dataframe)
+        if drop_utc:
+            dataframe.drop('date_utc', axis=1, inplace=True)
+        self.logger.write_time_log('Sector', 'add_dates', timeit.default_timer() - spent_time)
+
+        return dataframe
 
     def calculate_hourly_emissions(self, yearly_emissions):
         """
@@ -629,7 +662,7 @@ class SolventsSector(Sector):
         spent_time = timeit.default_timer()
 
         self.logger.write_log('\tHourly disaggregation', message_level=2)
-        emissions = self.add_dates(yearly_emissions, drop_utc=True)
+        emissions = self.add_dates(yearly_emissions.reset_index(), drop_utc=True)
 
         emissions['month'] = emissions['date'].dt.month
         emissions['weekday'] = emissions['date'].dt.weekday
@@ -682,7 +715,7 @@ class SolventsSector(Sector):
                 self.proxies_map.loc[snap, 'proxy_name']], axis=1)
 
             emis.set_index(['FID', 'snap'], inplace=True)
-            emis_list.append(emis[['P_month', 'P_week', 'P_hour', 'P_spec', 'nmvoc', 'geometry']])
+            emis_list.append(emis[['P_month', 'P_week', 'P_hour', 'P_spec', 'nmvoc', 'geometry', 'timezone']])
         emis = pd.concat(emis_list).sort_index()
         emis = emis[emis['nmvoc'] > 0]
 
@@ -743,5 +776,6 @@ class SolventsSector(Sector):
         emissions['layer'] = 0
         emissions = emissions.groupby(['FID', 'layer', 'tstep']).sum()
 
+        self.logger.write_log('\tSolvents emissions calculated', message_level=2)
         self.logger.write_time_log('SolventsSector', 'calculate_emissions', timeit.default_timer() - spent_time)
         return emissions
