@@ -80,7 +80,6 @@ class Config(ArgParser):
         p.add_argument('--domain_type', required=True, help='Type of domain to simulate.',
                        choices=['lcc', 'rotated', 'mercator', 'regular', 'rotated_nested'])
 
-
         # Rotated options
         p.add_argument('--centre_lat', required=False, type=float,
                        help='Central geographic latitude of grid (non-rotated degrees). Corresponds to the TPH0D ' +
@@ -114,7 +113,6 @@ class Config(ArgParser):
                        help='Number of rotated latitude points.')
         p.add_argument('--n_rlon', required=False, type=int,
                        help='Number of rotated longitude points.')
-
 
         # Lambert conformal conic options
         p.add_argument('--lat_1', required=False, type=float,
@@ -702,6 +700,9 @@ class Config(ArgParser):
                 elif arguments.domain_type == 'rotated':
                     arguments.__dict__[item] = arguments.__dict__[item].replace('<resolution>', '{1}_{2}'.format(
                         item, arguments.inc_rlat, arguments.inc_rlon))
+                elif arguments.domain_type == 'rotated_nested':
+                    arguments.__dict__[item] = arguments.__dict__[item].replace('<resolution>', '{1}_{2}'.format(
+                        item, arguments.n_rlat, arguments.n_rlon))
                 elif arguments.domain_type == 'lcc' or arguments.domain_type == 'mercator':
                     arguments.__dict__[item] = arguments.__dict__[item].replace('<resolution>', '{1}_{2}'.format(
                         item, arguments.inc_x, arguments.inc_y))
