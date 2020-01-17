@@ -243,5 +243,5 @@ class Grid(object):
         from cdo import Cdo
 
         cdo = Cdo()
-        cell_area = cdo.gridarea(input=input_file, returnArray='cell_area')
+        cell_area = cdo.gridarea(input=self.netcdf_path, returnArray='cell_area')
         self.shapefile['cell_area'] = cell_area.flatten()
