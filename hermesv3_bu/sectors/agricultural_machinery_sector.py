@@ -11,7 +11,7 @@ import numpy as np
 
 from hermesv3_bu.sectors.agricultural_sector import AgriculturalSector
 from hermesv3_bu.io_server.io_shapefile import IoShapefile
-from hermesv3_bu.tools.checker import check_files
+from hermesv3_bu.tools.checker import check_files, error_exit
 
 
 class AgriculturalMachinerySector(AgriculturalSector):
@@ -233,6 +233,7 @@ class AgriculturalMachinerySector(AgriculturalSector):
             return df.loc[:, ['MF']]
         # month_distribution = self.crop_distribution.loc[:, ['FID', 'timezone', 'geometry']].copy()
         dataframe = self.calcualte_yearly_emissions_by_nut_vehicle().reset_index()
+
         dataframe['MF'] = dataframe.groupby('vehicle').apply(
             lambda x: get_mf(x, month)
         )
@@ -253,19 +254,19 @@ class AgriculturalMachinerySector(AgriculturalSector):
             aux = df.apply(lambda row: row * nut_emissions)
             return aux.loc[:, self.source_pollutants]
 
-        self.crop_distribution.reset_index(inplace=True)
-        self.crop_distribution[self.source_pollutants] = self.crop_distribution.groupby('NUT_code')['fraction'].apply(
+        crop_distribution = self.crop_distribution.reset_index().copy()
+        crop_distribution[self.source_pollutants] = crop_distribution.groupby('NUT_code')['fraction'].apply(
             lambda x: distribute_by_nut(x, dataframe.loc[int(x.name), self.source_pollutants])
         )
-        self.crop_distribution.drop(columns=['fraction', 'NUT_code'], inplace=True)
-        timezones = self.crop_distribution.groupby('FID')[['timezone']].first()
-        self.crop_distribution = self.crop_distribution.reset_index().groupby('FID').sum()
+        crop_distribution.drop(columns=['fraction', 'NUT_code'], inplace=True)
+        timezones = crop_distribution.groupby('FID')[['timezone']].first()
+        crop_distribution = crop_distribution.reset_index().groupby('FID').sum()
 
-        self.crop_distribution['timezone'] = timezones
-        self.crop_distribution.reset_index(inplace=True)
+        crop_distribution['timezone'] = timezones
+        crop_distribution.reset_index(inplace=True)
         self.logger.write_time_log('AgriculturalMachinerySector', 'distribute',
                                    timeit.default_timer() - spent_time)
-        return self.crop_distribution
+        return crop_distribution
 
     def add_dates(self, df_by_month):
         spent_time = timeit.default_timer()
@@ -343,7 +344,6 @@ class AgriculturalMachinerySector(AgriculturalSector):
         for month in self.months.keys():
             distribution_by_month[month] = self.calculate_monthly_emissions_by_nut(month)
             distribution_by_month[month] = self.distribute(distribution_by_month[month])
-
         self.crop_distribution = self.add_dates(distribution_by_month)
         self.crop_distribution.drop('date_utc', axis=1, inplace=True)
         self.crop_distribution = self.calculate_hourly_emissions()

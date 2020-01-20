@@ -150,12 +150,12 @@ class IoNetcdf(IoServer):
         try:
             var = nc.variables[var_name][i_time:i_time + (len(date_array)), j_min:j_max, i_min:i_max]
         except KeyError as e:
-            error_exit("{0} variable not found in {1} file.".format(str(e), path))
+            error_exit("{0} variable not founddate_array in {1} file.".format(str(e), path))
 
         nc.close()
         # That condition is fot the cases that the needed temperature is in a different NetCDF.
         while len(var) < len(date_array):
-            aux_date = date_array[len(var) + 1]
+            aux_date = date_array[len(var)]
             path = os.path.join(netcdf_dir, '{0}_{1}{2}.nc'.format(var_name, aux_date.year,
                                                                    str(aux_date.month).zfill(2)))
             # self.logger.write_log('Getting {0} from {1}'.format(var_name, path), message_level=2)

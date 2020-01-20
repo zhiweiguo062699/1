@@ -93,13 +93,16 @@ class MonarchWriter(Writer):
             cell_area = None
         cell_area = self.comm_write.bcast(cell_area, root=0)
 
+        emissions = emissions.reset_index().groupby(['FID', 'layer', 'tstep']).sum()
         # From mol/h g/h to mol/m2.s g/m2.s
         emissions = emissions.divide(cell_area['cell_area'].mul(3600), axis=0, level='FID')
-
         for pollutant, info in self.pollutant_info.iterrows():
             if info.get('units') == "kg.s-1.m-2":
-                # From g.s-1.m-2 to kg.s-1.m-2
-                emissions[[pollutant]] = emissions[[pollutant]].div(10**3)
+                try:
+                    # From g.s-1.m-2 to kg.s-1.m-2
+                    emissions[pollutant] = emissions[pollutant].div(10**3)
+                except KeyError:
+                    pass
         self.logger.write_time_log('MonarchWriter', '__init__', timeit.default_timer() - spent_time)
 
         return emissions
@@ -188,7 +191,7 @@ class MonarchWriter(Writer):
         rlon[:] = self.grid.rlon
 
         # ========== POLLUTANTS ==========
-        for var_name in emissions.columns.values:
+        for var_name in self.pollutant_info.index:
             self.logger.write_log('\t\tCreating {0} variable'.format(var_name), message_level=3)
 
             # var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim,
@@ -200,7 +203,10 @@ class MonarchWriter(Writer):
             else:
                 var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim, zlib=True)
 
-            var_data = self.dataframe_to_array(emissions.loc[:, [var_name]])
+            try:
+                var_data = self.dataframe_to_array(emissions.loc[:, [var_name]])
+            except KeyError:
+                var_data = 0
 
             var[:, :,
                 self.rank_distribution[self.comm_write.Get_rank()]['y_min']:
