@@ -93,9 +93,9 @@ class MonarchWriter(Writer):
             cell_area = None
         cell_area = self.comm_write.bcast(cell_area, root=0)
 
+        emissions = emissions.reset_index().groupby(['FID', 'layer', 'tstep']).sum()
         # From mol/h g/h to mol/m2.s g/m2.s
         emissions = emissions.divide(cell_area['cell_area'].mul(3600), axis=0, level='FID')
-        print(self.pollutant_info)
         for pollutant, info in self.pollutant_info.iterrows():
             if info.get('units') == "kg.s-1.m-2":
                 try:
