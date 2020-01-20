@@ -47,6 +47,7 @@ class RotatedNestedGrid(Grid):
 
         netcdf = Dataset(attributes['parent_grid_path'], mode='r')
 
+        # TODO check if the i_parent start, j_parent_start begin in 0 or in 1
         rlat = netcdf.variables['rlat'][:]
         attributes['inc_rlat'] = (rlat[1] - rlat[0]) / attributes['parent_ratio']
         attributes['1st_rlat'] = rlat[int(attributes['j_parent_start'])]
@@ -56,8 +57,10 @@ class RotatedNestedGrid(Grid):
         attributes['1st_rlon'] = rlon[attributes['i_parent_start']]
 
         rotated_pole = netcdf.variables['rotated_pole']
-        attributes['parent'] = {'new_pole_longitude_degrees': rotated_pole.grid_north_pole_longitude,
-                                'new_pole_latitude_degrees': 90 - rotated_pole.grid_north_pole_latitude}
+        attributes['new_pole_longitude_degrees'] = rotated_pole.grid_north_pole_longitude
+        attributes['new_pole_latitude_degrees'] = 90 - rotated_pole.grid_north_pole_latitude
+
+        netcdf.close()
 
         return attributes
 
@@ -131,10 +134,10 @@ class RotatedNestedGrid(Grid):
         # Positive east to negative east
         # self.new_pole_longitude_degrees -= 180
 
-        tph0 = self.attributes['parent']['new_pole_latitude_degrees'] * degrees_to_radians
+        tph0 = self.attributes['new_pole_latitude_degrees'] * degrees_to_radians
         tlm = lon_deg * degrees_to_radians
         tph = lat_deg * degrees_to_radians
-        tlm0d = self.attributes['parent']['new_pole_longitude_degrees']
+        tlm0d = self.attributes['new_pole_longitude_degrees']
         ctph0 = np.cos(tph0)
         stph0 = np.sin(tph0)
 
@@ -187,8 +190,8 @@ class RotatedNestedGrid(Grid):
                                 boundary_latitudes=self.boundary_latitudes,
                                 boundary_longitudes=self.boundary_longitudes,
                                 rotated=True, rotated_lats=self.rlat, rotated_lons=self.rlon,
-                                north_pole_lat=90 - self.attributes['parent']['new_pole_latitude_degrees'],
-                                north_pole_lon=self.attributes['parent']['new_pole_longitude_degrees'])
+                                north_pole_lat=90 - self.attributes['new_pole_latitude_degrees'],
+                                north_pole_lon=self.attributes['new_pole_longitude_degrees'])
         self.logger.write_log("\tGrid created at '{0}'".format(self.netcdf_path), 3)
         self.logger.write_time_log('RotatedNestedGrid', 'write_netcdf', timeit.default_timer() - spent_time, 3)
         return True
