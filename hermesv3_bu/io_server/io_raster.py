@@ -8,6 +8,7 @@ from rasterio.mask import mask
 import geopandas as gpd
 import numpy as np
 from shapely.geometry import Polygon
+from shapely import wkt
 
 from hermesv3_bu.io_server.io_server import IoServer
 from hermesv3_bu.io_server.io_shapefile import IoShapefile
@@ -349,28 +350,37 @@ class IoRaster(IoServer):
             b_lons = b_lons.reshape((b_lons.shape[1], b_lons.shape[2]))
 
             gdf = gpd.GeoDataFrame(ds.read(1).flatten(), columns=['data'], index=range(b_lons.shape[0]), crs=ds.crs)
+
+            gdf['lat_bnds_0'] = b_lats[:, 0]
+            gdf['lat_bnds_1'] = b_lats[:, 1]
+            gdf['lat_bnds_2'] = b_lats[:, 2]
+            gdf['lat_bnds_3'] = b_lats[:, 3]
+
+            gdf['lon_bnds_0'] = b_lons[:, 0]
+            gdf['lon_bnds_1'] = b_lons[:, 1]
+            gdf['lon_bnds_2'] = b_lons[:, 2]
+            gdf['lon_bnds_3'] = b_lons[:, 3]
+
             # Error on to_crs function of geopandas that flip lat with lon in the non dict form
             if gdf.crs == 'EPSG:4326':
                 gdf.crs = {'init': 'epsg:4326'}
             gdf['geometry'] = None
         else:
             gdf = None
-            b_lons = None
-            b_lats = None
+
         self.comm.Barrier()
         gdf = IoShapefile(self.comm).split_shapefile(gdf)
 
-        b_lons = IoShapefile(self.comm).split_shapefile(b_lons)
-        b_lats = IoShapefile(self.comm).split_shapefile(b_lats)
+        gdf['Coordinates'] = \
+            'POLYGON ((' + gdf['lon_bnds_0'].astype(str) + ' ' + gdf['lat_bnds_0'].astype(str) + ', ' + \
+            gdf['lon_bnds_1'].astype(str) + ' ' + gdf['lat_bnds_1'].astype(str) + ', ' + \
+            gdf['lon_bnds_2'].astype(str) + ' ' + gdf['lat_bnds_2'].astype(str) + ', ' + \
+            gdf['lon_bnds_3'].astype(str) + ' ' + gdf['lat_bnds_3'].astype(str) + ', ' + \
+            gdf['lon_bnds_0'].astype(str) + ' ' + gdf['lat_bnds_0'].astype(str) + '))'
 
-        i = 0
-        for j, df_aux in gdf.iterrows():
-            gdf.loc[j, 'geometry'] = Polygon([(b_lons[i, 0], b_lats[i, 0]),
-                                              (b_lons[i, 1], b_lats[i, 1]),
-                                              (b_lons[i, 2], b_lats[i, 2]),
-                                              (b_lons[i, 3], b_lats[i, 3]),
-                                              (b_lons[i, 0], b_lats[i, 0])])
-            i += 1
+        gdf['geometry'] = gdf['Coordinates'].apply(wkt.loads)
+        gdf.drop(columns=['lat_bnds_0', 'lat_bnds_1', 'lat_bnds_2', 'lat_bnds_3', 'lon_bnds_0', 'lon_bnds_1',
+                          'lon_bnds_2', 'lon_bnds_3'], inplace=True)
 
         gdf['CELL_ID'] = gdf.index
         gdf = gdf[gdf['data'] != nodata]
