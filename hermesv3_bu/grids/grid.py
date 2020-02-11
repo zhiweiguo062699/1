@@ -6,6 +6,7 @@ import numpy as np
 
 from hermesv3_bu.logger.log import Log
 from hermesv3_bu.tools.checker import error_exit
+from shapely import wkt
 
 
 def select_grid(comm, logger, arguments):
@@ -215,17 +216,31 @@ class Grid(object):
                 y = y_aux
                 del y_aux
 
-            aux_b_lats = y.reshape((y.shape[0] * y.shape[1], y.shape[2]))
-            aux_b_lons = x.reshape((x.shape[0] * x.shape[1], x.shape[2]))
-            gdf = gpd.GeoDataFrame(index=range(aux_b_lons.shape[0]), crs={'init': 'epsg:4326'})
+            b_lats = y.reshape((y.shape[0] * y.shape[1], y.shape[2]))
+            b_lons = x.reshape((x.shape[0] * x.shape[1], x.shape[2]))
+            gdf = gpd.GeoDataFrame(index=range(b_lons.shape[0]), crs={'init': 'epsg:4326'})
+
+            gdf['lat_bnds_0'] = b_lats[:, 0]
+            gdf['lat_bnds_1'] = b_lats[:, 1]
+            gdf['lat_bnds_2'] = b_lats[:, 2]
+            gdf['lat_bnds_3'] = b_lats[:, 3]
+
+            gdf['lon_bnds_0'] = b_lons[:, 0]
+            gdf['lon_bnds_1'] = b_lons[:, 1]
+            gdf['lon_bnds_2'] = b_lons[:, 2]
+            gdf['lon_bnds_3'] = b_lons[:, 3]
+
             gdf['geometry'] = None
-            # Create one dataframe with 8 columns, 4 points with two coordinates each one
-            for i in range(aux_b_lons.shape[0]):
-                gdf.loc[i, 'geometry'] = Polygon([(aux_b_lons[i, 0], aux_b_lats[i, 0]),
-                                                  (aux_b_lons[i, 1], aux_b_lats[i, 1]),
-                                                  (aux_b_lons[i, 2], aux_b_lats[i, 2]),
-                                                  (aux_b_lons[i, 3], aux_b_lats[i, 3]),
-                                                  (aux_b_lons[i, 0], aux_b_lats[i, 0])])
+            gdf['Coordinates'] = \
+                'POLYGON ((' + gdf['lon_bnds_0'].astype(str) + ' ' + gdf['lat_bnds_0'].astype(str) + ', ' + \
+                gdf['lon_bnds_1'].astype(str) + ' ' + gdf['lat_bnds_1'].astype(str) + ', ' + \
+                gdf['lon_bnds_2'].astype(str) + ' ' + gdf['lat_bnds_2'].astype(str) + ', ' + \
+                gdf['lon_bnds_3'].astype(str) + ' ' + gdf['lat_bnds_3'].astype(str) + ', ' + \
+                gdf['lon_bnds_0'].astype(str) + ' ' + gdf['lat_bnds_0'].astype(str) + '))'
+
+            gdf['geometry'] = gdf['Coordinates'].apply(wkt.loads)
+            gdf.drop(columns=['lat_bnds_0', 'lat_bnds_1', 'lat_bnds_2', 'lat_bnds_3', 'lon_bnds_0', 'lon_bnds_1',
+                              'lon_bnds_2', 'lon_bnds_3'], inplace=True)
 
             gdf.to_crs(self.attributes['crs'], inplace=True)
             gdf['FID'] = gdf.index
