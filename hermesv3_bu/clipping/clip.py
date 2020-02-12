@@ -34,10 +34,10 @@ def select_clip(comm, logger, auxiliary_path, clipping, grid):
             clip = DefaultClip(logger, auxiliary_path, grid)
         elif clipping[0] == os.path.sep:
             from hermesv3_bu.clipping.shapefile_clip import ShapefileClip
-            clip = ShapefileClip(logger, auxiliary_path, clipping)
+            clip = ShapefileClip(logger, auxiliary_path, clipping, grid)
         else:
             from hermesv3_bu.clipping.custom_clip import CustomClip
-            clip = CustomClip(logger, auxiliary_path, clipping)
+            clip = CustomClip(logger, auxiliary_path, clipping, grid)
     else:
         clip = None
 
@@ -49,9 +49,10 @@ def select_clip(comm, logger, auxiliary_path, clipping, grid):
 
 class Clip(object):
 
-    def __init__(self, logger, auxiliary_path):
+    def __init__(self, logger, auxiliary_path, grid):
         spent_time = timeit.default_timer()
         self.logger = logger
+        self.grid = grid
         self.shapefile = None
         self.shapefile_path = os.path.join(auxiliary_path, 'clip', 'clip.shp')
 
