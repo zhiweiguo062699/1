@@ -84,7 +84,8 @@ class RotatedNestedGrid(Grid):
                                               inverse=True)
         corner_longitudes = self.create_bounds(center_longitudes, self.attributes['inc_rlon'], number_vertices=4)
 
-        self.logger.write_time_log('RotatedNestedGrid', 'create_regular_rotated', timeit.default_timer() - spent_time, 3)
+        self.logger.write_time_log('RotatedNestedGrid', 'create_regular_rotated',
+                                   timeit.default_timer() - spent_time, 3)
         return center_latitudes, center_longitudes, corner_latitudes, corner_longitudes
 
     def create_coords(self):
@@ -101,7 +102,7 @@ class RotatedNestedGrid(Grid):
 
         # Create rotated boundary coordinates
         b_lats = super(RotatedNestedGrid, self).create_bounds(c_lats, self.attributes['inc_rlat'], number_vertices=4,
-                                                        inverse=True)
+                                                              inverse=True)
         b_lons = super(RotatedNestedGrid, self).create_bounds(c_lons, self.attributes['inc_rlon'], number_vertices=4)
 
         # Rotated to Lat-Lon
