@@ -9,7 +9,7 @@ from hermesv3_bu.logger.log import Log
 
 
 class CustomClip(Clip):
-    def __init__(self, logger, auxiliary_path, points_str):
+    def __init__(self, logger, auxiliary_path, points_str, grid):
         """
         Initialise the Custom Clip class
 
@@ -24,7 +24,7 @@ class CustomClip(Clip):
         """
         spent_time = timeit.default_timer()
         logger.write_log('Custom clip selected')
-        super(CustomClip, self).__init__(logger, auxiliary_path)
+        super(CustomClip, self).__init__(logger, auxiliary_path, grid)
         self.clip_type = 'Custom clip'
         self.shapefile = self.create_clip(points_str)
         self.logger.write_time_log('CustomClip', '__init__', timeit.default_timer() - spent_time)
@@ -56,11 +56,17 @@ class CustomClip(Clip):
             if not ((lon_list[0] == lon_list[-1]) and (lat_list[0] == lat_list[-1])):
                 lon_list.append(lon_list[0])
                 lat_list.append(lat_list[0])
-
+            geom = Polygon([[p.x, p.y] for p in [Point(xy) for xy in zip(lon_list, lat_list)]])
             clip = gpd.GeoDataFrame(
-                geometry=[Polygon([[p.x, p.y] for p in [Point(xy) for xy in zip(lon_list, lat_list)]])],
+                geometry=[geom],
                 crs={'init': 'epsg:4326'})
 
+            border = gpd.GeoDataFrame(geometry=[self.grid.shapefile.unary_union], crs=self.grid.shapefile.crs)
+            geom = gpd.overlay(clip, border.to_crs(clip.crs), how='intersection').unary_union
+            clip = gpd.GeoDataFrame(
+                geometry=[geom],
+                crs={'init': 'epsg:4326'})
+            
             clip.to_file(self.shapefile_path)
         else:
             clip = gpd.read_file(self.shapefile_path)
