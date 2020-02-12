@@ -66,7 +66,7 @@ class CustomClip(Clip):
             clip = gpd.GeoDataFrame(
                 geometry=[geom],
                 crs={'init': 'epsg:4326'})
-            
+
             clip.to_file(self.shapefile_path)
         else:
             clip = gpd.read_file(self.shapefile_path)
