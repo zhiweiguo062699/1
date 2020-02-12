@@ -132,7 +132,7 @@ class TrafficAreaSector(Sector):
             self.logger.write_log("\t\tCalculating population percentage on source resolution", message_level=3)
             pop_by_nut2 = self.get_population_by_nut2(pop_by_nut_path)
             pop_shp['tot_pop'] = pop_shp['nut_code'].map(pop_by_nut2)
-            pop_shp['pop_percent'] = pop_shp['population'] / pop_shp['tot_pop']
+            pop_shp['pop_per'] = pop_shp['population'] / pop_shp['tot_pop']
             pop_shp.drop(columns=['tot_pop', 'population'], inplace=True)
 
             # 5th Calculate percent by destiny cell
@@ -142,7 +142,7 @@ class TrafficAreaSector(Sector):
             pop_shp = self.spatial_overlays(pop_shp.reset_index(), self.grid.shapefile.reset_index())
             pop_shp.drop(columns=['idx1', 'idx2', 'index'], inplace=True)
             pop_shp['src_inter_fraction'] = pop_shp.geometry.area / pop_shp['src_inter_fraction']
-            pop_shp['pop_percent'] = pop_shp['pop_percent'] * pop_shp['src_inter_fraction']
+            pop_shp['pop_per'] = pop_shp['pop_per'] * pop_shp['src_inter_fraction']
             pop_shp.drop(columns=['src_inter_fraction'], inplace=True)
 
             pop_shp = IoShapefile(self.comm).gather_shapefile(pop_shp)
@@ -280,8 +280,8 @@ class TrafficAreaSector(Sector):
                                    left_on='nut_code', right_on='nuts3_id', how='left')
         vehicle_by_cell.drop(columns=['nut_code', 'nuts3_id'], inplace=True)
         vehicle_by_cell[vehicle_list] = vehicle_by_cell[vehicle_list].multiply(
-            vehicle_by_cell['pop_percent'], axis='index')
-        vehicle_by_cell.drop(columns=['pop_percent'], inplace=True)
+            vehicle_by_cell['pop_per'], axis='index')
+        vehicle_by_cell.drop(columns=['pop_per'], inplace=True)
         vehicle_by_cell = IoShapefile(self.comm).gather_shapefile(vehicle_by_cell, rank=0)
         if self.comm.Get_rank() == 0:
             vehicle_by_cell = vehicle_by_cell.groupby('FID').sum()

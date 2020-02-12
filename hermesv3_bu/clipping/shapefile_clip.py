@@ -10,7 +10,7 @@ from hermesv3_bu.tools.checker import error_exit
 
 
 class ShapefileClip(Clip):
-    def __init__(self, logger, auxiliary_path, clip_input_path):
+    def __init__(self, logger, auxiliary_path, clip_input_path, grid):
         """
         Initialise the Shapefile Clip class
 
@@ -25,7 +25,7 @@ class ShapefileClip(Clip):
         """
         spent_time = timeit.default_timer()
         logger.write_log('Shapefile clip selected')
-        super(ShapefileClip, self).__init__(logger, auxiliary_path)
+        super(ShapefileClip, self).__init__(logger, auxiliary_path, grid)
         self.clip_type = 'Shapefile clip'
         self.shapefile = self.create_clip(clip_input_path)
         self.logger.write_time_log('ShapefileClip', '__init__', timeit.default_timer() - spent_time)
@@ -46,7 +46,9 @@ class ShapefileClip(Clip):
                 if not os.path.exists(os.path.dirname(self.shapefile_path)):
                     os.makedirs(os.path.dirname(self.shapefile_path))
                 clip = gpd.read_file(clip_path)
-                clip = gpd.GeoDataFrame(geometry=[clip.unary_union], crs=clip.crs)
+                border = gpd.GeoDataFrame(geometry=[self.grid.shapefile.unary_union], crs=self.grid.shapefile.crs)
+                geom = gpd.overlay(clip, border.to_crs(clip.crs), how='intersection').unary_union
+                clip = gpd.GeoDataFrame(geometry=[geom], crs=clip.crs)
                 clip.to_file(self.shapefile_path)
             else:
                 error_exit(" Clip shapefile {0} not found.")
