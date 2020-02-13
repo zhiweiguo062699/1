@@ -47,14 +47,15 @@ class RotatedNestedGrid(Grid):
 
         netcdf = Dataset(attributes['parent_grid_path'], mode='r')
 
-        # TODO check if the i_parent start, j_parent_start begin in 0 or in 1
         rlat = netcdf.variables['rlat'][:]
         attributes['inc_rlat'] = (rlat[1] - rlat[0]) / attributes['parent_ratio']
-        attributes['1st_rlat'] = rlat[int(attributes['j_parent_start'])]
+        # j_parent_start start the index at 1 so we must - 1
+        attributes['1st_rlat'] = rlat[int(attributes['j_parent_start']) - 1]
 
         rlon = netcdf.variables['rlon'][:]
         attributes['inc_rlon'] = (rlon[1] - rlon[0]) / attributes['parent_ratio']
-        attributes['1st_rlon'] = rlon[attributes['i_parent_start']]
+        # i_parent_start start the index at 1 so we must - 1
+        attributes['1st_rlon'] = rlon[attributes['i_parent_start'] - 1]
 
         rotated_pole = netcdf.variables['rotated_pole']
         attributes['new_pole_longitude_degrees'] = rotated_pole.grid_north_pole_longitude
