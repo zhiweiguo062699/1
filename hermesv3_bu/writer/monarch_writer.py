@@ -62,8 +62,8 @@ class MonarchWriter(Writer):
         super(MonarchWriter, self).__init__(comm_world, comm_write, logger, netcdf_path, grid, date_array,
                                             pollutant_info, rank_distribution, emission_summary)
 
-        if self.grid.grid_type not in ['Rotated']:
-            error_exit("ERROR: Only Rotated grid is implemented for MONARCH. " +
+        if self.grid.grid_type not in ['Rotated', 'Rotated_nested']:
+            error_exit("ERROR: Only Rotated or Rotated-nested grid is implemented for MONARCH. " +
                        "The current grid type is '{0}'".format(self.grid.grid_type))
 
         for i, (pollutant, variable) in enumerate(self.pollutant_info.iterrows()):

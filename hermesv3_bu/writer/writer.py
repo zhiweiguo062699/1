@@ -14,6 +14,8 @@ CHUNKING = True
 BALANCED = False
 MPI_TAG_CONSTANT = 10**6
 
+BUFFER_SIZE = 2**28
+
 
 def select_writer(logger, comm_world, arguments, grid, date_array):
     """
@@ -328,7 +330,7 @@ class Writer(object):
             for i_rank in range(self.comm_world.Get_size()):
                 self.logger.write_log(
                     '\tFrom {0} to {1}'.format(i_rank, self.comm_world.Get_rank()), message_level=3)
-                req = self.comm_world.irecv(2**27, source=i_rank, tag=i_rank)
+                req = self.comm_world.irecv(BUFFER_SIZE, source=i_rank, tag=i_rank)
                 dataframe = req.wait()
                 data_list.append(dataframe.reset_index())
 

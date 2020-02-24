@@ -45,6 +45,12 @@ def select_grid(comm, logger, arguments):
                 logger, arguments.auxiliary_files_path, arguments.output_timestep_num,
                 arguments.vertical_description, arguments.centre_lat, arguments.centre_lon, arguments.west_boundary,
                 arguments.south_boundary, arguments.inc_rlat, arguments.inc_rlon)
+        elif arguments.domain_type == 'rotated_nested':
+            from hermesv3_bu.grids.grid_rotated_nested import RotatedNestedGrid
+            grid = RotatedNestedGrid(
+                logger, arguments.auxiliary_files_path, arguments.output_timestep_num,
+                arguments.vertical_description, arguments.parent_grid_path, arguments.parent_ratio,
+                arguments.i_parent_start, arguments.j_parent_start, arguments.n_rlat, arguments.n_rlon)
 
         elif arguments.domain_type == 'mercator':
             from hermesv3_bu.grids.grid_mercator import MercatorGrid

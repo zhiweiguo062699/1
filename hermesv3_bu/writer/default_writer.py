@@ -110,7 +110,7 @@ class DefaultWriter(Writer):
             var_dim = ('y', 'x',)
             lat_dim = lon_dim = var_dim
 
-        elif self.grid.grid_type == 'Rotated':
+        elif self.grid.grid_type in ['Rotated', 'Rotated_nested']:
             netcdf.createDimension('rlat', len(self.grid.rlat))
             netcdf.createDimension('rlon', len(self.grid.rlon))
             var_dim = ('rlat', 'rlon')
@@ -177,7 +177,7 @@ class DefaultWriter(Writer):
             y_var.standard_name = "projection_y_coordinate"
             y_var[:] = self.grid.y
 
-        elif self.grid.grid_type == 'Rotated':
+        elif self.grid.grid_type in ['Rotated', 'Rotated_nested']:
             self.logger.write_log('\t\tCreating rlat variable', message_level=3)
             rlat = netcdf.createVariable('rlat', np.float64, ('rlat',))
             rlat.long_name = "latitude in rotated pole grid"
@@ -224,7 +224,7 @@ class DefaultWriter(Writer):
                 var.grid_mapping = 'Latitude_Longitude'
             elif self.grid.grid_type == 'Lambert Conformal Conic':
                 var.grid_mapping = 'Lambert_Conformal'
-            elif self.grid.grid_type == 'Rotated':
+            elif self.grid.grid_type in ['Rotated', 'Rotated_nested']:
                 var.grid_mapping = 'rotated_pole'
             elif self.grid.grid_type == 'Mercator':
                 var.grid_mapping = 'mercator'
@@ -247,7 +247,7 @@ class DefaultWriter(Writer):
             mapping.longitude_of_central_meridian = self.grid.attributes['lon_0']
             mapping.latitude_of_projection_origin = self.grid.attributes['lat_0']
 
-        elif self.grid.grid_type == 'Rotated':
+        elif self.grid.grid_type in ['Rotated', 'Rotated_nested']:
             mapping = netcdf.createVariable('rotated_pole', 'c')
             mapping.grid_mapping_name = 'rotated_latitude_longitude'
             mapping.grid_north_pole_latitude = 90 - self.grid.attributes['new_pole_latitude_degrees']
