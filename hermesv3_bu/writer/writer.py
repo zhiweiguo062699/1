@@ -289,6 +289,8 @@ class Writer(object):
             if compression_level > 0:
                 self.compression = True
                 self.compression_level = compression_level
+            else:
+                self.compression = False
 
         if self.emission_summary and self.comm_write.Get_rank() == 0:
             self.emission_summary_paths = {
