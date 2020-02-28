@@ -12,7 +12,7 @@ CHUNK = True
 
 class DefaultWriter(Writer):
     def __init__(self, comm_world, comm_write, logger, netcdf_path, grid, date_array, pollutant_info,
-                 rank_distribution, emission_summary=False):
+                 rank_distribution, compression_level=4, emission_summary=False):
         """
         Initialise the Default writer that will write a NetCDF CF-1.6 complient.
 
@@ -59,8 +59,9 @@ class DefaultWriter(Writer):
         """
         spent_time = timeit.default_timer()
         logger.write_log('Default writer selected.')
-        super(DefaultWriter, self).__init__(comm_world, comm_write, logger, netcdf_path, grid, date_array,
-                                            pollutant_info, rank_distribution, emission_summary)
+        super(DefaultWriter, self).__init__(
+            comm_world, comm_write, logger, netcdf_path, grid, date_array, pollutant_info, rank_distribution,
+            compression_level, emission_summary)
 
         self.logger.write_time_log('DefaultWriter', '__init__', timeit.default_timer() - spent_time)
 
@@ -198,16 +199,13 @@ class DefaultWriter(Writer):
         #     emissions.drop(columns=['Unnamed: 0'], inplace=True)
         for var_name in emissions.columns.values:
             self.logger.write_log('\t\tCreating {0} variable'.format(var_name), message_level=3)
-            if self.comm_write.Get_size() > 1:
-                if CHUNK:
-                    var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim,
-                                                chunksizes=self.rank_distribution[0]['shape'])
-                else:
-                    var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim)
-
-                var.set_collective(True)
+            if self.compression:
+                var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim,
+                                            zlib=True, complevel=self.compression_level)
             else:
-                var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim, zlib=True)
+                var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim)
+            if self.comm_write.Get_size() > 1:
+                var.set_collective(True)
 
             var_data = self.dataframe_to_array(emissions.loc[:, [var_name]])
             var[:, :,

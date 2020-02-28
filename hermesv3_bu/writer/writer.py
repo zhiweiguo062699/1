@@ -228,7 +228,7 @@ def get_balanced_distribution(logger, processors, shape):
 
 class Writer(object):
     def __init__(self, comm_world, comm_write, logger, netcdf_path, grid, date_array, pollutant_info,
-                 rank_distribution, emission_summary=False):
+                 rank_distribution, compression_level, emission_summary=False):
         """
         Initialise the Writer class.
 
@@ -281,6 +281,14 @@ class Writer(object):
         self.pollutant_info = pollutant_info
         self.rank_distribution = rank_distribution
         self.emission_summary = emission_summary
+        if self.comm_write.Get_size() > 1:
+            self.compression = False
+            if compression_level > 0:
+                self.logger.write_log("WARNING: No compression available for parallel write.", message_level=1)
+        else:
+            if compression_level > 0:
+                self.compression = True
+                self.compression_level = compression_level
 
         if self.emission_summary and self.comm_write.Get_rank() == 0:
             self.emission_summary_paths = {

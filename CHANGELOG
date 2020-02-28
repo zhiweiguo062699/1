@@ -30,7 +30,7 @@
 
     - Writing options:
         A. Return emissions on memory
-        
+
         1. Default writer
         2. CMAQ writer
         3. MONARCH writer
