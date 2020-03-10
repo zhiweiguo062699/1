@@ -326,40 +326,34 @@ class Writer(object):
                                          (emissions.index.get_level_values(0) < info['fid_max'])]
             partial_emis.reset_index(inplace=True)
             if w_rank == self.comm_world.Get_rank():
-                self.logger.write_log("I'm the writing processor {0}. Saving {1} emissions".format(
+                self.logger.write_log("I'm the writing processor {0}. Saving {1} B emissions (my own emissions)".format(
                     w_rank,  sys.getsizeof(partial_emis)), message_level=3)
                 data_list.append(partial_emis)
+                for i_rank in range(self.comm_world.Get_size()):
+                    if i_rank != w_rank:
+                        self.logger.write_log("\tI'm {0} receiving from {1}".format(self.comm_world.Get_rank(), i_rank))
+                        data_list.append(self.comm_world.recv(BUFFER_SIZE, source=i_rank, tag=i_rank))
             else:
                 self.logger.write_log('\tFrom {0} sending {1} to {2}'.format(
                     self.comm_world.Get_rank(),  sys.getsizeof(partial_emis), w_rank), message_level=3)
 
-                requests[w_rank] = self.comm_world.isend(partial_emis, dest=w_rank, tag=self.comm_world.Get_rank())
+                self.comm_world.send(partial_emis, dest=w_rank, tag=self.comm_world.Get_rank())
 
         # Receiving
         self.logger.write_log('Receiving emissions in the writing processors.', message_level=2)
-        if self.comm_world.Get_rank() not in self.rank_distribution.keys():
-            for req in requests.values():
-                req.wait()
-            new_emissions = None
-        else:
-            for w_rank in self.rank_distribution.keys():
-                if w_rank == self.comm_world.Get_rank():
-                    for i_rank in range(self.comm_world.Get_size()):
-                        if i_rank != w_rank:
-                            data_list.append(self.comm_world.recv(BUFFER_SIZE, source=i_rank, tag=i_rank))
-                else:
-                    requests[w_rank].wait()
+        if self.comm_world.Get_rank() in self.rank_distribution.keys():
 
             new_emissions = pd.concat(data_list)
             new_emissions[['FID', 'layer', 'tstep']] = new_emissions[['FID', 'layer', 'tstep']].astype(np.int32)
 
             new_emissions = new_emissions.groupby(['FID', 'layer', 'tstep']).sum()
+            if self.emission_summary:
+                self.make_summary(new_emissions)
+        else:
+            new_emissions = None
 
         self.comm_world.Barrier()
         self.logger.write_log('All emissions received.', message_level=2)
-
-        if self.emission_summary and self.comm_world.Get_rank() in self.rank_distribution.keys():
-            self.make_summary(new_emissions)
 
         self.logger.write_time_log('Writer', 'gather_emissions', timeit.default_timer() - spent_time)
 
