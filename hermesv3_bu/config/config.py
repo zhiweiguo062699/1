@@ -79,6 +79,8 @@ class Config(ArgParser):
 
         p.add_argument('--domain_type', required=True, help='Type of domain to simulate.',
                        choices=['lcc', 'rotated', 'mercator', 'regular', 'rotated_nested'])
+        p.add_argument('--compression_level', required=False, type=int, choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+                       help='Compression level of the NetCDF output (0 for no compressed output).', default=4)
 
         # Rotated options
         p.add_argument('--centre_lat', required=False, type=float,

@@ -228,7 +228,7 @@ def get_balanced_distribution(logger, processors, shape):
 
 class Writer(object):
     def __init__(self, comm_world, comm_write, logger, netcdf_path, grid, date_array, pollutant_info,
-                 rank_distribution, emission_summary=False):
+                 rank_distribution, compression_level, emission_summary=False):
         """
         Initialise the Writer class.
 
@@ -281,6 +281,16 @@ class Writer(object):
         self.pollutant_info = pollutant_info
         self.rank_distribution = rank_distribution
         self.emission_summary = emission_summary
+        if self.comm_write.Get_size() > 1:
+            self.compression = False
+            if compression_level > 0:
+                self.logger.write_log("WARNING: No compression available for parallel write.", message_level=1)
+        else:
+            if compression_level > 0:
+                self.compression = True
+                self.compression_level = compression_level
+            else:
+                self.compression = False
 
         if self.emission_summary and self.comm_write.Get_rank() == 0:
             self.emission_summary_paths = {
@@ -309,38 +319,42 @@ class Writer(object):
         spent_time = timeit.default_timer()
         # Sending
         self.logger.write_log('Sending emissions to the writing processors.', message_level=2)
-        requests = []
+        requests = {}
+        data_list = []
         for w_rank, info in self.rank_distribution.items():
             partial_emis = emissions.loc[(emissions.index.get_level_values(0) >= info['fid_min']) &
                                          (emissions.index.get_level_values(0) < info['fid_max'])]
+            partial_emis.reset_index(inplace=True)
+            if w_rank == self.comm_world.Get_rank():
+                self.logger.write_log("I'm the writing processor {0}. Saving {1} emissions".format(
+                    w_rank,  sys.getsizeof(partial_emis)), message_level=3)
+                data_list.append(partial_emis)
+            else:
+                self.logger.write_log('\tFrom {0} sending {1} to {2}'.format(
+                    self.comm_world.Get_rank(),  sys.getsizeof(partial_emis), w_rank), message_level=3)
 
-            self.logger.write_log('\tFrom {0} sending {1} to {2}'.format(
-                self.comm_world.Get_rank(),  sys.getsizeof(partial_emis), w_rank), message_level=3)
-            # requests.append(self.comm_world.isend(sys.getsizeof(partial_emis), dest=w_rank,
-            #                                       tag=self.comm_world.Get_rank() + MPI_TAG_CONSTANT))
-            requests.append(self.comm_world.isend(partial_emis, dest=w_rank, tag=self.comm_world.Get_rank()))
+                requests[w_rank] = self.comm_world.isend(partial_emis, dest=w_rank, tag=self.comm_world.Get_rank())
 
         # Receiving
         self.logger.write_log('Receiving emissions in the writing processors.', message_level=2)
-        if self.comm_world.Get_rank() in self.rank_distribution.keys():
-            self.logger.write_log("I'm a writing processor.", message_level=3)
-            data_list = []
-
-            self.logger.write_log("Prepared to receive", message_level=3)
-            for i_rank in range(self.comm_world.Get_size()):
-                self.logger.write_log(
-                    '\tFrom {0} to {1}'.format(i_rank, self.comm_world.Get_rank()), message_level=3)
-                req = self.comm_world.irecv(BUFFER_SIZE, source=i_rank, tag=i_rank)
-                dataframe = req.wait()
-                data_list.append(dataframe.reset_index())
+        if self.comm_world.Get_rank() not in self.rank_distribution.keys():
+            for req in requests.values():
+                req.wait()
+            new_emissions = None
+        else:
+            for w_rank in self.rank_distribution.keys():
+                if w_rank == self.comm_world.Get_rank():
+                    for i_rank in range(self.comm_world.Get_size()):
+                        if i_rank != w_rank:
+                            data_list.append(self.comm_world.recv(BUFFER_SIZE, source=i_rank, tag=i_rank))
+                else:
+                    requests[w_rank].wait()
 
             new_emissions = pd.concat(data_list)
             new_emissions[['FID', 'layer', 'tstep']] = new_emissions[['FID', 'layer', 'tstep']].astype(np.int32)
 
             new_emissions = new_emissions.groupby(['FID', 'layer', 'tstep']).sum()
 
-        else:
-            new_emissions = None
         self.comm_world.Barrier()
         self.logger.write_log('All emissions received.', message_level=2)
 
