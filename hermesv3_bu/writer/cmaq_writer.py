@@ -14,7 +14,7 @@ from hermesv3_bu.tools.checker import error_exit
 
 class CmaqWriter(Writer):
     def __init__(self, comm_world, comm_write, logger, netcdf_path, grid, date_array, pollutant_info,
-                 rank_distribution, global_attributes_path, emission_summary=False):
+                 rank_distribution, global_attributes_path, compression_level, emission_summary=False):
         """
         Initialise the CMAQ writer that will write a NetCDF in the CMAQ input format (IOAPIv3.2).
 
@@ -65,8 +65,10 @@ class CmaqWriter(Writer):
         spent_time = timeit.default_timer()
         logger.write_log('CMAQ writer selected.')
 
-        super(CmaqWriter, self).__init__(comm_world, comm_write, logger, netcdf_path, grid, date_array, pollutant_info,
-                                         rank_distribution, emission_summary)
+        super(CmaqWriter, self).__init__(
+            comm_world, comm_write, logger, netcdf_path, grid, date_array, pollutant_info, rank_distribution,
+            compression_level, emission_summary)
+
         if self.grid.grid_type not in ['Lambert Conformal Conic']:
             error_exit("Only Lambert Conformal Conic grid is implemented for CMAQ. " +
                        "The current grid type is '{0}'".format(self.grid.grid_type))
@@ -296,11 +298,14 @@ class CmaqWriter(Writer):
         for var_name in self.pollutant_info.index:
             self.logger.write_log('\t\tCreating {0} variable'.format(var_name), message_level=3)
 
-            if self.comm_write.Get_size() > 1:
-                var = netcdf.createVariable(var_name, np.float64, ('TSTEP', 'LAY', 'ROW', 'COL',))
-                var.set_collective(True)
+            if self.compression:
+                var = netcdf.createVariable(var_name, np.float64, ('TSTEP', 'LAY', 'ROW', 'COL',),
+                                            zlib=True, complevel=self.compression_level)
             else:
-                var = netcdf.createVariable(var_name, np.float64, ('TSTEP', 'LAY', 'ROW', 'COL',), zlib=True)
+                var = netcdf.createVariable(var_name, np.float64, ('TSTEP', 'LAY', 'ROW', 'COL',))
+            if self.comm_write.Get_size() > 1:
+                var.set_collective(True)
+
             try:
                 var_data = self.dataframe_to_array(emissions.loc[:, [var_name]])
 

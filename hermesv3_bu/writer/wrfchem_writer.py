@@ -14,7 +14,7 @@ from hermesv3_bu.tools.checker import error_exit
 
 class WrfChemWriter(Writer):
     def __init__(self, comm_world, comm_write, logger, netcdf_path, grid, date_array, pollutant_info,
-                 rank_distribution, global_attributes_path, emission_summary=False):
+                 rank_distribution, global_attributes_path, compression_level, emission_summary=False):
         """
         Initialise the WRF-Chem writer that will write a NetCDF in the CMAQ input format (IOAPIv3.2).
 
@@ -65,8 +65,10 @@ class WrfChemWriter(Writer):
         spent_time = timeit.default_timer()
         logger.write_log('WRF-Chem writer selected.')
 
-        super(WrfChemWriter, self).__init__(comm_world, comm_write, logger, netcdf_path, grid, date_array,
-                                            pollutant_info, rank_distribution, emission_summary)
+        super(WrfChemWriter, self).__init__(
+            comm_world, comm_write, logger, netcdf_path, grid, date_array, pollutant_info, rank_distribution,
+            compression_level, emission_summary)
+
         if self.grid.grid_type not in ['Lambert Conformal Conic', 'Mercator']:
             error_exit("ERROR: Only Lambert Conformal Conic or Mercator grid is implemented for WRF-Chem. " +
                        "The current grid type is '{0}'".format(self.grid.grid_type))
@@ -348,14 +350,15 @@ class WrfChemWriter(Writer):
         # ========== POLLUTANTS ==========
         for var_name in emissions.columns.values:
             self.logger.write_log('\t\tCreating {0} variable'.format(var_name), message_level=3)
-
-            if self.comm_write.Get_size() > 1:
+            if self.compression:
                 var = netcdf.createVariable(var_name, np.float64,
-                                            ('Time', 'emissions_zdim', 'south_north', 'west_east',))
-                var.set_collective(True)
+                                            ('Time', 'emissions_zdim', 'south_north', 'west_east',),
+                                            zlib=True, complevel=self.compression_level)
             else:
                 var = netcdf.createVariable(var_name, np.float64,
-                                            ('Time', 'emissions_zdim', 'south_north', 'west_east',), zlib=True)
+                                            ('Time', 'emissions_zdim', 'south_north', 'west_east',))
+            if self.comm_write.Get_size() > 1:
+                var.set_collective(True)
 
             var_data = self.dataframe_to_array(emissions.loc[:, [var_name]])
 

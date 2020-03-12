@@ -74,11 +74,13 @@ class Config(ArgParser):
         p.add_argument('--output_attributes', required=False,
                        help='Path to the file that contains the global attributes.')
 
-        p.add_argument('--domain_type', required=True, help='Type of domain to simulate.',
-                       choices=['lcc', 'rotated', 'mercator', 'regular'])
-
         p.add_argument('--vertical_description', required=True,
                        help='Path to the file that contains the vertical description of the desired output.')
+
+        p.add_argument('--domain_type', required=True, help='Type of domain to simulate.',
+                       choices=['lcc', 'rotated', 'mercator', 'regular', 'rotated_nested'])
+        p.add_argument('--compression_level', required=False, type=int, choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+                       help='Compression level of the NetCDF output (0 for no compressed output).', default=4)
 
         # Rotated options
         p.add_argument('--centre_lat', required=False, type=float,
@@ -99,6 +101,20 @@ class Config(ArgParser):
         p.add_argument('--inc_rlon', required=False, type=float,
                        help='Longitudinal grid resolution (rotated degrees). Corresponds to the DLMD parameter  ' +
                             'in NMMB-MONARCH.')
+
+        # Rotated_nested options
+        p.add_argument('--parent_grid_path', required=False, type=str,
+                       help='Path to the netCDF that contains the grid definition.')
+        p.add_argument('--parent_ratio', required=False, type=int,
+                       help='Ratio between the parent and the nested domain.')
+        p.add_argument('--i_parent_start', required=False, type=int,
+                       help='Location of the I to start the nested.')
+        p.add_argument('--j_parent_start', required=False, type=int,
+                       help='Location of the J to start the nested.')
+        p.add_argument('--n_rlat', required=False, type=int,
+                       help='Number of rotated latitude points.')
+        p.add_argument('--n_rlon', required=False, type=int,
+                       help='Number of rotated longitude points.')
 
         # Lambert conformal conic options
         p.add_argument('--lat_1', required=False, type=float,
@@ -686,6 +702,9 @@ class Config(ArgParser):
                 elif arguments.domain_type == 'rotated':
                     arguments.__dict__[item] = arguments.__dict__[item].replace('<resolution>', '{1}_{2}'.format(
                         item, arguments.inc_rlat, arguments.inc_rlon))
+                elif arguments.domain_type == 'rotated_nested':
+                    arguments.__dict__[item] = arguments.__dict__[item].replace('<resolution>', '{1}_{2}'.format(
+                        item, arguments.n_rlat, arguments.n_rlon))
                 elif arguments.domain_type == 'lcc' or arguments.domain_type == 'mercator':
                     arguments.__dict__[item] = arguments.__dict__[item].replace('<resolution>', '{1}_{2}'.format(
                         item, arguments.inc_x, arguments.inc_y))

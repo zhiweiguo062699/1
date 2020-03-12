@@ -24,7 +24,7 @@ class DefaultClip(Clip):
         """
         spent_time = timeit.default_timer()
         logger.write_log('Default clip selected')
-        super(DefaultClip, self).__init__(logger, auxiliary_path)
+        super(DefaultClip, self).__init__(logger, auxiliary_path, grid)
         self.clip_type = 'Default clip'
         self.shapefile = self.create_clip(grid)
         self.logger.write_time_log('DefaultClip', '__init__', timeit.default_timer() - spent_time)

@@ -12,7 +12,7 @@ CHUNK = True
 
 class DefaultWriter(Writer):
     def __init__(self, comm_world, comm_write, logger, netcdf_path, grid, date_array, pollutant_info,
-                 rank_distribution, emission_summary=False):
+                 rank_distribution, compression_level=4, emission_summary=False):
         """
         Initialise the Default writer that will write a NetCDF CF-1.6 complient.
 
@@ -59,8 +59,9 @@ class DefaultWriter(Writer):
         """
         spent_time = timeit.default_timer()
         logger.write_log('Default writer selected.')
-        super(DefaultWriter, self).__init__(comm_world, comm_write, logger, netcdf_path, grid, date_array,
-                                            pollutant_info, rank_distribution, emission_summary)
+        super(DefaultWriter, self).__init__(
+            comm_world, comm_write, logger, netcdf_path, grid, date_array, pollutant_info, rank_distribution,
+            compression_level, emission_summary)
 
         self.logger.write_time_log('DefaultWriter', '__init__', timeit.default_timer() - spent_time)
 
@@ -110,7 +111,7 @@ class DefaultWriter(Writer):
             var_dim = ('y', 'x',)
             lat_dim = lon_dim = var_dim
 
-        elif self.grid.grid_type == 'Rotated':
+        elif self.grid.grid_type in ['Rotated', 'Rotated_nested']:
             netcdf.createDimension('rlat', len(self.grid.rlat))
             netcdf.createDimension('rlon', len(self.grid.rlon))
             var_dim = ('rlat', 'rlon')
@@ -177,7 +178,7 @@ class DefaultWriter(Writer):
             y_var.standard_name = "projection_y_coordinate"
             y_var[:] = self.grid.y
 
-        elif self.grid.grid_type == 'Rotated':
+        elif self.grid.grid_type in ['Rotated', 'Rotated_nested']:
             self.logger.write_log('\t\tCreating rlat variable', message_level=3)
             rlat = netcdf.createVariable('rlat', np.float64, ('rlat',))
             rlat.long_name = "latitude in rotated pole grid"
@@ -198,16 +199,13 @@ class DefaultWriter(Writer):
         #     emissions.drop(columns=['Unnamed: 0'], inplace=True)
         for var_name in emissions.columns.values:
             self.logger.write_log('\t\tCreating {0} variable'.format(var_name), message_level=3)
-            if self.comm_write.Get_size() > 1:
-                if CHUNK:
-                    var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim,
-                                                chunksizes=self.rank_distribution[0]['shape'])
-                else:
-                    var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim)
-
-                var.set_collective(True)
+            if self.compression:
+                var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim,
+                                            zlib=True, complevel=self.compression_level)
             else:
-                var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim, zlib=True)
+                var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim)
+            if self.comm_write.Get_size() > 1:
+                var.set_collective(True)
 
             var_data = self.dataframe_to_array(emissions.loc[:, [var_name]])
             var[:, :,
@@ -224,7 +222,7 @@ class DefaultWriter(Writer):
                 var.grid_mapping = 'Latitude_Longitude'
             elif self.grid.grid_type == 'Lambert Conformal Conic':
                 var.grid_mapping = 'Lambert_Conformal'
-            elif self.grid.grid_type == 'Rotated':
+            elif self.grid.grid_type in ['Rotated', 'Rotated_nested']:
                 var.grid_mapping = 'rotated_pole'
             elif self.grid.grid_type == 'Mercator':
                 var.grid_mapping = 'mercator'
@@ -247,7 +245,7 @@ class DefaultWriter(Writer):
             mapping.longitude_of_central_meridian = self.grid.attributes['lon_0']
             mapping.latitude_of_projection_origin = self.grid.attributes['lat_0']
 
-        elif self.grid.grid_type == 'Rotated':
+        elif self.grid.grid_type in ['Rotated', 'Rotated_nested']:
             mapping = netcdf.createVariable('rotated_pole', 'c')
             mapping.grid_mapping_name = 'rotated_latitude_longitude'
             mapping.grid_north_pole_latitude = 90 - self.grid.attributes['new_pole_latitude_degrees']

@@ -11,7 +11,7 @@ from hermesv3_bu.tools.checker import error_exit
 
 class MonarchWriter(Writer):
     def __init__(self, comm_world, comm_write, logger, netcdf_path, grid, date_array, pollutant_info,
-                 rank_distribution, emission_summary=False):
+                 rank_distribution, compression_level, emission_summary=False):
         """
         Initialise the MONARCH writer that will write a NetCDF CF-1.6 complient.
 
@@ -59,11 +59,12 @@ class MonarchWriter(Writer):
         spent_time = timeit.default_timer()
         logger.write_log('MONARCH writer selected.')
 
-        super(MonarchWriter, self).__init__(comm_world, comm_write, logger, netcdf_path, grid, date_array,
-                                            pollutant_info, rank_distribution, emission_summary)
+        super(MonarchWriter, self).__init__(
+            comm_world, comm_write, logger, netcdf_path, grid, date_array, pollutant_info, rank_distribution,
+            compression_level, emission_summary)
 
-        if self.grid.grid_type not in ['Rotated']:
-            error_exit("ERROR: Only Rotated grid is implemented for MONARCH. " +
+        if self.grid.grid_type not in ['Rotated', 'Rotated_nested']:
+            error_exit("ERROR: Only Rotated or Rotated-nested grid is implemented for MONARCH. " +
                        "The current grid type is '{0}'".format(self.grid.grid_type))
 
         for i, (pollutant, variable) in enumerate(self.pollutant_info.iterrows()):
@@ -196,12 +197,13 @@ class MonarchWriter(Writer):
 
             # var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim,
             #                             chunksizes=self.rank_distribution[0]['shape'])
-
-            if self.comm_write.Get_size() > 1:
-                var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim)
-                var.set_collective(True)
+            if self.compression:
+                var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim,
+                                            zlib=True, complevel=self.compression_level)
             else:
-                var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim, zlib=True)
+                var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim)
+            if self.comm_write.Get_size() > 1:
+                var.set_collective(True)
 
             try:
                 var_data = self.dataframe_to_array(emissions.loc[:, [var_name]])
