@@ -23,7 +23,7 @@ cdll.LoadLibrary("libc.so.6")
 libc = CDLL("libc.so.6")
 libc.malloc_trim(0)
 
-downcasting = True
+downcasting = False
 
 MIN_RAIN = 0.254  # After USEPA (2011)
 RECOVERY_RATIO = 0.0872  # After Amato et al. (2012)
@@ -162,7 +162,7 @@ class TrafficSector(Sector):
             if str(df[col_name].dtype) == 'float64':
                 df[col_name] = pd.to_numeric(df[col_name], downcast='float')
             elif str(df[col_name].dtype) == 'int64':
-                df[col_name] = pd.to_numeric(df[col_name], downcast='integer')
+                df[[col_name]] = df[[col_name]].astype(np.int32)
         sys.stdout.flush()
         libc.malloc_trim(0)
         gc.collect()
@@ -383,6 +383,16 @@ class TrafficSector(Sector):
 
         if self.comm.Get_rank() == 0:
             df = gpd.read_file(path)
+            df['sp_wd'] = df['sp_wd'].astype(np.int16)
+            df['sp_we'] = df['sp_we'].astype(np.int16)
+            df['sp_hour_su'] = df['sp_hour_su'].astype(np.int16)
+            df['sp_hour_mo'] = df['sp_hour_mo'].astype(np.int16)
+            df['sp_hour_tu'] = df['sp_hour_tu'].astype(np.int16)
+            df['sp_hour_we'] = df['sp_hour_we'].astype(np.int16)
+            df['sp_hour_th'] = df['sp_hour_th'].astype(np.int16)
+            df['sp_hour_fr'] = df['sp_hour_fr'].astype(np.int16)
+            df['sp_hour_sa'] = df['sp_hour_sa'].astype(np.int16)
+
             if downcasting:
                 self.downcast(df)
             try:
@@ -391,14 +401,12 @@ class TrafficSector(Sector):
             except KeyError as e:
                 error_exit(str(e).replace('axis', 'the road links shapefile'))
             libc.malloc_trim(0)
-            # df.to_file('~/temp/road_links.shp')
             df = gpd.sjoin(df, self.clip.shapefile.to_crs(df.crs), how="inner", op='intersects')
-            # df.to_file('~/temp/road_links_selected.shp')
             df.drop(columns=['index_right'], inplace=True)
             libc.malloc_trim(0)
 
             # Filtering road links to CONSiderate.
-            df['CONS'] = df['CONS'].astype(np.int16)
+            df['CONS'] = df['CONS'].astype(np.int8)
             df = df[df['CONS'] != 0]
             df = df[df['aadt'] > 0]
 
@@ -756,7 +764,7 @@ class TrafficSector(Sector):
 
         df = pd.concat(df_list, ignore_index=True)
 
-        df = IoShapefile(self.comm).balance(df)
+        # df = IoShapefile(self.comm).balance(df)
 
         df.set_index(['Link_ID', 'Fleet_Code'], inplace=True)
         libc.malloc_trim(0)
