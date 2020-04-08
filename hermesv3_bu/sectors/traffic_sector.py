@@ -1313,9 +1313,7 @@ class TrafficSector(Sector):
             del df_aux
             libc.malloc_trim(0)
             gc.collect()
-        print('2 ->', df.columns)
         for in_p in in_list:
-            print('\t{0}'.format(in_p))
             involved_out_pollutants = [key for key, value in self.speciation_map.items() if value == in_p]
 
             # Selecting only necessary speciation profiles
@@ -1332,7 +1330,6 @@ class TrafficSector(Sector):
             # Renaming pollutant columns by adding "old_" to the beginning.
             df_aux.rename(columns={in_p: 'old_{0}'.format(in_p)}, inplace=True)
             for p in involved_out_pollutants:
-                print('\t\t{0}'.format(p))
                 if in_p is not np.nan:
                     if in_p != 0:
                         df_aux[p] = df_aux['old_{0}'.format(in_p)].multiply(df_aux['f_{0}'.format(p)])
