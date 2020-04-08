@@ -1270,7 +1270,6 @@ class TrafficSector(Sector):
         self.logger.write_time_log('TrafficSector', 'transform_df', timeit.default_timer() - spent_time)
         return df
 
-    @profile
     def speciate_traffic(self, df, speciation):
         spent_time = timeit.default_timer()
 
