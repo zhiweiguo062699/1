@@ -1,5 +1,12 @@
-0.1.2
-    2020/02/28
+1.0.1
+    2020/04/08
+
+    - Solved bug on road traffic cold emissions
+    - Improved memory usage on hot & cold emission calculation
+    - Added (option inside the traffic_sector.py script) to downcast from 64 bits to 32 bits
+
+1.0.0
+    2020/03/12
 
     First beta version:
 
