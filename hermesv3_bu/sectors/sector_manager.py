@@ -4,8 +4,8 @@ import timeit
 from hermesv3_bu.logger.log import Log
 from hermesv3_bu.tools.checker import error_exit
 
-SECTOR_LIST = ['traffic', 'traffic_area', 'aviation', 'point_sources', 'recreational_boats', 'shipping_port',
-               'residential', 'livestock', 'crop_operations', 'crop_fertilizers', 'agricultural_machinery', 'solvents']
+SECTOR_LIST = ['aviation', 'point_sources', 'recreational_boats', 'shipping_port', 'residential', 'livestock',
+               'crop_operations', 'crop_fertilizers', 'agricultural_machinery', 'solvents', 'traffic_area', 'traffic']
 
 
 class SectorManager(object):
