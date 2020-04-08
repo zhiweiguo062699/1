@@ -23,7 +23,7 @@ cdll.LoadLibrary("libc.so.6")
 libc = CDLL("libc.so.6")
 libc.malloc_trim(0)
 
-downcasting = False
+downcasting = True
 
 MIN_RAIN = 0.254  # After USEPA (2011)
 RECOVERY_RATIO = 0.0872  # After Amato et al. (2012)
@@ -930,7 +930,7 @@ class TrafficSector(Sector):
     def calculate_cold(self, hot_expanded):
         spent_time = timeit.default_timer()
 
-        cold_links = self.road_links.copy().reset_index()
+        cold_links = self.road_links.reset_index()
         cold_links.drop(columns=['aadt', 'PcHeavy', 'PcMoto', 'PcMoped', 'sp_wd', 'sp_we', 'sp_hour_su', 'sp_hour_mo',
                                  'sp_hour_tu', 'sp_hour_we', 'sp_hour_th', 'sp_hour_fr', 'sp_hour_sa', 'Road_type',
                                  'aadt_m_mn', 'aadt_h_mn', 'aadt_h_wd', 'aadt_h_sat', 'aadt_h_sun', 'aadt_week',
@@ -965,11 +965,6 @@ class TrafficSector(Sector):
         if downcasting:
             self.downcast(cold_links)
 
-        # c_expanded = hot_expanded.drop(columns=['FID', 'Fleet_value']).merge(cold_links, on='Link_ID', how='left')
-        # del cold_links
-        # libc.malloc_trim(0)
-        # gc.collect()
-
         df_list = []
         for pollutant in self.source_pollutants:
 
@@ -981,13 +976,6 @@ class TrafficSector(Sector):
                 ef_cold.loc[ef_cold['Tmax'].isnull(), 'Tmax'] = 999
                 ef_cold.loc[ef_cold['Min.Speed'].isnull(), 'Min.Speed'] = -999
                 ef_cold.loc[ef_cold['Max.Speed'].isnull(), 'Max.Speed'] = 999
-
-            # c_expanded_p = c_expanded.merge(ef_cold, on=['Fleet_Code', 'Road_type'], how='inner')
-            # if self.comm.Get_rank() == 0:
-            #     print('c_expanded_p: {0}'.format(list(c_expanded_p.columns)))
-            #
-            # c_expanded_p.drop(columns=['Road_type'], inplace=True)
-            # libc.malloc_trim(0)
 
             for tstep in range(len(self.date_array)):
                 v_column = 'v_{0}'.format(tstep)
@@ -1274,16 +1262,21 @@ class TrafficSector(Sector):
 
             df_list.append(df_aux)
             df.drop(columns=pollutants_renamed, inplace=True)
+            del df_aux
+            libc.malloc_trim(0)
+            gc.collect()
 
         df = pd.concat(df_list, ignore_index=True)
         self.logger.write_time_log('TrafficSector', 'transform_df', timeit.default_timer() - spent_time)
         return df
 
+    @profile
     def speciate_traffic(self, df, speciation):
         spent_time = timeit.default_timer()
 
         # Reads speciation profile
         speciation = self.read_profiles(speciation)
+        speciation.rename(columns={'Code': 'Fleet_Code'}, inplace=True)
 
         speciation.drop(columns=['Copert_V_name'], inplace=True)
         if downcasting:
@@ -1291,46 +1284,62 @@ class TrafficSector(Sector):
             self.downcast(df)
         # Transform dataset into timestep rows instead of timestep columns
         df = self.transform_df(df)
+        if self.comm.Get_rank() == 0:
+            print('AKIIIIIIIII')
+            print(df.columns)
+            print(df.head())
+            print(speciation.columns)
+            print(speciation.head())
 
         in_list = list(df.columns.values)
 
         in_columns = ['Link_ID', 'Fleet_Code', 'tstep']
         for in_col in in_columns:
             in_list.remove(in_col)
+        libc.malloc_trim(0)
+        gc.collect()
 
         df_out_list = []
 
         # PMC
         if not set(speciation.columns.values).isdisjoint(pmc_list):
             out_p = set(speciation.columns.values).intersection(pmc_list).pop()
-            speciation_by_in_p = speciation[[out_p] + ['Code']]
+            # speciation_by_in_p = speciation[[out_p, 'Code']]
 
-            speciation_by_in_p.rename(columns={out_p: 'f_{0}'.format(out_p)}, inplace=True)
-            df_aux = df[['pm10', 'pm25', 'Fleet_Code', 'tstep', 'Link_ID']]
-            df_aux = df_aux.merge(speciation_by_in_p, left_on='Fleet_Code', right_on='Code', how='left')
-            df_aux.drop(columns=['Code'], inplace=True)
+            # speciation_by_in_p.rename(columns={out_p: 'f_{0}'.format(out_p)}, inplace=True)
+            # df_aux = df[['pm10', 'pm25', 'Fleet_Code', 'tstep', 'Link_ID']]
+            df_aux = df[['pm10', 'pm25', 'Fleet_Code', 'tstep', 'Link_ID']].rename(
+                columns={out_p: 'f_{0}'.format(out_p)}).merge(
+                speciation[[out_p, 'Fleet_Code']], on='Fleet_Code', how='left')
+            libc.malloc_trim(0)
+            gc.collect()
 
             df_aux[out_p] = df_aux['pm10'] - df_aux['pm25']
 
-            df_out_list.append(df_aux[[out_p] + ['tstep', 'Link_ID']].groupby(['tstep', 'Link_ID']).sum())
-
+            df_out_list.append(df_aux[[out_p, 'tstep', 'Link_ID']].groupby(['tstep', 'Link_ID']).sum())
+            del df_aux
+            libc.malloc_trim(0)
+            gc.collect()
+        print('2 ->', df.columns)
         for in_p in in_list:
+            print('\t{0}'.format(in_p))
             involved_out_pollutants = [key for key, value in self.speciation_map.items() if value == in_p]
 
             # Selecting only necessary speciation profiles
-            speciation_by_in_p = speciation[involved_out_pollutants + ['Code']]
+            speciation_by_in_p = speciation[involved_out_pollutants + ['Fleet_Code']]
 
             # Adding "f_" in the formula column names
             for p in involved_out_pollutants:
                 speciation_by_in_p.rename(columns={p: 'f_{0}'.format(p)}, inplace=True)
             # Getting a slice of the full dataset to be merged
-            df_aux = df[[in_p] + ['Fleet_Code', 'tstep', 'Link_ID']]
-            df_aux = df_aux.merge(speciation_by_in_p, left_on='Fleet_Code', right_on='Code', how='left')
-            df_aux.drop(columns=['Code'], inplace=True)
+            df_aux = df[[in_p, 'Fleet_Code', 'tstep', 'Link_ID']].merge(speciation_by_in_p, on='Fleet_Code', how='left')
+            libc.malloc_trim(0)
+            gc.collect()
 
             # Renaming pollutant columns by adding "old_" to the beginning.
             df_aux.rename(columns={in_p: 'old_{0}'.format(in_p)}, inplace=True)
             for p in involved_out_pollutants:
+                print('\t\t{0}'.format(p))
                 if in_p is not np.nan:
                     if in_p != 0:
                         df_aux[p] = df_aux['old_{0}'.format(in_p)].multiply(df_aux['f_{0}'.format(p)])
@@ -1348,11 +1357,17 @@ class TrafficSector(Sector):
                         df_aux.loc[:, p] = 0
                 if downcasting:
                     self.downcast(df_aux)
-                df_out_list.append(df_aux[[p] + ['tstep', 'Link_ID']].groupby(['tstep', 'Link_ID']).sum())
+                df_out_list.append(df_aux[[p, 'tstep', 'Link_ID']].groupby(['tstep', 'Link_ID']).sum())
+                libc.malloc_trim(0)
+                gc.collect()
             del df_aux
             df.drop(columns=[in_p], inplace=True)
+            libc.malloc_trim(0)
+            gc.collect()
 
         df_out = pd.concat(df_out_list, axis=1)
+        libc.malloc_trim(0)
+        gc.collect()
         if downcasting:
             self.downcast(df_out)
         self.logger.write_time_log('TrafficSector', 'speciate_traffic', timeit.default_timer() - spent_time)
@@ -1378,17 +1393,17 @@ class TrafficSector(Sector):
                 self.logger.write_log('\t\tCalculating Hot emissions.', message_level=2)
                 hot_emis = self.calculate_hot()
 
+                if self.do_hot:
+                    self.logger.write_log('\t\tCompacting Hot emissions.', message_level=2)
+                    hot_emis_aux = self.compact_hot_expanded(hot_emis.copy())
+                    df_accum = pd.concat([df_accum, hot_emis_aux]).groupby(
+                        ['tstep', 'Link_ID']).sum()
+                    libc.malloc_trim(0)
+
                 if self.do_cold:
                     self.logger.write_log('\t\tCalculating Cold emissions.', message_level=2)
                     cold_emis = self.calculate_cold(hot_emis)
                     df_accum = pd.concat([df_accum, cold_emis]).groupby(
-                        ['tstep', 'Link_ID']).sum()
-                    libc.malloc_trim(0)
-
-                if self.do_hot:
-                    self.logger.write_log('\t\tCompacting Hot emissions.', message_level=2)
-                    hot_emis = self.compact_hot_expanded(hot_emis)
-                    df_accum = pd.concat([df_accum, hot_emis]).groupby(
                         ['tstep', 'Link_ID']).sum()
                     libc.malloc_trim(0)
 
