@@ -1283,12 +1283,6 @@ class TrafficSector(Sector):
             self.downcast(df)
         # Transform dataset into timestep rows instead of timestep columns
         df = self.transform_df(df)
-        if self.comm.Get_rank() == 0:
-            print('AKIIIIIIIII')
-            print(df.columns)
-            print(df.head())
-            print(speciation.columns)
-            print(speciation.head())
 
         in_list = list(df.columns.values)
 
