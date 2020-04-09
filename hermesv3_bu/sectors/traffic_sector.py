@@ -1034,30 +1034,6 @@ class TrafficSector(Sector):
                         error_fleet_code.append(o)
             error_exit('There are duplicated values for {0} codes in the cold EF files.'.format(error_fleet_code))
 
-        # for tstep in range(len(self.date_array)):
-        #     if 'pm' in self.source_pollutants:
-        #         cold_df['pm10_{0}'.format(tstep)] = cold_df['pm_{0}'.format(tstep)]
-        #         cold_df['pm25_{0}'.format(tstep)] = cold_df['pm_{0}'.format(tstep)]
-        #         cold_df.drop(columns=['pm_{0}'.format(tstep)], inplace=True)
-        #         libc.malloc_trim(0)
-        #     if 'voc' in self.source_pollutants and 'ch4' in self.source_pollutants:
-        #         cold_df['nmvoc_{0}'.format(tstep)] = \
-        #             cold_df['voc_{0}'.format(tstep)] - cold_df['ch4_{0}'.format(tstep)]
-        #         cold_df.drop(columns=['voc_{0}'.format(tstep)], inplace=True)
-        #         libc.malloc_trim(0)
-        #     else:
-        #         self.logger.write_log("WARNING! nmvoc emissions cannot be estimated because voc or ch4 are not " +
-        #                               "selected in the pollutant list.")
-        #         warnings.warn("nmvoc emissions cannot be estimated because voc or ch4 are not selected in the " +
-        #                       "pollutant list.")
-        # if downcasting:
-        #     self.downcast(cold_df)
-        # libc.malloc_trim(0)
-        # gc.collect()
-        #
-        # cold_df = self.speciate_traffic(cold_df, self.hot_cold_speciation)
-        # libc.malloc_trim(0)
-
         if downcasting:
             self.downcast(cold_df)
         self.logger.write_time_log('TrafficSector', 'calculate_cold', timeit.default_timer() - spent_time)
@@ -1284,12 +1260,6 @@ class TrafficSector(Sector):
             self.downcast(df)
         # Transform dataset into timestep rows instead of timestep columns
         df = self.transform_df(df)
-        if self.comm.Get_rank() == 0:
-            print('AKIIIIIIIII')
-            print(df.columns)
-            print(df.head())
-            print(speciation.columns)
-            print(speciation.head())
 
         in_list = list(df.columns.values)
 
