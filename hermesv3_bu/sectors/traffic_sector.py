@@ -914,7 +914,7 @@ class TrafficSector(Sector):
                 expanded_aux.drop(columns=['A_urban', 'B_urban', 'A_road', 'B_road', 'M'], inplace=True)
                 libc.malloc_trim(0)
                 gc.collect()
-        expanded_aux.drop(columns=['road_grad'], inplace=True)
+        expanded_aux.drop(columns=['road_grad', 'FID', 'Fleet_value'], inplace=True)
         expanded_aux.drop(columns=['f_{0}'.format(x) for x in range(len(self.date_array))], inplace=True)
 
         libc.malloc_trim(0)
@@ -1034,36 +1034,13 @@ class TrafficSector(Sector):
                         error_fleet_code.append(o)
             error_exit('There are duplicated values for {0} codes in the cold EF files.'.format(error_fleet_code))
 
-        for tstep in range(len(self.date_array)):
-            if 'pm' in self.source_pollutants:
-                cold_df['pm10_{0}'.format(tstep)] = cold_df['pm_{0}'.format(tstep)]
-                cold_df['pm25_{0}'.format(tstep)] = cold_df['pm_{0}'.format(tstep)]
-                cold_df.drop(columns=['pm_{0}'.format(tstep)], inplace=True)
-                libc.malloc_trim(0)
-            if 'voc' in self.source_pollutants and 'ch4' in self.source_pollutants:
-                cold_df['nmvoc_{0}'.format(tstep)] = \
-                    cold_df['voc_{0}'.format(tstep)] - cold_df['ch4_{0}'.format(tstep)]
-                cold_df.drop(columns=['voc_{0}'.format(tstep)], inplace=True)
-                libc.malloc_trim(0)
-            else:
-                self.logger.write_log("WARNING! nmvoc emissions cannot be estimated because voc or ch4 are not " +
-                                      "selected in the pollutant list.")
-                warnings.warn("nmvoc emissions cannot be estimated because voc or ch4 are not selected in the " +
-                              "pollutant list.")
-
-        cold_df = self.speciate_traffic(cold_df, self.hot_cold_speciation)
-        libc.malloc_trim(0)
-
         if downcasting:
             self.downcast(cold_df)
         self.logger.write_time_log('TrafficSector', 'calculate_cold', timeit.default_timer() - spent_time)
         return cold_df
 
-    def compact_hot_expanded(self, expanded):
+    def compact_hot_cold_expanded(self, expanded):
         spent_time = timeit.default_timer()
-
-        columns_to_delete = ['Road_type', 'Fleet_value'] + ['v_{0}'.format(x) for x in range(len(self.date_array))]
-        expanded.drop(columns=columns_to_delete, inplace=True)
 
         for tstep in range(len(self.date_array)):
             if 'pm' in self.source_pollutants:
@@ -1085,7 +1062,7 @@ class TrafficSector(Sector):
 
         compacted = self.speciate_traffic(expanded, self.hot_cold_speciation)
 
-        self.logger.write_time_log('TrafficSector', 'compact_hot_expanded', timeit.default_timer() - spent_time)
+        self.logger.write_time_log('TrafficSector', 'compact_hot_cold_expanded', timeit.default_timer() - spent_time)
         return compacted
 
     def calculate_tyre_wear(self):
@@ -1365,40 +1342,38 @@ class TrafficSector(Sector):
 
     def calculate_emissions(self):
         spent_time = timeit.default_timer()
-        version = 1
         self.logger.write_log('\tCalculating Road traffic emissions', message_level=1)
         df_accum = pd.DataFrame()
 
-        if version == 2:
-            if self.do_hot:
-                self.logger.write_log('\t\tCalculating Hot emissions.', message_level=2)
-                df_accum = pd.concat([df_accum, self.compact_hot_expanded(self.calculate_hot())]).groupby(
-                    ['tstep', 'Link_ID']).sum()
+        if self.do_hot or self.do_cold:
+            self.logger.write_log('\t\tCalculating Hot emissions.', message_level=2)
+            hot_cold_emis = self.calculate_hot()
+
             if self.do_cold:
                 self.logger.write_log('\t\tCalculating Cold emissions.', message_level=2)
-                df_accum = pd.concat([df_accum, self.calculate_cold(self.calculate_hot())]).groupby(
-                    ['tstep', 'Link_ID']).sum()
-        else:
-            if self.do_hot or self.do_cold:
-                self.logger.write_log('\t\tCalculating Hot emissions.', message_level=2)
-                hot_emis = self.calculate_hot()
+                cold_emis = self.calculate_cold(hot_cold_emis)
+                self.logger.write_log('\t\tMerging Hot & Cold emissions.', message_level=2)
 
-                if self.do_hot:
-                    self.logger.write_log('\t\tCompacting Hot emissions.', message_level=2)
-                    hot_emis_aux = self.compact_hot_expanded(hot_emis.copy())
-                    df_accum = pd.concat([df_accum, hot_emis_aux]).groupby(
-                        ['tstep', 'Link_ID']).sum()
-                    libc.malloc_trim(0)
-
-                if self.do_cold:
-                    self.logger.write_log('\t\tCalculating Cold emissions.', message_level=2)
-                    cold_emis = self.calculate_cold(hot_emis)
-                    df_accum = pd.concat([df_accum, cold_emis]).groupby(
-                        ['tstep', 'Link_ID']).sum()
-                    libc.malloc_trim(0)
-
-                del hot_emis
+                hot_cold_emis.drop(columns=['Road_type'] + ['v_{0}'.format(x) for x in range(len(self.date_array))],
+                                   inplace=True)
                 libc.malloc_trim(0)
+                gc.collect()
+
+                hot_cold_emis = pd.concat([hot_cold_emis, cold_emis]).groupby(['Fleet_Code', 'Link_ID']).sum()
+                del cold_emis
+                libc.malloc_trim(0)
+                gc.collect()
+                hot_cold_emis.reset_index(inplace=True)
+            else:
+                hot_cold_emis.drop(columns=['Road_type'] + ['v_{0}'.format(x) for x in range(len(self.date_array))],
+                                   inplace=True)
+                libc.malloc_trim(0)
+                gc.collect()
+
+            self.logger.write_log('\t\tCompacting and speciation Hot & Cold emissions.', message_level=2)
+            hot_cold_emis = self.compact_hot_cold_expanded(hot_cold_emis)
+            df_accum = pd.concat([df_accum, hot_cold_emis]).groupby(['tstep', 'Link_ID']).sum()
+            libc.malloc_trim(0)
 
         if self.do_tyre_wear:
             self.logger.write_log('\t\tCalculating Tyre wear emissions.', message_level=2)
