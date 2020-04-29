@@ -18,6 +18,7 @@ INTERPOLATION_TYPE = 'linear'
 GRAVITY = 9.81
 # CP J/kg*K
 CP = 1005
+HEIGHT_INC = 1.8
 
 
 class PointSourceSector(Sector):
@@ -832,7 +833,7 @@ class PointSourceSector(Sector):
             catalog = self.set_layer(catalog)
 
         else:
-            catalog['Height'] = catalog['Height'] * 1.2
+            catalog['Height'] = catalog['Height'] * HEIGHT_INC
 
             catalog['layer'] = np.searchsorted(self.vertical_levels, catalog['Height'], side='left')
 
