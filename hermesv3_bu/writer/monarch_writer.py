@@ -141,7 +141,7 @@ class MonarchWriter(Writer):
         self.logger.write_log('\tCreating NetCDF variables', message_level=2)
         self.logger.write_log('\t\tCreating time variable', message_level=3)
 
-        time = netcdf.createVariable('time', np.float64, ('time',))
+        time = netcdf.createVariable('time', 'f', ('time',))
         time.units = 'hours since {0}'.format(self.date_array[0].strftime("%Y-%m-%d %H:%M:%S"))
         time.standard_name = "time"
         time.calendar = "gregorian"
@@ -149,35 +149,35 @@ class MonarchWriter(Writer):
         time[:] = date2num(self.date_array, time.units, calendar=time.calendar)
 
         self.logger.write_log('\t\tCreating lev variable', message_level=3)
-        lev = netcdf.createVariable('lev', np.float64, ('lev',))
+        lev = netcdf.createVariable('lev', 'f', ('lev',))
         lev.units = Unit("m").symbol
         lev.positive = 'up'
         lev[:] = self.grid.vertical_desctiption
 
         self.logger.write_log('\t\tCreating lat variable', message_level=3)
-        lats = netcdf.createVariable('lat', np.float64, lat_dim)
+        lats = netcdf.createVariable('lat', 'f', lat_dim)
         lats.units = "degrees_north"
         lats.axis = "Y"
         lats.long_name = "latitude coordinate"
         lats.standard_name = "latitude"
         lats[:] = self.grid.center_latitudes
         lats.bounds = "lat_bnds"
-        lat_bnds = netcdf.createVariable('lat_bnds', np.float64, lat_dim + ('nv',))
+        lat_bnds = netcdf.createVariable('lat_bnds', 'f', lat_dim + ('nv',))
         lat_bnds[:] = self.grid.boundary_latitudes
 
         self.logger.write_log('\t\tCreating lon variable', message_level=3)
-        lons = netcdf.createVariable('lon', np.float64, lon_dim)
+        lons = netcdf.createVariable('lon', 'f', lon_dim)
         lons.units = "degrees_east"
         lons.axis = "X"
         lons.long_name = "longitude coordinate"
         lons.standard_name = "longitude"
         lons[:] = self.grid.center_longitudes
         lons.bounds = "lon_bnds"
-        lon_bnds = netcdf.createVariable('lon_bnds', np.float64, lon_dim + ('nv',))
+        lon_bnds = netcdf.createVariable('lon_bnds', 'f', lon_dim + ('nv',))
         lon_bnds[:] = self.grid.boundary_longitudes
 
         self.logger.write_log('\t\tCreating rlat variable', message_level=3)
-        rlat = netcdf.createVariable('rlat', np.float64, ('rlat',))
+        rlat = netcdf.createVariable('rlat', 'f', ('rlat',))
         rlat.long_name = "latitude in rotated pole grid"
         rlat.units = Unit("degrees").symbol
         rlat.standard_name = "grid_latitude"
@@ -185,7 +185,7 @@ class MonarchWriter(Writer):
 
         # Rotated Longitude
         self.logger.write_log('\t\tCreating rlon variable', message_level=3)
-        rlon = netcdf.createVariable('rlon', np.float64, ('rlon',))
+        rlon = netcdf.createVariable('rlon', 'f', ('rlon',))
         rlon.long_name = "longitude in rotated pole grid"
         rlon.units = Unit("degrees").symbol
         rlon.standard_name = "grid_longitude"
@@ -195,13 +195,13 @@ class MonarchWriter(Writer):
         for var_name in self.pollutant_info.index:
             self.logger.write_log('\t\tCreating {0} variable'.format(var_name), message_level=3)
 
-            # var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim,
+            # var = netcdf.createVariable(var_name, 'f', ('time', 'lev',) + var_dim,
             #                             chunksizes=self.rank_distribution[0]['shape'])
             if self.compression:
-                var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim,
+                var = netcdf.createVariable(var_name, 'f', ('time', 'lev',) + var_dim,
                                             zlib=True, complevel=self.compression_level)
             else:
-                var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim)
+                var = netcdf.createVariable(var_name, 'f', ('time', 'lev',) + var_dim)
             if self.comm_write.Get_size() > 1:
                 var.set_collective(True)
 
