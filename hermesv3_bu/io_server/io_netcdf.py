@@ -49,7 +49,11 @@ class IoNetcdf(IoServer):
             lat_o = nc.variables['latitude'][:]
             lon_o = nc.variables['longitude'][:]
         except KeyError as e:
-            error_exit("{0} variable not found in {1} file.".format(str(e), netcdf_path))
+            try:
+                lat_o = nc.variables['lat'][:]
+                lon_o = nc.variables['lon'][:]
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), netcdf_path))
 
         if date_type == 'daily':
             try:
@@ -125,7 +129,13 @@ class IoNetcdf(IoServer):
             n_lat = len(lat_o)
             time = nc.variables['time']
         except KeyError as e:
-            error_exit("{0} variable not found in {1} file.".format(str(e), path))
+            try:
+                lat_o = nc.variables['lat'][:]
+                lon_o = nc.variables['lon'][:]
+                n_lat = len(lat_o)
+                time = nc.variables['time']
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), path))
         # From time array to list of dates.
         time_array = num2date(time[:], time.units,  CALENDAR_STANDARD)
         i_time = np.where(time_array == date_array[0])[0][0]
