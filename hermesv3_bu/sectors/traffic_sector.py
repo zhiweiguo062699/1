@@ -914,7 +914,10 @@ class TrafficSector(Sector):
                 expanded_aux.drop(columns=['A_urban', 'B_urban', 'A_road', 'B_road', 'M'], inplace=True)
                 libc.malloc_trim(0)
                 gc.collect()
-        expanded_aux.drop(columns=['road_grad', 'FID', 'Fleet_value'], inplace=True)
+
+        expanded_aux.drop(columns=['road_grad', 'Fleet_value'], inplace=True)
+        if 'FID' in expanded_aux.columns:
+            expanded_aux.drop(columns=['FID'], inplace=True)
         expanded_aux.drop(columns=['f_{0}'.format(x) for x in range(len(self.date_array))], inplace=True)
 
         libc.malloc_trim(0)
