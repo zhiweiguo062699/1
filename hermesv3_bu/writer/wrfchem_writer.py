@@ -355,9 +355,15 @@ class WrfChemWriter(Writer):
                                             ('Time', 'emissions_zdim', 'south_north', 'west_east',),
                                             zlib=True, complevel=self.compression_level)
             else:
-                var = netcdf.createVariable(var_name, np.float64,
-                                            ('Time', 'emissions_zdim', 'south_north', 'west_east',))
-            if self.comm_write.Get_size() > 1:
+                if self.chunking:
+                    var = netcdf.createVariable(
+                        var_name, np.float64, ('Time', 'emissions_zdim', 'south_north', 'west_east',),
+                        chunksizes=self.rank_distribution[0]['shape'])
+                else:
+                    var = netcdf.createVariable(var_name, np.float64,
+                                                ('Time', 'emissions_zdim', 'south_north', 'west_east',))
+
+            if self.comm_write.Get_size() > 1 and not self.chunking:
                 var.set_collective(True)
 
             var_data = self.dataframe_to_array(emissions.loc[:, [var_name]])
