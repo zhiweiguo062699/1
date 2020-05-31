@@ -11,7 +11,8 @@ from hermesv3_bu.logger.log import Log
 from hermesv3_bu.tools.checker import error_exit
 
 CHUNKING = True
-BALANCED = False
+BALANCED = not CHUNKING
+
 MPI_TAG_CONSTANT = 10**6
 
 BUFFER_SIZE = 2**28
@@ -271,6 +272,8 @@ class Writer(object):
         :type rank_distribution: dict
         """
         spent_time = timeit.default_timer()
+
+        self.chunking = CHUNKING
 
         self.comm_world = comm_world
         self.comm_write = comm_write
