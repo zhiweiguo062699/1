@@ -10,7 +10,7 @@ import timeit
 from hermesv3_bu.logger.log import Log
 from hermesv3_bu.tools.checker import error_exit
 
-CHUNKING = True
+CHUNKING = False
 BALANCED = not CHUNKING
 
 MPI_TAG_CONSTANT = 10**6
@@ -69,19 +69,21 @@ def select_writer(logger, comm_world, arguments, grid, date_array):
     if arguments.output_model == 'DEFAULT':
         from hermesv3_bu.writer.default_writer import DefaultWriter
         writer = DefaultWriter(comm_world, comm_write, logger, arguments.output_name, grid, date_array, pollutant_info,
-                               rank_distribution, arguments.emission_summary)
+                               rank_distribution, arguments.compression_level, arguments.emission_summary)
     elif arguments.output_model == 'MONARCH':
         from hermesv3_bu.writer.monarch_writer import MonarchWriter
         writer = MonarchWriter(comm_world, comm_write, logger, arguments.output_name, grid, date_array, pollutant_info,
-                               rank_distribution, arguments.emission_summary)
+                               rank_distribution, arguments.compression_level, arguments.emission_summary)
     elif arguments.output_model == 'CMAQ':
         from hermesv3_bu.writer.cmaq_writer import CmaqWriter
         writer = CmaqWriter(comm_world, comm_write, logger, arguments.output_name, grid, date_array, pollutant_info,
-                            rank_distribution, arguments.output_attributes, arguments.emission_summary)
+                            rank_distribution, arguments.output_attributes, arguments.compression_level,
+                            arguments.emission_summary)
     elif arguments.output_model == 'WRF_CHEM':
         from hermesv3_bu.writer.wrfchem_writer import WrfChemWriter
         writer = WrfChemWriter(comm_world, comm_write, logger, arguments.output_name, grid, date_array, pollutant_info,
-                               rank_distribution, arguments.output_attributes, arguments.emission_summary)
+                               rank_distribution, arguments.output_attributes, arguments.compression_level,
+                               arguments.emission_summary)
     else:
         error_exit("Unknown output model '{0}'. ".format(arguments.output_model) +
                    "Only MONARCH, CMAQ, WRF_CHEM or DEFAULT writers are available")
