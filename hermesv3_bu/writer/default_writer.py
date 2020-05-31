@@ -201,14 +201,14 @@ class DefaultWriter(Writer):
                 var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim,
                                             zlib=True, complevel=self.compression_level)
             else:
-                if self.chuncking:
+                if self.chunking:
                     var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim,
                                                 chunksizes=self.rank_distribution[0]['shape'])
 
                 else:
                     var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim)
 
-            if self.comm_write.Get_size() > 1 and not self.chuncking:
+            if self.comm_write.Get_size() > 1 and not self.chunking:
                 var.set_collective(True)
 
             var_data = self.dataframe_to_array(emissions.loc[:, [var_name]])
