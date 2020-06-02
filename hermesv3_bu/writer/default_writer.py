@@ -222,14 +222,14 @@ class DefaultWriter(Writer):
             var.units = self.pollutant_info.loc[var_name, 'units']
             var.missing_value = -999.0
             var.coordinates = 'lat lon'
-            if self.grid.grid_type == 'Regular Lat-Lon':
-                var.grid_mapping = 'Latitude_Longitude'
-            elif self.grid.grid_type == 'Lambert Conformal Conic':
-                var.grid_mapping = 'Lambert_Conformal'
-            elif self.grid.grid_type in ['Rotated', 'Rotated_nested']:
-                var.grid_mapping = 'rotated_pole'
-            elif self.grid.grid_type == 'Mercator':
-                var.grid_mapping = 'mercator'
+            # if self.grid.grid_type == 'Regular Lat-Lon':
+            #     var.grid_mapping = 'Latitude_Longitude'
+            # elif self.grid.grid_type == 'Lambert Conformal Conic':
+            #     var.grid_mapping = 'Lambert_Conformal'
+            # elif self.grid.grid_type in ['Rotated', 'Rotated_nested']:
+            #     var.grid_mapping = 'rotated_pole'
+            # elif self.grid.grid_type == 'Mercator':
+            #     var.grid_mapping = 'mercator'
 
         # ========== METADATA ==========
         self.logger.write_log('\tCreating NetCDF metadata', message_level=2)
@@ -245,7 +245,7 @@ class DefaultWriter(Writer):
         elif self.grid.grid_type == 'Lambert Conformal Conic':
             mapping = netcdf.createVariable('Lambert_Conformal', 'i')
             mapping.grid_mapping_name = "lambert_conformal_conic"
-            mapping.standard_parallel = [self.grid.attributes['lat_1'], self.grid.attributes['lat_2']]
+            mapping.standard_parallel = [self.grid.attributes['lat_2'], self.grid.attributes['lat_1']]
             mapping.longitude_of_central_meridian = self.grid.attributes['lon_0']
             mapping.latitude_of_projection_origin = self.grid.attributes['lat_0']
             mapping.false_easting = self.grid.attributes['x_0']
