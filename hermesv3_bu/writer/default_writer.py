@@ -248,6 +248,8 @@ class DefaultWriter(Writer):
             mapping.standard_parallel = [self.grid.attributes['lat_1'], self.grid.attributes['lat_2']]
             mapping.longitude_of_central_meridian = self.grid.attributes['lon_0']
             mapping.latitude_of_projection_origin = self.grid.attributes['lat_0']
+            mapping.false_easting = self.grid.attributes['x_0']
+            mapping.false_northing = self.grid.attributes['y_0']
 
         elif self.grid.grid_type in ['Rotated', 'Rotated_nested']:
             mapping = netcdf.createVariable('rotated_pole', 'c')
