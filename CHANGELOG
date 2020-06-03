@@ -2,6 +2,9 @@
     XXXX/XX/XX
 
     - NetCDF read: Added capability to try to read 'lat' instead of 'latitude' and 'lon' instead of 'longitude'
+    - Corrected bug on NetCDF compression
+    - Corrected bug on emission summary
+    - Added CHUNK capability on writer.py
 
 1.0.2
     2020/05/04
