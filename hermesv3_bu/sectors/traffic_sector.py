@@ -1493,7 +1493,10 @@ class TrafficSector(Sector):
 
         emissions.drop(columns=['geometry'], inplace=True)
         for poll in emissions.columns.values:
-            mol_w = self.molecular_weights[self.speciation_map[poll]]
+            if poll in ['PMC', 'pmc']:
+                mol_w = 1
+            else:
+                mol_w = self.molecular_weights[self.speciation_map[poll]]
             # From g/km.h to g/m.s
             emissions.loc[:, poll] = emissions.loc[:, poll] * mol_w / (1000 * 3600)
 
