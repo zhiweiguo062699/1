@@ -302,8 +302,12 @@ class CmaqWriter(Writer):
                 var = netcdf.createVariable(var_name, np.float64, ('TSTEP', 'LAY', 'ROW', 'COL',),
                                             zlib=True, complevel=self.compression_level)
             else:
-                var = netcdf.createVariable(var_name, np.float64, ('TSTEP', 'LAY', 'ROW', 'COL',))
-            if self.comm_write.Get_size() > 1:
+                if self.chunking:
+                    var = netcdf.createVariable(var_name, np.float64, ('TSTEP', 'LAY', 'ROW', 'COL',),
+                                                chunksizes=self.rank_distribution[0]['shape'])
+                else:
+                    var = netcdf.createVariable(var_name, np.float64, ('TSTEP', 'LAY', 'ROW', 'COL',))
+            if self.comm_write.Get_size() > 1 and not self.chunking:
                 var.set_collective(True)
 
             try:
