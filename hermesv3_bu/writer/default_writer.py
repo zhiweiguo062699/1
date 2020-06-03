@@ -7,8 +7,6 @@ from mpi4py import MPI
 import timeit
 from hermesv3_bu.logger.log import Log
 
-CHUNK = True
-
 
 class DefaultWriter(Writer):
     def __init__(self, comm_world, comm_write, logger, netcdf_path, grid, date_array, pollutant_info,
@@ -203,8 +201,14 @@ class DefaultWriter(Writer):
                 var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim,
                                             zlib=True, complevel=self.compression_level)
             else:
-                var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim)
-            if self.comm_write.Get_size() > 1:
+                if self.chunking:
+                    var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim,
+                                                chunksizes=self.rank_distribution[0]['shape'])
+
+                else:
+                    var = netcdf.createVariable(var_name, np.float64, ('time', 'lev',) + var_dim)
+
+            if self.comm_write.Get_size() > 1 and not self.chunking:
                 var.set_collective(True)
 
             var_data = self.dataframe_to_array(emissions.loc[:, [var_name]])
@@ -218,14 +222,14 @@ class DefaultWriter(Writer):
             var.units = self.pollutant_info.loc[var_name, 'units']
             var.missing_value = -999.0
             var.coordinates = 'lat lon'
-            if self.grid.grid_type == 'Regular Lat-Lon':
-                var.grid_mapping = 'Latitude_Longitude'
-            elif self.grid.grid_type == 'Lambert Conformal Conic':
-                var.grid_mapping = 'Lambert_Conformal'
-            elif self.grid.grid_type in ['Rotated', 'Rotated_nested']:
-                var.grid_mapping = 'rotated_pole'
-            elif self.grid.grid_type == 'Mercator':
-                var.grid_mapping = 'mercator'
+            # if self.grid.grid_type == 'Regular Lat-Lon':
+            #     var.grid_mapping = 'Latitude_Longitude'
+            # elif self.grid.grid_type == 'Lambert Conformal Conic':
+            #     var.grid_mapping = 'Lambert_Conformal'
+            # elif self.grid.grid_type in ['Rotated', 'Rotated_nested']:
+            #     var.grid_mapping = 'rotated_pole'
+            # elif self.grid.grid_type == 'Mercator':
+            #     var.grid_mapping = 'mercator'
 
         # ========== METADATA ==========
         self.logger.write_log('\tCreating NetCDF metadata', message_level=2)
@@ -238,12 +242,14 @@ class DefaultWriter(Writer):
             mapping.semi_major_axis = 6371000.0
             mapping.inverse_flattening = 0
 
-        elif self.grid.grid_type == 'Lambert Conformal Conic':
-            mapping = netcdf.createVariable('Lambert_Conformal', 'i')
-            mapping.grid_mapping_name = "lambert_conformal_conic"
-            mapping.standard_parallel = [self.grid.attributes['lat_1'], self.grid.attributes['lat_2']]
-            mapping.longitude_of_central_meridian = self.grid.attributes['lon_0']
-            mapping.latitude_of_projection_origin = self.grid.attributes['lat_0']
+        # elif self.grid.grid_type == 'Lambert Conformal Conic':
+        #     mapping = netcdf.createVariable('Lambert_Conformal', 'i')
+        #     mapping.grid_mapping_name = "lambert_conformal_conic"
+        #     mapping.standard_parallel = [self.grid.attributes['lat_2'], self.grid.attributes['lat_1']]
+        #     mapping.longitude_of_central_meridian = self.grid.attributes['lon_0']
+        #     mapping.latitude_of_projection_origin = self.grid.attributes['lat_0']
+        #     mapping.false_easting = self.grid.attributes['x_0']
+        #     mapping.false_northing = self.grid.attributes['y_0']
 
         elif self.grid.grid_type in ['Rotated', 'Rotated_nested']:
             mapping = netcdf.createVariable('rotated_pole', 'c')
