@@ -5,6 +5,7 @@
     - Corrected bug on NetCDF compression
     - Corrected bug on emission summary
     - Added CHUNK capability on writer.py
+    - R-LINE output bug solved
 
 1.0.2
     2020/05/04
