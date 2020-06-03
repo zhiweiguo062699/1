@@ -937,7 +937,9 @@ class TrafficSector(Sector):
         cold_links.drop(columns=['aadt', 'PcHeavy', 'PcMoto', 'PcMoped', 'sp_wd', 'sp_we', 'sp_hour_su', 'sp_hour_mo',
                                  'sp_hour_tu', 'sp_hour_we', 'sp_hour_th', 'sp_hour_fr', 'sp_hour_sa', 'Road_type',
                                  'aadt_m_mn', 'aadt_h_mn', 'aadt_h_wd', 'aadt_h_sat', 'aadt_h_sun', 'aadt_week',
-                                 'fleet_comp', 'road_grad', 'PcLight', 'start_date', 'FID'], inplace=True)
+                                 'fleet_comp', 'road_grad', 'PcLight', 'start_date'], inplace=True)
+        if 'FID' in cold_links.columns:
+            cold_links.drop(columns=['FID'], inplace=True)
         libc.malloc_trim(0)
 
         cold_links['centroid'] = cold_links['geometry'].centroid
@@ -1493,7 +1495,10 @@ class TrafficSector(Sector):
 
         emissions.drop(columns=['geometry'], inplace=True)
         for poll in emissions.columns.values:
-            mol_w = self.molecular_weights[self.speciation_map[poll]]
+            if poll in ['PMC', 'pmc']:
+                mol_w = 1
+            else:
+                mol_w = self.molecular_weights[self.speciation_map[poll]]
             # From g/km.h to g/m.s
             emissions.loc[:, poll] = emissions.loc[:, poll] * mol_w / (1000 * 3600)
 
