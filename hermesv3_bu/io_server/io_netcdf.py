@@ -3,7 +3,7 @@
 import sys
 import os
 from mpi4py import MPI
-from datetime import timedelta
+from warnings import warn
 import numpy as np
 import geopandas as gpd
 from netCDF4 import Dataset
@@ -43,7 +43,27 @@ class IoNetcdf(IoServer):
         :return: GeoDataframe with the data in the desired points.
         :rtype: geopandas.GeoDataframe
         """
-        check_files(netcdf_path)
+        # check_files(netcdf_path)
+        climatology = False
+        if not os.path.exists(netcdf_path):
+            if date_type == 'daily':
+                path_climatology = netcdf_path[:-10] + '_climatology{0}.nc'.format(str(date.month).zfill(2))
+
+            elif date_type == 'yearly':
+                path_climatology = netcdf_path[:-8] + '_climatology.nc'
+            if not os.path.exists(path_climatology):
+                error_message = "*ERROR* (Rank {0}) File/s not found:".format(MPI.COMM_WORLD.Get_rank())
+                error_message += "\n\t{0}\n\tneither {1}".format(netcdf_path, path_climatology)
+                error_exit(error_message)
+            else:
+                error_message = "*WARNING* (Rank {0}) File/s not found:".format(MPI.COMM_WORLD.Get_rank())
+                error_message += "\n\t{0}\n\t using {1}".format(netcdf_path, path_climatology)
+                print(error_message)
+                sys.stdout.flush()
+                warn(error_message)
+
+                climatology = True
+                netcdf_path = path_climatology
         nc = Dataset(netcdf_path, mode='r')
         try:
             lat_o = nc.variables['latitude'][:]
@@ -62,7 +82,11 @@ class IoNetcdf(IoServer):
                 error_exit("{0} variable not found in {1} file.".format(str(e), netcdf_path))
             # From time array to list of dates.
             time_array = num2date(time[:], time.units, CALENDAR_STANDARD)
-            time_array = np.array([aux.date() for aux in time_array])
+
+            if climatology:
+                time_array = np.array([aux.date().replace(year=date.year) for aux in time_array])
+            else:
+                time_array = np.array([aux.date() for aux in time_array])
             i_time = np.where(time_array == date)[0][0]
         elif date_type == 'yearly':
             i_time = 0
@@ -114,30 +138,57 @@ class IoNetcdf(IoServer):
         :param lat_max: Maximum latitude of the centroid of the road links.
         :type lat_max: float
 
-        :return: Temperature, centroid of the cell and cell identificator (REC).
+        :return: Temperature, centroid of the cell and cell id (REC).
             Each time step is each column with the name t_<timestep>.
         :rtype: GeoDataFrame
         """
+        climatology = False
         path = os.path.join(netcdf_dir, '{0}_{1}{2}.nc'.format(var_name, date_array[0].year,
                                                                str(date_array[0].month).zfill(2)))
         # self.logger.write_log('Getting temperature from {0}'.format(path), message_level=2)
-        check_files(path)
+        if not os.path.exists(path):
+            path_climatology = os.path.join(netcdf_dir, '{0}_{1}{2}.nc'.format(
+                var_name, 'climatology', str(date_array[0].month).zfill(2)))
+            if not os.path.exists(path_climatology):
+                error_message = "*ERROR* (Rank {0}) File/s not found:".format(MPI.COMM_WORLD.Get_rank())
+                error_message += "\n\t{0}\n\tneither {1}".format(path, path_climatology)
+                if var_name == 'prlr':
+                    raise FileNotFoundError(path)
+                else:
+                    error_exit(error_message)
+            else:
+                error_message = "*WARNING* (Rank {0}) File/s not found:".format(MPI.COMM_WORLD.Get_rank())
+                error_message += "\n\t{0}\n\t using {1}".format(path, path_climatology)
+                print(error_message)
+                sys.stdout.flush()
+                warn(error_message)
+
+                climatology = True
+                path = path_climatology
+
         nc = Dataset(path, mode='r')
         try:
             lat_o = nc.variables['latitude'][:]
             lon_o = nc.variables['longitude'][:]
             n_lat = len(lat_o)
-            time = nc.variables['time']
         except KeyError as e:
             try:
                 lat_o = nc.variables['lat'][:]
                 lon_o = nc.variables['lon'][:]
                 n_lat = len(lat_o)
-                time = nc.variables['time']
             except KeyError as e:
                 error_exit("{0} variable not found in {1} file.".format(str(e), path))
+
+        try:
+            time = nc.variables['time']
+        except KeyError as e:
+            error_exit("{0} variable not found in {1} file.".format(str(e), path))
         # From time array to list of dates.
         time_array = num2date(time[:], time.units,  CALENDAR_STANDARD)
+
+        if climatology:
+            time_array = np.array([time_aux.replace(year=date_array[0].year) for time_aux in time_array])
+
         i_time = np.where(time_array == date_array[0])[0][0]
 
         # Correction to set the longitudes from -180 to 180 instead of from 0 to 360.
@@ -156,7 +207,7 @@ class IoNetcdf(IoServer):
         lon = np.array([lon_o[:]] * len(lat_o[:])).flatten()
         # del lat_o, lon_o
 
-        # Reads the var variable of the xone and the times needed.
+        # Reads the var variable of the one and the times needed.
         try:
             var = nc.variables[var_name][i_time:i_time + (len(date_array)), j_min:j_max, i_min:i_max]
         except KeyError as e:
@@ -166,10 +217,25 @@ class IoNetcdf(IoServer):
         # That condition is fot the cases that the needed temperature is in a different NetCDF.
         while len(var) < len(date_array):
             aux_date = date_array[len(var)]
+            climatology = False
             path = os.path.join(netcdf_dir, '{0}_{1}{2}.nc'.format(var_name, aux_date.year,
                                                                    str(aux_date.month).zfill(2)))
-            # self.logger.write_log('Getting {0} from {1}'.format(var_name, path), message_level=2)
-            check_files(path)
+            if not os.path.exists(path):
+                path_climatology = os.path.join(netcdf_dir, '{0}_{1}{2}.nc'.format(var_name, 'climatology',
+                                                                                   str(date_array[0].month).zfill(2)))
+                if not os.path.exists(path_climatology):
+                    error_message = "*ERROR* (Rank {0}) File/s not found:".format(MPI.COMM_WORLD.Get_rank())
+                    error_message += "\n\t{0}\n\tneither {1}".format(path, path_climatology)
+                    error_exit(error_message)
+                else:
+                    error_message = "*WARNING* (Rank {0}) File/s not found:".format(MPI.COMM_WORLD.Get_rank())
+                    error_message += "\n\t{0}\n\t using {1}".format(path, path_climatology)
+                    print(error_message)
+                    sys.stdout.flush()
+                    warn(error_message)
+
+                    climatology = True
+                    path = path_climatology
             nc = Dataset(path, mode='r')
             i_time = 0
             try:

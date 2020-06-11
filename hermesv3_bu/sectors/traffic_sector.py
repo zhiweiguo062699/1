@@ -9,7 +9,7 @@ import geopandas as gpd
 from geopandas import GeoDataFrame
 import numpy as np
 from datetime import timedelta
-import warnings
+from warnings import warn
 from hermesv3_bu.logger.log import Log
 from hermesv3_bu.sectors.sector import Sector
 from hermesv3_bu.io_server.io_netcdf import IoNetcdf
@@ -556,7 +556,7 @@ class TrafficSector(Sector):
                 df.drop(columns=['Copert_V_name'], inplace=True)
         except IOError:
             self.logger.write_log('WARNING! No mileage correction applied to {0}'.format(pollutant_name))
-            warnings.warn('No mileage correction applied to {0}'.format(pollutant_name))
+            warn('No mileage correction applied to {0}'.format(pollutant_name))
             df = None
 
         if downcasting:
@@ -841,7 +841,7 @@ class TrafficSector(Sector):
             if len(resta_1) > 0:
                 self.logger.write_log('WARNING! Exists some fleet codes that not appear on the EF file: {0}'.format(
                     resta_1))
-                warnings.warn('Exists some fleet codes that not appear on the EF file: {0}'.format(resta_1), Warning)
+                warn('Exists some fleet codes that not appear on the EF file: {0}'.format(resta_1), Warning)
             if len(resta_2) > 0:
                 error_exit('Exists some fleet codes duplicated on the EF file: {0}'.format(resta_2))
 
@@ -1062,7 +1062,7 @@ class TrafficSector(Sector):
             else:
                 self.logger.write_log("nmvoc emissions cannot be estimated because voc or ch4 are not selected in " +
                                       "the pollutant list.")
-                warnings.warn(
+                warn(
                     "nmvoc emissions cannot be estimated because voc or ch4 are not selected in the pollutant list.")
 
         compacted = self.speciate_traffic(expanded, self.hot_cold_speciation)
@@ -1178,9 +1178,16 @@ class TrafficSector(Sector):
             road_link_aux['centroid'] = road_link_aux['geometry'].centroid
             link_lons = road_link_aux['geometry'].centroid.x
             link_lats = road_link_aux['geometry'].centroid.y
-
-            p_factor = self.calculate_precipitation_factor(link_lons.min(), link_lons.max(), link_lats.min(),
-                                                           link_lats.max(), self.precipitation_path)
+            try:
+                p_factor = self.calculate_precipitation_factor(link_lons.min(), link_lons.max(), link_lats.min(),
+                                                               link_lats.max(), self.precipitation_path)
+            except FileNotFoundError as e:
+                self.resuspension_correction = False
+                message = "*WARNING* The the rain correction was not applied due to missing time steps in the " + \
+                          "precipitation dataset {0}".format(e)
+                self.logger.write_log(message)
+                warn(message)
+        if self.resuspension_correction:
             unary_union = p_factor.unary_union
 
             road_link_aux['REC'] = road_link_aux.apply(self.nearest, geom_union=unary_union, df1=road_link_aux,
@@ -1239,16 +1246,20 @@ class TrafficSector(Sector):
                 df.rename(columns={p_name: p_name_new}, inplace=True)
                 pollutants_renamed.append(p_name_new)
 
-            df_aux = df[['Link_ID', 'Fleet_Code'] + pollutants_renamed]
+            df_aux = df[['Link_ID', 'Fleet_Code'] + pollutants_renamed].copy()
             df_aux['tstep'] = tstep
 
             df_list.append(df_aux)
             df.drop(columns=pollutants_renamed, inplace=True)
-            del df_aux
+            # del df_aux
             libc.malloc_trim(0)
             gc.collect()
 
         df = pd.concat(df_list, ignore_index=True)
+        for to_delete in df_list:
+            del to_delete
+        libc.malloc_trim(0)
+        gc.collect()
         self.logger.write_time_log('TrafficSector', 'transform_df', timeit.default_timer() - spent_time)
         return df
 
