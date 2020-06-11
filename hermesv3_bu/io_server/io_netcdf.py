@@ -10,6 +10,7 @@ from netCDF4 import Dataset
 from shapely.geometry import Point
 from cf_units import num2date, CALENDAR_STANDARD
 from geopandas import GeoDataFrame
+from calendar import isleap
 
 from hermesv3_bu.io_server.io_server import IoServer
 from hermesv3_bu.tools.checker import check_files, error_exit
@@ -84,6 +85,8 @@ class IoNetcdf(IoServer):
             time_array = num2date(time[:], time.units, CALENDAR_STANDARD)
 
             if climatology:
+                if not isleap(year=date.year) and date.month == 2:
+                    time_array = time_array[:28]
                 time_array = np.array([aux.date().replace(year=date.year) for aux in time_array])
             else:
                 time_array = np.array([aux.date() for aux in time_array])
@@ -187,6 +190,8 @@ class IoNetcdf(IoServer):
         time_array = num2date(time[:], time.units,  CALENDAR_STANDARD)
 
         if climatology:
+            if not isleap(year=date_array[0].year) and date_array[0].month == 2:
+                time_array = time_array[:28*24]
             time_array = np.array([time_aux.replace(year=date_array[0].year) for time_aux in time_array])
 
         i_time = np.where(time_array == date_array[0])[0][0]
