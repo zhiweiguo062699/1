@@ -201,8 +201,13 @@ class MonarchWriter(Writer):
                 var = netcdf.createVariable(var_name, 'f', ('time', 'lev',) + var_dim,
                                             zlib=True, complevel=self.compression_level)
             else:
-                var = netcdf.createVariable(var_name, 'f', ('time', 'lev',) + var_dim)
-            if self.comm_write.Get_size() > 1:
+                if self.chunking:
+                    var = netcdf.createVariable(var_name, 'f', ('time', 'lev',) + var_dim,
+                                                zlib=True, complevel=self.compression_level)
+                else:
+                    var = netcdf.createVariable(var_name, 'f', ('time', 'lev',) + var_dim)
+
+            if self.comm_write.Get_size() > 1 and not self.chunking:
                 var.set_collective(True)
 
             try:
