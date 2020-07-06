@@ -1,5 +1,5 @@
 1.0.3
-    XXXX/XX/XX
+    2020/07/06
 
     - NetCDF read: Added capability to try to read 'lat' instead of 'latitude' and 'lon' instead of 'longitude'
     - Corrected bug on NetCDF compression
