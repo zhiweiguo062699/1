@@ -116,12 +116,13 @@ class WrfChemWriter(Writer):
         emissions = emissions.divide(cell_area['cell_area'], axis=0, level='FID')
         print(emissions.columns)
         for pollutant, info in self.pollutant_info.iterrows():
-            if info.get('units') == "ug/m3 m/s":
-                # From g/m2.h to ug/m2.s
-                emissions[pollutant] = emissions[pollutant].mul(10**6 / 3600)
-            elif info.get('units') == "mol km^-2 hr^-1":
-                # From mol/m2.h to mol/km2.h
-                emissions[pollutant] = emissions[pollutant].mul(10**6)
+            if pollutant in emissions.columns:
+                if info.get('units') == "ug/m3 m/s":
+                    # From g/m2.h to ug/m2.s
+                    emissions[pollutant] = emissions[pollutant].mul(10**6 / 3600)
+                elif info.get('units') == "mol km^-2 hr^-1":
+                    # From mol/m2.h to mol/km2.h
+                    emissions[pollutant] = emissions[pollutant].mul(10**6)
 
         self.logger.write_time_log('WrfChemWriter', 'unit_change', timeit.default_timer() - spent_time)
         return emissions
