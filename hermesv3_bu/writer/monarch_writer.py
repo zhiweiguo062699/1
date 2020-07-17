@@ -89,7 +89,6 @@ class MonarchWriter(Writer):
         if self.comm_write.Get_rank() == 0:
             self.grid.add_cell_area()
             cell_area = self.grid.shapefile[['cell_area']]
-            # cell_area.set_index('FID', inplace=True)
         else:
             cell_area = None
         cell_area = self.comm_write.bcast(cell_area, root=0)
