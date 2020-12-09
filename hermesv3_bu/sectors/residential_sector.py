@@ -318,7 +318,8 @@ class ResidentialSector(Sector):
         daily_distribution.drop(columns=['centroid', 'REC', 'geometry_y'], axis=1, inplace=True)
         daily_distribution.rename(columns={'geometry_x': 'geometry'}, inplace=True)
 
-        for fuel in self.fuel_list:
+        for i, fuel in enumerate(self.fuel_list):
+            self.logger.write_log("\t\t{0} {1}/{2}".format(fuel, i+1, len(self.fuel_list)), message_level=3)
             # Selection of factor for HDD as a function of fuel type
             if fuel.startswith('B_'):
                 hdd_f = self.hdd_f_biomass
@@ -341,6 +342,7 @@ class ResidentialSector(Sector):
 
         daily_distribution = {}
         for day in self.day_dict.keys():
+            self.logger.write_log("\t{0}".format(day), message_level=3)
             daily_distribution[day] = self.calculate_daily_distribution(day)
 
         self.logger.write_time_log('ResidentialSector', 'get_fuel_distribution_by_day',

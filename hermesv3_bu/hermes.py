@@ -70,7 +70,9 @@ class HermesBu(object):
 
             self.writer.write(emis)
             self.comm.Barrier()
-
+            if self.comm.Get_rank() == 0:
+                print('***** HERMESv3_BU simulation finished successfully *****')
+                sys.stdout.flush()
             self.logger.write_log('***** HERMESv3_BU simulation finished successfully *****')
         self.logger.write_time_log('HERMES', 'TOTAL', timeit.default_timer() - self.initial_time)
         self.logger.finish_logs()
