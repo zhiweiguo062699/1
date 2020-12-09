@@ -51,7 +51,7 @@ class ShapefileClip(Clip):
                 clip = gpd.GeoDataFrame(geometry=[geom], crs=clip.crs)
                 clip.to_file(self.shapefile_path)
             else:
-                error_exit(" Clip shapefile {0} not found.")
+                error_exit(" Clip shapefile {0} not found.".format(clip_path))
         else:
             clip = gpd.read_file(self.shapefile_path)
         self.logger.write_log("\tClip created at '{0}'".format(self.shapefile_path), 3)
