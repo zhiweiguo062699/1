@@ -5,6 +5,7 @@ from configargparse import ArgParser
 import os
 from mpi4py import MPI
 from hermesv3_bu.tools.checker import error_exit
+from hermesv3_bu import __version__
 
 
 class Config(ArgParser):
@@ -40,6 +41,7 @@ class Config(ArgParser):
 
         p = ArgParser()
         p.add_argument('-c', '--my-config', required=False, is_config_file=True, help='Path to the configuration file.')
+        p.add_argument('--version', '-V', action='version', version="%(prog)s " + __version__)
         # ===== GENERAL =====
         p.add_argument('--log_level', required=True, help='Level of detail of the running process information.',
                        type=int, choices=[1, 2, 3])
