@@ -727,6 +727,9 @@ class Config(ArgParser):
                 self.comm.Barrier()
         self.create_dir(arguments.auxiliary_files_path)
 
+        if arguments.clipping == "None":
+            arguments.clipping = None
+
         # Booleans
         arguments.do_traffic = arguments.traffic_processors > 0
         arguments.do_traffic_area = arguments.traffic_area_processors > 0
@@ -796,6 +799,8 @@ class Config(ArgParser):
 
         # Traffic lists
         arguments.traffic_pollutants = self._parse_list(arguments.traffic_pollutants)
+        if arguments.vehicle_types == "All":
+            arguments.vehicle_types = None
         arguments.vehicle_types = self._parse_list(arguments.vehicle_types)
 
         # Traffic area bools

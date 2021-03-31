@@ -33,7 +33,7 @@ FINAL_PROJ = {'init': 'epsg:3035'}  # https://epsg.io/3035 ETRS89 / LAEA Europe
 aerosols = ['oc', 'ec', 'pno3', 'pso4', 'pmfine', 'pmc', 'poa', 'poc', 'pec', 'pcl', 'pnh4', 'pna', 'pmg', 'pk', 'pca',
             'pncom', 'pfe', 'pal', 'psi', 'pti', 'pmn', 'ph2o', 'pmothr']
 pmc_list = ['pmc', 'PMC']
-rline_shp = False
+rline_shp = True
 
 
 class TrafficSector(Sector):
@@ -1557,7 +1557,8 @@ class TrafficSector(Sector):
 
             df_in = df_in.to_crs({u'units': u'm', u'no_defs': True, u'ellps': u'intl', u'proj': u'utm', u'zone': 31})
             if rline_shp:
-                df_in.to_file(os.path.join(self.output_dir, 'roads.shp'))
+                if not os.path.exists(os.path.join(self.output_dir, 'roads.shp')):
+                    df_in.to_file(os.path.join(self.output_dir, 'roads.shp'))
 
             count = 0
             for i, line in df_in.iterrows():
@@ -1604,7 +1605,8 @@ class TrafficSector(Sector):
 
             df_out.set_index('Link_ID', inplace=True)
             df_out.sort_index(inplace=True)
-            df_out.to_csv(os.path.join(self.output_dir, 'roads.txt'), index=False, sep=' ')
+            if not os.path.exists(os.path.join(self.output_dir, 'roads.txt')):
+                df_out.to_csv(os.path.join(self.output_dir, 'roads.txt'), index=False, sep=' ')
         self.comm.Barrier()
         self.logger.write_log('\t\tTraffic emissions calculated', message_level=2)
         self.logger.write_time_log('TrafficSector', 'write_rline_roadlinks', timeit.default_timer() - spent_time)
