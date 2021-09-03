@@ -178,20 +178,12 @@ class TrafficSector(Sector):
         if scenario_path is not None:
             self.logger.write_log('\t\tGetting emission scenario', message_level=2)
             scenario_shp = IoShapefile(self.comm).read_shapefile_broadcast(scenario_path, crs=self.road_links.crs)
-            print('SCENARIO SHP')
-            print(scenario_shp)
-            print(scenario_shp.columns)
+
             scenario = gpd.sjoin(GeoDataFrame(index=self.road_links.index, geometry=self.road_links.geometry.centroid,
                                               crs=self.road_links.crs), scenario_shp, how='left')
-            print('SCENARIO')
-            print(scenario)
-            print(scenario.columns)
-            if len(scenario.loc[~scenario['PM10'].isna()]) > 0:
-                print(scenario.loc[~scenario['PM10'].isna()])
-                print("{0} ".format(self.comm.Get_rank()) * 100)
-            exit()
+            scenario = scenario.loc[:, scenario_shp.columns]
+            scenario.fillna(1, inplace=True)
 
-            scenario = scenario_path
         else:
             scenario = None
 
@@ -1388,22 +1380,9 @@ class TrafficSector(Sector):
 
     def apply_scenario(self, emissions):
         self.logger.write_log('\t\tApplying emission scenario', message_level=2)
-        print(emissions)
-        print(emissions.columns)
-        print('ROAD LINKS')
-        print(self.road_links)
-        print(self.road_links.columns)
-        scenario_shp = IoShapefile(self.comm).read_shapefile_broadcast(self.scenario)
-        for col_name in scenario_shp.columns:
-            scenario_shp.rename(columns={col_name: '{0}_f'.format(col_name)}, inplace=True)
-        print('SCENARIO')
-        print(scenario_shp)
-        print(scenario_shp.columns)
-        emissions = gpd.sjoin(emissions, scenario_shp, how='left')
-        print('EMISSIONS')
-        print(emissions)
-        print(emissions.columns)
-        self.logger.write_log('{0}'.format(emissions.columns.to_list()), message_level=3)
+        emis_aux = emissions.join(self.scenario, rsuffix='_f')
+        print(emis_aux)
+        print(emis_aux.columns)
         exit()
         return emissions
 
