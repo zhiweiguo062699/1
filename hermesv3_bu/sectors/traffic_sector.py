@@ -1420,6 +1420,11 @@ class TrafficSector(Sector):
         libc.malloc_trim(0)
         df_accum.set_index(['Link_ID', 'tstep'], inplace=True)
 
+        if self.traffic_scenario is not None:
+
+            print(df_accum)
+            exit()
+
         if self.write_rline:
             self.write_rline_output(df_accum.copy())
         self.logger.write_log('\t\tRoad link emissions to grid.', message_level=2)
