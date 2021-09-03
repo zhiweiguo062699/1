@@ -176,12 +176,10 @@ class TrafficSector(Sector):
             scenario = None
         else:
             scenario_shp = IoShapefile(self.comm).read_shapefile_broadcast(scenario_path)
-            for col_name in scenario_shp.columns:
-                scenario_shp.rename(columns={col_name: '{0}_f'.format(col_name)}, inplace=True)
             print('SCENARIO SHP')
             print(scenario_shp)
             print(scenario_shp.columns)
-            scenario = gpd.sjoin(self.road_links, scenario_shp, how='left')
+            scenario = gpd.sjoin(self.road_links, scenario_shp, how='left', lsuffix='_f')
             print('SCENARIO')
             print(scenario)
             print(scenario.columns)
