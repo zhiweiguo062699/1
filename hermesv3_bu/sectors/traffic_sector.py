@@ -1362,8 +1362,10 @@ class TrafficSector(Sector):
         self.logger.write_time_log('TrafficSector', 'speciate_traffic', timeit.default_timer() - spent_time)
         return df_out
 
-    def calculate_scenario(self, emissions):
+    def apply_scenario(self, emissions):
+        self.logger.write_log('\t\tApplying emission scenario', message_level=2)
         scenario_shp = IoShapefile(self.comm).read_shapefile_broadcast(self.traffic_scenario)
+        scenario_shp = gpd.sjoin(emissions, scenario_shp, how='left', rsuffix='_f', lsuffix=None)
         print(scenario_shp)
         exit()
         return emissions
@@ -1432,7 +1434,7 @@ class TrafficSector(Sector):
         df_accum.set_index(['Link_ID', 'tstep'], inplace=True)
 
         if self.traffic_scenario is not None:
-            df_accum = self.calculate_scenario(df_accum)
+            df_accum = self.apply_scenario(df_accum)
 
         if self.write_rline:
             self.write_rline_output(df_accum.copy())
