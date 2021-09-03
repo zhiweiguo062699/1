@@ -186,7 +186,9 @@ class TrafficSector(Sector):
             print('SCENARIO')
             print(scenario)
             print(scenario.columns)
-            print(scenario.loc[~scenario['PM10'].isna()])
+            if len(scenario.loc[~scenario['PM10'].isna()]) > 0:
+                print(scenario.loc[~scenario['PM10'].isna()])
+                print("{0} ".format(self.comm.Get_rank()) * 100)
             exit()
 
             scenario = scenario_path
