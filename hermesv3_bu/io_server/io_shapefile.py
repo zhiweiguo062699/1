@@ -89,6 +89,18 @@ class IoShapefile(IoServer):
         return data
 
     def read_shapefile_broadcast(self, path, rank=0):
+        """
+        The master process reads the shapefile and broadcast it.
+
+        :param path: Path to the shapefile
+        :type path: str
+
+        :param rank: Master rank
+        :type rank: int
+
+        :return: Shapefile
+        :rtype: GeoDataFrame
+        """
         if self.comm.Get_rank() == rank:
             data = self.read_shapefile_serial(path)
         else:
