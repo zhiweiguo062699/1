@@ -177,7 +177,7 @@ class TrafficSector(Sector):
 
         if scenario_path is not None:
             self.logger.write_log('\t\tGetting emission scenario', message_level=2)
-            scenario_shp = IoShapefile(self.comm).read_shapefile_broadcast(scenario_path)
+            scenario_shp = IoShapefile(self.comm).read_shapefile_broadcast(scenario_path, crs=self.road_links.crs)
             print('SCENARIO SHP')
             print(scenario_shp)
             print(scenario_shp.columns)
