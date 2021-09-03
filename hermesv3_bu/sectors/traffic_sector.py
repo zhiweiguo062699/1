@@ -174,15 +174,19 @@ class TrafficSector(Sector):
             msg += "Traffic scenario file '{0}' not found! Setting it to no scenario."
             warn(msg)
             scenario_path = None
+
         if scenario_path is not None:
+            self.logger.write_log('\t\tGetting emission scenario', message_level=2)
             scenario_shp = IoShapefile(self.comm).read_shapefile_broadcast(scenario_path)
             print('SCENARIO SHP')
             print(scenario_shp)
             print(scenario_shp.columns)
-            scenario = gpd.sjoin(self.road_links[['geometry']], scenario_shp, how='left')
+            scenario = gpd.sjoin(GeoDataFrame(index=self.road_links.index, geometry=self.road_links.geometry.centroid,
+                                              crs=self.road_links.crs), scenario_shp, how='left')
             print('SCENARIO')
             print(scenario)
             print(scenario.columns)
+            print(scenario.loc[~scenario['PM10'].isna()])
             exit()
 
             scenario = scenario_path
