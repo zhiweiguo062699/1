@@ -175,7 +175,7 @@ class TrafficSector(Sector):
             warn(msg)
             scenario = None
         else:
-            scenario_shp = IoShapefile(self.comm).read_shapefile_broadcast(self.scenario)
+            scenario_shp = IoShapefile(self.comm).read_shapefile_broadcast(scenario_path)
             for col_name in scenario_shp.columns:
                 scenario_shp.rename(columns={col_name: '{0}_f'.format(col_name)}, inplace=True)
             print('SCENARIO SHP')
