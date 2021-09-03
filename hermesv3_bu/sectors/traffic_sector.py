@@ -1389,9 +1389,10 @@ class TrafficSector(Sector):
         print(emissions)
         print(emissions.columns)
         emis_aux = emissions.join(self.scenario, rsuffix='_f')
-        print(emis_aux)
-        print(emis_aux.columns)
-        exit()
+        for pollutant in self.scenario.columns:
+            if pollutant in emissions.columns:
+                self.logger.write_log('\t\t\tApplying emission scenario for {0}'.format(pollutant), message_level=3)
+                emissions.loc[emis_aux.index, pollutant] *= emis_aux.loc[:, '{0}_f'.format(pollutant)]
         return emissions
 
     def calculate_emissions(self):
