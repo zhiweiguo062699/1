@@ -1364,12 +1364,19 @@ class TrafficSector(Sector):
 
     def apply_scenario(self, emissions):
         self.logger.write_log('\t\tApplying emission scenario', message_level=2)
+        print(emissions)
+        print(emissions.columns)
         scenario_shp = IoShapefile(self.comm).read_shapefile_broadcast(self.traffic_scenario)
         for col_name in scenario_shp.columns:
             scenario_shp.rename(columns={col_name: '{0}_f'.format(col_name)}, inplace=True)
-        emisisons = gpd.sjoin(emissions, scenario_shp, how='left')
-        print(emisisons)
-        print(emisisons.columns)
+        print('SCENARIO')
+        print(scenario_shp)
+        print(scenario_shp.columns)
+        emissions = gpd.sjoin(emissions, scenario_shp, how='left')
+        print('EMISSIONS')
+        print(emissions)
+        print(emissions.columns)
+        self.logger.write_log('{0}'.format(emissions.columns.to_list()), message_level=3)
         exit()
         return emissions
 
