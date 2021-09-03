@@ -1380,6 +1380,12 @@ class TrafficSector(Sector):
 
     def apply_scenario(self, emissions):
         self.logger.write_log('\t\tApplying emission scenario', message_level=2)
+        print('SCENARIO')
+        print(self.scenario)
+        print(self.scenario.colums)
+        print('EMISSIONS')
+        print(emissions)
+        print(emissions.columns)
         emis_aux = emissions.join(self.scenario, rsuffix='_f')
         print(emis_aux)
         print(emis_aux.columns)
