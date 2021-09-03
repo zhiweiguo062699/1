@@ -17,7 +17,6 @@ from hermesv3_bu.io_server.io_shapefile import IoShapefile
 from hermesv3_bu.tools.checker import check_files, error_exit
 
 import gc
-from memory_profiler import profile
 from ctypes import cdll, CDLL
 cdll.LoadLibrary("libc.so.6")
 libc = CDLL("libc.so.6")
@@ -56,7 +55,7 @@ class TrafficSector(Sector):
                  hot_cold_speciation=None, tyre_speciation=None, road_speciation=None, brake_speciation=None,
                  resuspension_speciation=None, temp_common_path=None, output_dir=None, molecular_weights_path=None,
                  resuspension_correction=True, precipitation_path=None, do_hot=True, do_cold=True, do_tyre_wear=True,
-                 do_brake_wear=True, do_road_wear=True, do_resuspension=True, write_rline=False):
+                 do_brake_wear=True, do_road_wear=True, do_resuspension=True, write_rline=False, traffic_scenario=None):
 
         spent_time = timeit.default_timer()
         logger.write_log('===== TRAFFIC SECTOR =====')
@@ -136,6 +135,8 @@ class TrafficSector(Sector):
                                                              hourly_saturday_profiles_path, hourly_sunday_profiles_path)
         self.check_profiles()
         self.expanded = self.expand_road_links()
+
+        self.traffic_scenario = traffic_scenario
 
         del self.fleet_compo, self.speed_hourly, self.monthly_profiles, self.weekly_profiles, self.hourly_profiles
         libc.malloc_trim(0)

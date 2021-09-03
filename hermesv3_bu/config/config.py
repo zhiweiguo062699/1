@@ -627,6 +627,8 @@ class Config(ArgParser):
         p.add_argument('--traffic_speciation_profile_resuspension', required=False,
                        help="Defines the path to the CSV file that contains the speciation profiles for the " +
                             "resuspension emissions.")
+        p.add_argument('--traffic_scenario', required=False, default=None,
+                       help="Defines the path to the shapefile that contains the traffic scenario by input pollutant.")
 
         # ***** TRAFFIC AREA SECTOR *****
         p.add_argument('--traffic_area_pollutants', required=False,
