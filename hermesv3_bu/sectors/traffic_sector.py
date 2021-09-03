@@ -179,7 +179,7 @@ class TrafficSector(Sector):
             print('SCENARIO SHP')
             print(scenario_shp)
             print(scenario_shp.columns)
-            scenario = gpd.sjoin(self.road_links['geometry'], scenario_shp, how='left')
+            scenario = gpd.sjoin(self.road_links[['geometry']], scenario_shp, how='left')
             print('SCENARIO')
             print(scenario)
             print(scenario.columns)
