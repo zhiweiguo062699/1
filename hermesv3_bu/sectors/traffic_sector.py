@@ -135,13 +135,8 @@ class TrafficSector(Sector):
                                                              hourly_saturday_profiles_path, hourly_sunday_profiles_path)
         self.check_profiles()
         self.expanded = self.expand_road_links()
-        self.traffic_scenario = None
-        if traffic_scenario is not None and not os.path.exists(traffic_scenario):
-            msg = "WARNING!!! "
-            msg += "Traffic scenario file '{0}' not found! Setting it to no scenario."
-            warn(msg)
-        else:
-            self.traffic_scenario = traffic_scenario
+
+        self.scenario = self.get_scenario(traffic_scenario)
 
         del self.fleet_compo, self.speed_hourly, self.monthly_profiles, self.weekly_profiles, self.hourly_profiles
         libc.malloc_trim(0)
@@ -172,6 +167,25 @@ class TrafficSector(Sector):
         sys.stdout.flush()
         libc.malloc_trim(0)
         gc.collect()
+
+    def get_scenario(self, scenario_path):
+        if scenario_path is not None and not os.path.exists(scenario_path):
+            msg = "WARNING!!! "
+            msg += "Traffic scenario file '{0}' not found! Setting it to no scenario."
+            warn(msg)
+            scenario = None
+        else:
+            # scenario_shp = IoShapefile(self.comm).read_shapefile_broadcast(self.scenario)
+            # for col_name in scenario_shp.columns:
+            #     scenario_shp.rename(columns={col_name: '{0}_f'.format(col_name)}, inplace=True)
+            # print('SCENARIO')
+            # print(scenario_shp)
+            # print(scenario_shp.columns)
+            # emissions = gpd.sjoin(self.road_links, scenario_shp, how='left')
+
+            scenario = scenario_path
+
+        return scenario
 
     def check_profiles(self):
         spent_time = timeit.default_timer()
@@ -1366,7 +1380,10 @@ class TrafficSector(Sector):
         self.logger.write_log('\t\tApplying emission scenario', message_level=2)
         print(emissions)
         print(emissions.columns)
-        scenario_shp = IoShapefile(self.comm).read_shapefile_broadcast(self.traffic_scenario)
+        print('ROAD LINKS')
+        print(self.road_links)
+        print(self.road_links.columns)
+        scenario_shp = IoShapefile(self.comm).read_shapefile_broadcast(self.scenario)
         for col_name in scenario_shp.columns:
             scenario_shp.rename(columns={col_name: '{0}_f'.format(col_name)}, inplace=True)
         print('SCENARIO')
@@ -1443,7 +1460,7 @@ class TrafficSector(Sector):
         libc.malloc_trim(0)
         df_accum.set_index(['Link_ID', 'tstep'], inplace=True)
 
-        if self.traffic_scenario is not None:
+        if self.scenario is not None:
             df_accum = self.apply_scenario(df_accum)
 
         if self.write_rline:
