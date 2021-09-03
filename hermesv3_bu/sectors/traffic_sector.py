@@ -1362,6 +1362,16 @@ class TrafficSector(Sector):
         self.logger.write_time_log('TrafficSector', 'speciate_traffic', timeit.default_timer() - spent_time)
         return df_out
 
+    def calculate_scenario(self, emissions):
+        if self.comm.Get_rank() == 0:
+            shp = IoShapefile(self.comm).read_shapefile_serial(self.traffic_scenario)
+            print(shp)
+            # print(emissions)
+            # print(emissions.columns)
+        self.comm.Barrier()
+        exit()
+        return emissions
+
     def calculate_emissions(self):
         spent_time = timeit.default_timer()
         self.logger.write_log('\tCalculating Road traffic emissions', message_level=1)
@@ -1426,10 +1436,7 @@ class TrafficSector(Sector):
         df_accum.set_index(['Link_ID', 'tstep'], inplace=True)
 
         if self.traffic_scenario is not None:
-
-            print(df_accum)
-            print(df_accum.columns)
-            exit()
+            df_accum = self.calculate_scenario(df_accum)
 
         if self.write_rline:
             self.write_rline_output(df_accum.copy())
