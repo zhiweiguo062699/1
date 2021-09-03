@@ -1382,7 +1382,7 @@ class TrafficSector(Sector):
         self.logger.write_log('\t\tApplying emission scenario', message_level=2)
         print('SCENARIO')
         print(self.scenario)
-        print(self.scenario.colums)
+        print(self.scenario.columns)
         print('EMISSIONS')
         print(emissions)
         print(emissions.columns)
