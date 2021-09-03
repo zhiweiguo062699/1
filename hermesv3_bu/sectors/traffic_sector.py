@@ -1363,14 +1363,8 @@ class TrafficSector(Sector):
         return df_out
 
     def calculate_scenario(self, emissions):
-        if self.comm.Get_rank() == 0:
-            shp = IoShapefile(self.comm).read_shapefile_serial(self.traffic_scenario)
-            shp.rename(columns={'pm10': 'PM10'}, inplace=True)
-            IoShapefile(self.comm).write_shapefile_serial(shp, self.traffic_scenario)
-            print(shp)
-            # print(emissions)
-            # print(emissions.columns)
-        self.comm.Barrier()
+        scenario_shp = IoShapefile(self.comm).read_shapefile_broadcast(self.traffic_scenario)
+        print(scenario_shp)
         exit()
         return emissions
 

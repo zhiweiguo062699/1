@@ -88,6 +88,16 @@ class IoShapefile(IoServer):
 
         return data
 
+    def read_shapefile_broadcast(self, path, rank=0):
+        if self.comm.Get_rank() == rank:
+            data = self.read_shapefile_serial(path)
+        else:
+            data = None
+
+        data = self.comm.bcast(data, root=0)
+
+        return data
+
     def split_shapefile(self, data, rank=0):
         """
 
