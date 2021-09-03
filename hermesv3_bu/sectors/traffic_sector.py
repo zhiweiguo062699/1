@@ -182,6 +182,8 @@ class TrafficSector(Sector):
             scenario = gpd.sjoin(GeoDataFrame(index=self.road_links.index, geometry=self.road_links.geometry.centroid,
                                               crs=self.road_links.crs), scenario_shp, how='left')
             scenario = scenario.loc[:, scenario_shp.columns]
+            print(scenario)
+            exit()
             scenario.fillna(1, inplace=True)
 
         else:
