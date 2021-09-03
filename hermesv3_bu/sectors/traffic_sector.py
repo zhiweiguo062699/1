@@ -1382,12 +1382,6 @@ class TrafficSector(Sector):
 
     def apply_scenario(self, emissions):
         self.logger.write_log('\t\tApplying emission scenario', message_level=2)
-        print('SCENARIO')
-        print(self.scenario)
-        print(self.scenario.columns)
-        print('EMISSIONS')
-        print(emissions)
-        print(emissions.columns)
         emis_aux = emissions.join(self.scenario, rsuffix='_f')
         for pollutant in self.scenario.columns:
             if pollutant in emissions.columns:
