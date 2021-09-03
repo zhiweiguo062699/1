@@ -173,19 +173,21 @@ class TrafficSector(Sector):
             msg = "WARNING!!! "
             msg += "Traffic scenario file '{0}' not found! Setting it to no scenario."
             warn(msg)
-            scenario = None
-        else:
+            scenario_path = None
+        if scenario_path is not None:
             scenario_shp = IoShapefile(self.comm).read_shapefile_broadcast(scenario_path)
             print('SCENARIO SHP')
             print(scenario_shp)
             print(scenario_shp.columns)
-            scenario = gpd.sjoin(self.road_links, scenario_shp, how='left', lsuffix='_f')
+            scenario = gpd.sjoin(self.road_links['geometry'], scenario_shp, how='left')
             print('SCENARIO')
             print(scenario)
             print(scenario.columns)
             exit()
 
             scenario = scenario_path
+        else:
+            scenario = None
 
         return scenario
 
