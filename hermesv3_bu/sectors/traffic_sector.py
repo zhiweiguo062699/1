@@ -135,8 +135,13 @@ class TrafficSector(Sector):
                                                              hourly_saturday_profiles_path, hourly_sunday_profiles_path)
         self.check_profiles()
         self.expanded = self.expand_road_links()
-
-        self.traffic_scenario = traffic_scenario
+        self.traffic_scenario = None
+        if traffic_scenario is not None and not os.path.exists(traffic_scenario):
+            msg = "WARNING!!! "
+            msg += "Traffic scenario file '{0}' not found! Setting it to no scenario."
+            warn(msg)
+        else:
+            self.traffic_scenario = traffic_scenario
 
         del self.fleet_compo, self.speed_hourly, self.monthly_profiles, self.weekly_profiles, self.hourly_profiles
         libc.malloc_trim(0)
@@ -1423,6 +1428,7 @@ class TrafficSector(Sector):
         if self.traffic_scenario is not None:
 
             print(df_accum)
+            print(df_accum.columns)
             exit()
 
         if self.write_rline:
