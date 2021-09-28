@@ -512,8 +512,8 @@ class TrafficSector(Sector):
 
                 # Checks that the splited DataFrames contain the full DataFrame
                 if (len(df_code_slope_road) + len(df_code_slope) + len(df_code_road) + len(df_code)) != len(df):
-                    # TODO check that error
-                    error_exit('ERROR in blablavbla')
+                    error_exit('ERROR in the Emission Factor file {0}. Check the Road.Slope and Mode info'.format(
+                        ef_path))
 
                 return df_code_slope_road, df_code_slope, df_code_road, df_code
             elif emission_type == 'cold' or emission_type == 'tyre' or emission_type == 'road' or \
