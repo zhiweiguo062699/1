@@ -1383,9 +1383,9 @@ class TrafficSector(Sector):
     def apply_scenario(self, emissions):
         self.logger.write_log('\t\tApplying emission scenario', message_level=2)
         try:
-            emis_aux = emissions.sjoin(self.scenario, rsuffix='_f')
+            emis_aux = emissions.join(self.scenario, rsuffix='_f')
         except NotImplementedError as e:
-            print("Rank {0} Emis: {1}".format(self.comm.Get_rank(), emissions))
+            print("Rank {0} Emis: {1}\n Scenario: {2}".format(self.comm.Get_rank(), emissions, self.scenario))
             emissions.to_file("/gpfs/scratch/bsc32/bsc32854/hermes_test_escenarios/hermes_test_escenarios_OUT/shp_err/r_{0}".format(self.comm.Get_rank()))
             sys.stdout.flush()
             error_exit(e)
