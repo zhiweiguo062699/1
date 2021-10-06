@@ -1385,7 +1385,7 @@ class TrafficSector(Sector):
         try:
             emis_aux = emissions.join(self.scenario, rsuffix='_f')
             print("OK: Rank {0} Emis: {1}\n Scenario: {2}".format(self.comm.Get_rank(), emissions, self.scenario))
-
+            sys.stdout.flush()
         except NotImplementedError as e:
             print("ERROR: Rank {0} Emis: {1}\n Scenario: {2}".format(self.comm.Get_rank(), emissions, self.scenario))
             emissions.to_file("/gpfs/scratch/bsc32/bsc32854/hermes_test_escenarios/hermes_test_escenarios_OUT/shp_err/r_{0}".format(self.comm.Get_rank()))
