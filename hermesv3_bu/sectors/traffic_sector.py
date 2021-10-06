@@ -1390,7 +1390,7 @@ class TrafficSector(Sector):
             print("ERROR: Rank {0} Emis: {1}\n Scenario: {2}".format(self.comm.Get_rank(), emissions, self.scenario))
             emissions.to_file("/gpfs/scratch/bsc32/bsc32854/hermes_test_escenarios/hermes_test_escenarios_OUT/shp_err/r_{0}".format(self.comm.Get_rank()))
             sys.stdout.flush()
-            error_exit(e)
+            raise e
         for pollutant in self.scenario.columns:
             if pollutant in emissions.columns:
                 self.logger.write_log('\t\t\tApplying emission scenario for {0}'.format(pollutant), message_level=3)
