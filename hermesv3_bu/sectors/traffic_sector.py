@@ -1381,6 +1381,8 @@ class TrafficSector(Sector):
         return df_out
 
     def apply_scenario(self, emissions):
+        emissions.index = emissions.index.set_levels(emissions.index.levels['Link_ID'].astype(int), level='Link_ID')
+
         self.logger.write_log('\t\tApplying emission scenario', message_level=2)
         try:
             emis_aux = emissions.join(self.scenario, rsuffix='_f')
