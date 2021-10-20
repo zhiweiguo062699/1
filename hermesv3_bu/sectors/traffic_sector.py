@@ -1388,7 +1388,7 @@ class TrafficSector(Sector):
             sys.stdout.flush()
         except NotImplementedError as e:
             print("ERROR: Rank {0} Emis: {1}\n Scenario: {2}".format(self.comm.Get_rank(), emissions, self.scenario))
-            emissions.to_file("/gpfs/scratch/bsc32/bsc32854/hermes_test_escenarios/hermes_test_escenarios_OUT/shp_err/r_{0}".format(self.comm.Get_rank()))
+            emissions.to_file("/gpfs/scratch/bsc32/bsc32538/TraffisScenarios/OUT/aux/r_{0}".format(self.comm.Get_rank()))
             sys.stdout.flush()
             raise e
         for pollutant in self.scenario.columns:
