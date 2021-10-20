@@ -1381,11 +1381,11 @@ class TrafficSector(Sector):
         return df_out
 
     def apply_scenario(self, emissions):
-        emissions.index = emissions.index.set_levels(emissions.index.levels['Link_ID'].astype(int), level='Link_ID')
+        emissions.index = emissions.index.set_levels(emissions.index.levels[0].astype(int), level=0)
 
         self.logger.write_log('\t\tApplying emission scenario', message_level=2)
         try:
-            emis_aux = emissions.join(self.scenario, rsuffix='_f')
+            emis_aux = emissions.join(self.scenario, on='Link_ID', rsuffix='_f')
             print("OK: Rank {0} Emis: {1}\n Scenario: {2}".format(self.comm.Get_rank(), emissions, self.scenario))
             sys.stdout.flush()
         except NotImplementedError as e:
