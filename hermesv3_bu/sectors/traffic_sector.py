@@ -1384,15 +1384,8 @@ class TrafficSector(Sector):
         emissions.index = emissions.index.set_levels(emissions.index.levels[0].astype(int), level=0)
 
         self.logger.write_log('\t\tApplying emission scenario', message_level=2)
-        try:
-            emis_aux = emissions.join(self.scenario, on='Link_ID', rsuffix='_f')
-            print("OK: Rank {0} Emis: {1}\n Scenario: {2}".format(self.comm.Get_rank(), emissions, self.scenario))
-            sys.stdout.flush()
-        except NotImplementedError as e:
-            print("ERROR: Rank {0} Emis: {1}\n Scenario: {2}".format(self.comm.Get_rank(), emissions, self.scenario))
-            emissions.to_file("/gpfs/scratch/bsc32/bsc32538/TraffisScenarios/OUT/aux/r_{0}".format(self.comm.Get_rank()))
-            sys.stdout.flush()
-            raise e
+        emis_aux = emissions.join(self.scenario, on='Link_ID', rsuffix='_f')
+
         for pollutant in self.scenario.columns:
             if pollutant in emissions.columns:
                 self.logger.write_log('\t\t\tApplying emission scenario for {0}'.format(pollutant), message_level=3)
