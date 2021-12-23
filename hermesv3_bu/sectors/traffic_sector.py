@@ -135,7 +135,8 @@ class TrafficSector(Sector):
                                                              hourly_saturday_profiles_path, hourly_sunday_profiles_path)
         self.check_profiles()
         self.expanded = self.expand_road_links()
-
+        if traffic_scenario in ['=', '', ' ', 'None']:
+            traffic_scenario = None
         self.scenario = self.get_scenario(traffic_scenario)
 
         del self.fleet_compo, self.speed_hourly, self.monthly_profiles, self.weekly_profiles, self.hourly_profiles
@@ -170,10 +171,9 @@ class TrafficSector(Sector):
 
     def get_scenario(self, scenario_path):
         if scenario_path is not None and not os.path.exists(scenario_path):
-            msg = "WARNING!!! "
-            msg += "Traffic scenario file '{0}' not found! Setting it to no scenario."
-            warn(msg)
-            scenario_path = None
+            msg = "ERROR!!! "
+            msg += "Traffic scenario file '{0}' not found!".format(scenario_path)
+            error_exit(msg)
 
         if scenario_path is not None:
             self.logger.write_log('\t\tGetting emission scenario', message_level=2)
