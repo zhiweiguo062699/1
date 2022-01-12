@@ -170,6 +170,8 @@ class TrafficSector(Sector):
         gc.collect()
 
     def get_scenario(self, scenario_path):
+        if scenario_path in ['', 'None']:
+            scenario_path = None
         if scenario_path is not None and not os.path.exists(scenario_path):
             msg = "ERROR!!! "
             msg += "Traffic scenario file '{0}' not found!".format(scenario_path)
