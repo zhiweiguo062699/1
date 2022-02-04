@@ -796,6 +796,7 @@ class TrafficSector(Sector):
         libc.malloc_trim(0)
 
         df = self.update_fleet_value(df)
+        df = IoShapefile(self.comm).balance(df)
         df = self.calculate_time_dependent_values(df)
 
         self.logger.write_time_log('TrafficSector', 'expand_road_links', timeit.default_timer() - spent_time)
