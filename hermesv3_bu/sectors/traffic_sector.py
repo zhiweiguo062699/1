@@ -17,7 +17,6 @@ from hermesv3_bu.io_server.io_shapefile import IoShapefile
 from hermesv3_bu.tools.checker import check_files, error_exit
 
 import gc
-from memory_profiler import profile
 from ctypes import cdll, CDLL
 cdll.LoadLibrary("libc.so.6")
 libc = CDLL("libc.so.6")
@@ -33,7 +32,7 @@ FINAL_PROJ = {'init': 'epsg:3035'}  # https://epsg.io/3035 ETRS89 / LAEA Europe
 aerosols = ['oc', 'ec', 'pno3', 'pso4', 'pmfine', 'pmc', 'poa', 'poc', 'pec', 'pcl', 'pnh4', 'pna', 'pmg', 'pk', 'pca',
             'pncom', 'pfe', 'pal', 'psi', 'pti', 'pmn', 'ph2o', 'pmothr']
 pmc_list = ['pmc', 'PMC']
-rline_shp = False
+rline_shp = True
 
 
 class TrafficSector(Sector):
@@ -56,7 +55,7 @@ class TrafficSector(Sector):
                  hot_cold_speciation=None, tyre_speciation=None, road_speciation=None, brake_speciation=None,
                  resuspension_speciation=None, temp_common_path=None, output_dir=None, molecular_weights_path=None,
                  resuspension_correction=True, precipitation_path=None, do_hot=True, do_cold=True, do_tyre_wear=True,
-                 do_brake_wear=True, do_road_wear=True, do_resuspension=True, write_rline=False):
+                 do_brake_wear=True, do_road_wear=True, do_resuspension=True, write_rline=False, traffic_scenario=None):
 
         spent_time = timeit.default_timer()
         logger.write_log('===== TRAFFIC SECTOR =====')
@@ -136,6 +135,9 @@ class TrafficSector(Sector):
                                                              hourly_saturday_profiles_path, hourly_sunday_profiles_path)
         self.check_profiles()
         self.expanded = self.expand_road_links()
+        if traffic_scenario in ['=', '', ' ', 'None']:
+            traffic_scenario = None
+        self.scenario = self.get_scenario(traffic_scenario)
 
         del self.fleet_compo, self.speed_hourly, self.monthly_profiles, self.weekly_profiles, self.hourly_profiles
         libc.malloc_trim(0)
@@ -166,6 +168,30 @@ class TrafficSector(Sector):
         sys.stdout.flush()
         libc.malloc_trim(0)
         gc.collect()
+
+    def get_scenario(self, scenario_path):
+        if scenario_path in ['', 'None']:
+            scenario_path = None
+        if scenario_path is not None and not os.path.exists(scenario_path):
+            msg = "ERROR!!! "
+            msg += "Traffic scenario file '{0}' not found!".format(scenario_path)
+            error_exit(msg)
+
+        if scenario_path is not None:
+            self.logger.write_log('\t\tGetting emission scenario', message_level=2)
+            scenario_shp = IoShapefile(self.comm).read_shapefile_broadcast(scenario_path, crs=self.road_links.crs)
+
+            scenario = gpd.sjoin(GeoDataFrame(index=self.road_links.index, geometry=self.road_links.geometry.centroid,
+                                              crs=self.road_links.crs), scenario_shp, how='left')
+            scenario = scenario.loc[:, scenario_shp.columns]
+            scenario = pd.DataFrame(scenario.drop(columns='geometry'), index=pd.Index(scenario.index, name='Link_ID'))
+
+            scenario.fillna(1, inplace=True)
+
+        else:
+            scenario = None
+
+        return scenario
 
     def check_profiles(self):
         spent_time = timeit.default_timer()
@@ -512,8 +538,8 @@ class TrafficSector(Sector):
 
                 # Checks that the splited DataFrames contain the full DataFrame
                 if (len(df_code_slope_road) + len(df_code_slope) + len(df_code_road) + len(df_code)) != len(df):
-                    # TODO check that error
-                    error_exit('ERROR in blablavbla')
+                    error_exit('ERROR in the Emission Factor file {0}. Check the Road.Slope and Mode info'.format(
+                        ef_path))
 
                 return df_code_slope_road, df_code_slope, df_code_road, df_code
             elif emission_type == 'cold' or emission_type == 'tyre' or emission_type == 'road' or \
@@ -1356,6 +1382,18 @@ class TrafficSector(Sector):
         self.logger.write_time_log('TrafficSector', 'speciate_traffic', timeit.default_timer() - spent_time)
         return df_out
 
+    def apply_scenario(self, emissions):
+        emissions.index = emissions.index.set_levels(emissions.index.levels[0].astype(int), level=0)
+
+        self.logger.write_log('\t\tApplying emission scenario', message_level=2)
+        emis_aux = emissions.join(self.scenario, on='Link_ID', rsuffix='_f')
+
+        for pollutant in self.scenario.columns:
+            if pollutant in emissions.columns:
+                self.logger.write_log('\t\t\tApplying emission scenario for {0}'.format(pollutant), message_level=3)
+                emissions.loc[emis_aux.index, pollutant] *= emis_aux.loc[:, '{0}_f'.format(pollutant)]
+        return emissions
+
     def calculate_emissions(self):
         spent_time = timeit.default_timer()
         self.logger.write_log('\tCalculating Road traffic emissions', message_level=1)
@@ -1418,6 +1456,9 @@ class TrafficSector(Sector):
         df_accum = gpd.GeoDataFrame(df_accum, crs=self.crs)
         libc.malloc_trim(0)
         df_accum.set_index(['Link_ID', 'tstep'], inplace=True)
+
+        if self.scenario is not None:
+            df_accum = self.apply_scenario(df_accum)
 
         if self.write_rline:
             self.write_rline_output(df_accum.copy())
@@ -1557,7 +1598,8 @@ class TrafficSector(Sector):
 
             df_in = df_in.to_crs({u'units': u'm', u'no_defs': True, u'ellps': u'intl', u'proj': u'utm', u'zone': 31})
             if rline_shp:
-                df_in.to_file(os.path.join(self.output_dir, 'roads.shp'))
+                if not os.path.exists(os.path.join(self.output_dir, 'roads.shp')):
+                    df_in.to_file(os.path.join(self.output_dir, 'roads.shp'))
 
             count = 0
             for i, line in df_in.iterrows():
@@ -1604,7 +1646,8 @@ class TrafficSector(Sector):
 
             df_out.set_index('Link_ID', inplace=True)
             df_out.sort_index(inplace=True)
-            df_out.to_csv(os.path.join(self.output_dir, 'roads.txt'), index=False, sep=' ')
+            if not os.path.exists(os.path.join(self.output_dir, 'roads.txt')):
+                df_out.to_csv(os.path.join(self.output_dir, 'roads.txt'), index=False, sep=' ')
         self.comm.Barrier()
         self.logger.write_log('\t\tTraffic emissions calculated', message_level=2)
         self.logger.write_time_log('TrafficSector', 'write_rline_roadlinks', timeit.default_timer() - spent_time)

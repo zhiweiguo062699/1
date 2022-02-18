@@ -5,6 +5,7 @@ from configargparse import ArgParser
 import os
 from mpi4py import MPI
 from hermesv3_bu.tools.checker import error_exit
+from hermesv3_bu import __version__
 
 
 class Config(ArgParser):
@@ -40,6 +41,7 @@ class Config(ArgParser):
 
         p = ArgParser()
         p.add_argument('-c', '--my-config', required=False, is_config_file=True, help='Path to the configuration file.')
+        p.add_argument('--version', '-V', action='version', version="%(prog)s " + __version__)
         # ===== GENERAL =====
         p.add_argument('--log_level', required=True, help='Level of detail of the running process information.',
                        type=int, choices=[1, 2, 3])
@@ -625,6 +627,8 @@ class Config(ArgParser):
         p.add_argument('--traffic_speciation_profile_resuspension', required=False,
                        help="Defines the path to the CSV file that contains the speciation profiles for the " +
                             "resuspension emissions.")
+        p.add_argument('--traffic_scenario', required=False, default=None,
+                       help="Defines the path to the shapefile that contains the traffic scenario by input pollutant.")
 
         # ***** TRAFFIC AREA SECTOR *****
         p.add_argument('--traffic_area_pollutants', required=False,
@@ -725,6 +729,9 @@ class Config(ArgParser):
                 self.comm.Barrier()
         self.create_dir(arguments.auxiliary_files_path)
 
+        if arguments.clipping == "None":
+            arguments.clipping = None
+
         # Booleans
         arguments.do_traffic = arguments.traffic_processors > 0
         arguments.do_traffic_area = arguments.traffic_area_processors > 0
@@ -794,6 +801,8 @@ class Config(ArgParser):
 
         # Traffic lists
         arguments.traffic_pollutants = self._parse_list(arguments.traffic_pollutants)
+        if arguments.vehicle_types == "All":
+            arguments.vehicle_types = None
         arguments.vehicle_types = self._parse_list(arguments.vehicle_types)
 
         # Traffic area bools

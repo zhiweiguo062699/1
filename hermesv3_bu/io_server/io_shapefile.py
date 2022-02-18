@@ -88,6 +88,33 @@ class IoShapefile(IoServer):
 
         return data
 
+    def read_shapefile_broadcast(self, path, rank=0, crs=None):
+        """
+        The master process reads the shapefile and broadcast it.
+
+        :param path: Path to the shapefile
+        :type path: str
+
+        :param rank: Master rank
+        :type rank: int
+
+        :param crs: Projection desired.
+        :type crs: None, str
+
+        :return: Shapefile
+        :rtype: GeoDataFrame
+        """
+        if self.comm.Get_rank() == rank:
+            data = self.read_shapefile_serial(path)
+            if crs is not None:
+                data = data.to_crs(crs)
+        else:
+            data = None
+
+        data = self.comm.bcast(data, root=0)
+
+        return data
+
     def split_shapefile(self, data, rank=0):
         """
 
