@@ -1,7 +1,7 @@
 1.0.6
-    2021/XX/XX
+    2022/02/18
 
-    - Avoid to create static R-LINE files if the file already exist
+    - Add traffic scenario shapefile
 
 1.0.5
     2020/12/09
