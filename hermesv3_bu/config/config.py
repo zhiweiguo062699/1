@@ -534,6 +534,8 @@ class Config(ArgParser):
                        help="List of pollutants considered for the calculation of the point sources sector.")
         p.add_argument('--plume_rise', required=False,
                        help="Boolean that defines if the plume rise algorithm is activated or not.")
+        p.add_argument('--plume_rise_output', required=False, type=str, default='False',
+                       help="Boolean that defines if you want to produce the plume-rise output as CSV.")
         p.add_argument('--point_source_snaps', required=False,
                        help="Defines the SNAP source categories considered during the emission calculation " +
                             "[01, 03, 04, 09].")
@@ -784,6 +786,10 @@ class Config(ArgParser):
 
         # Point Source bools
         arguments.plume_rise = self._parse_bool(arguments.plume_rise)
+        if arguments.plume_rise:
+            arguments.plume_rise_output = self._parse_bool(arguments.plume_rise_output)
+        else:
+            arguments.plume_rise_output = False
 
         # Point Source lists
         arguments.point_source_pollutants = self._parse_list(arguments.point_source_pollutants)
