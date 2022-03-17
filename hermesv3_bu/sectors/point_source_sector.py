@@ -766,14 +766,15 @@ class PointSourceSector(Sector):
 
     def write_plume_rise_output(self, catalog):
         catalog_aux = catalog.drop(
-            columns=['index', 'Height', 'Diameter', 'Speed', 'Temp', 'P_month', 'P_week', 'P_hour', 'P_spec',
+            columns=['index', 'step', 'Diameter', 'Speed', 'Temp', 'P_month', 'P_week', 'P_hour', 'P_spec',
                      'geometry', 'FID', 'month', 'weekday', 'hour', 'date_as_date', 'temp_sfc', 'friction_v', 'pbl',
                      'obukhov_len', 'temp_top', 'wSpeed_top', 'Fb', 'S', ]).copy()
+        catalog_aux.rename(columns={'Height': 'h_stck'}, inplace=True)
         catalog_aux = self.comm.gather(catalog_aux, root=0)
 
         if self.comm.Get_rank() == 0:
             catalog_aux = pd.concat(catalog_aux)
-            catalog_aux.to_csv(self.plume_rise_filename)
+            catalog_aux.to_csv(self.plume_rise_filename, index=False)
         return True
 
     def set_layer(self, catalog):
