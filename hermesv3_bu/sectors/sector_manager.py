@@ -153,6 +153,10 @@ class SectorManager(object):
 
             elif sector == 'point_sources' and comm_world.Get_rank() in sector_procs:
                 from hermesv3_bu.sectors.point_source_sector import PointSourceSector
+                if arguments.plume_rise_output and arguments.plume_rise:
+                    plume_rise_out_file = arguments.output_name.replace('.nc', '_ps_plumerise.csv')
+                else:
+                    plume_rise_out_file = None
                 self.sector = PointSourceSector(
                     comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.__logger,
                     arguments.auxiliary_files_path, grid, clip, date_array,

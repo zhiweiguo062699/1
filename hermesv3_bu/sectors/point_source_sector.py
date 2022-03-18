@@ -52,7 +52,7 @@ class PointSourceSector(Sector):
     def __init__(self, comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
                  catalog_path, monthly_profiles_path, weekly_profiles_path, hourly_profiles_path,
                  speciation_map_path, speciation_profiles_path, sector_list, measured_emission_path,
-                 molecular_weights_path, plume_rise=False, plume_rise_pahts=None):
+                 molecular_weights_path, plume_rise=False, plume_rise_filename=False, plume_rise_pahts=None):
         spent_time = timeit.default_timer()
         logger.write_log('===== POINT SOURCES SECTOR =====')
         check_files(
@@ -64,6 +64,7 @@ class PointSourceSector(Sector):
             speciation_profiles_path, molecular_weights_path)
 
         self.plume_rise = plume_rise
+        self.plume_rise_filename = plume_rise_filename
         self.catalog = self.read_catalog_shapefile(catalog_path, sector_list)
         self.check_catalog()
         self.catalog_measured = self.read_catalog_for_measured_emissions(catalog_path, sector_list)
@@ -748,11 +749,26 @@ class PointSourceSector(Sector):
         # Step 4: Plume rise
         catalog['h_top'] = (1.5 * catalog['Ah']) + catalog['Height']
         catalog['h_bot'] = (0.5 * catalog['Ah']) + catalog['Height']
+        if self.plume_rise_filename is not None:
+            self.write_plume_rise_output(catalog)
 
         catalog.drop(columns=['Height', 'Diameter', 'Speed', 'Temp', 'date_utc', 'temp_sfc', 'friction_v', 'pbl',
                               'obukhov_len', 'temp_top', 'wSpeed_top', 'Fb', 'S', 'Ah'], inplace=True)
         self.logger.write_time_log('PointSourceSector', 'get_plume_rise_top_bot', timeit.default_timer() - spent_time)
         return catalog
+
+    def write_plume_rise_output(self, catalog):
+        catalog_aux = catalog.drop(
+            columns=['index', 'step', 'Diameter', 'Speed', 'Temp', 'P_month', 'P_week', 'P_hour', 'P_spec',
+                     'geometry', 'FID', 'month', 'weekday', 'hour', 'date_as_date', 'temp_sfc', 'friction_v', 'pbl',
+                     'obukhov_len', 'temp_top', 'wSpeed_top', 'Fb', 'S', ]).copy()
+        catalog_aux.rename(columns={'Height': 'h_stck'}, inplace=True)
+        catalog_aux = self.comm.gather(catalog_aux, root=0)
+
+        if self.comm.Get_rank() == 0:
+            catalog_aux = pd.concat(catalog_aux)
+            catalog_aux.to_csv(self.plume_rise_filename, index=False)
+        return True
 
     def set_layer(self, catalog):
         spent_time = timeit.default_timer()
