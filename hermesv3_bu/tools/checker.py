@@ -24,6 +24,7 @@ def check_files(file_path_list, warning=False):
             warn(error_message.replace('ERROR', 'WARNING'))
             return False
         else:
+            # raise FileNotFoundError(error_message)
             error_exit(error_message)
     return True
 
