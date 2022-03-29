@@ -52,7 +52,7 @@ class PointSourceSector(Sector):
     def __init__(self, comm, logger, auxiliary_dir, grid, clip, date_array, source_pollutants, vertical_levels,
                  catalog_path, monthly_profiles_path, weekly_profiles_path, hourly_profiles_path,
                  speciation_map_path, speciation_profiles_path, sector_list, measured_emission_path,
-                 molecular_weights_path, plume_rise=False, plume_rise_filename=False, plume_rise_pahts=None):
+                 molecular_weights_path, plume_rise=False, plume_rise_filename=None, plume_rise_pahts=None):
         spent_time = timeit.default_timer()
         logger.write_log('===== POINT SOURCES SECTOR =====')
         check_files(
@@ -70,6 +70,7 @@ class PointSourceSector(Sector):
         self.catalog_measured = self.read_catalog_for_measured_emissions(catalog_path, sector_list)
         self.measured_path = measured_emission_path
         self.plume_rise_pahts = plume_rise_pahts
+        self.meteo_xy = self.get_meteo_xy()
 
         self.logger.write_time_log('PointSourceSector', '__init__', timeit.default_timer() - spent_time)
 
@@ -423,7 +424,29 @@ class PointSourceSector(Sector):
                                    timeit.default_timer() - spent_time)
         return catalog
 
-    def get_meteo_xy(self, dataframe, netcdf_path):
+    def get_meteo_xy(self):
+        if self.plume_rise:
+            meteo_xy_aux_path = os.path.join(self.auxiliary_dir, 'point_sources', 'netcdf_locations.csv')
+            if not os.path.exists(meteo_xy_aux_path):
+                meteo_xy = self.calculate_meteo_xy(
+                    self.catalog.groupby('Code').first(),
+                    self.parse_netcdf_path(self.plume_rise_pahts['temperature_sfc_path'], date_aux=self.date_array[0]))
+
+                meteo_xy_aux = self.comm.gather(meteo_xy, root=0)
+                if self.comm.Get_rank() == 0:
+                    if not os.path.exists(os.path.dirname(meteo_xy_aux_path)):
+                        os.makedirs(os.path.dirname(meteo_xy_aux_path))
+                    meteo_xy_aux = pd.concat(meteo_xy_aux)
+                    meteo_xy_aux.to_csv(meteo_xy_aux_path)
+            else:
+                meteo_xy = pd.read_csv(meteo_xy_aux_path, index_col='Code')
+        else:
+            meteo_xy = None
+        print(meteo_xy)
+        sys.stdout.flush()
+        return meteo_xy
+
+    def calculate_meteo_xy(self, dataframe, netcdf_path):
         spent_time = timeit.default_timer()
 
         def nearest(row, geom_union, df1, df2, geom1_col='geometry', geom2_col='geometry', src_column=None):
@@ -443,25 +466,48 @@ class PointSourceSector(Sector):
         import pandas as pd
         import geopandas as gpd
         check_files(netcdf_path)
-        nc = Dataset(netcdf_path, mode='r')
-        try:
-            lats = nc.variables['lat'][:]
-            lons = nc.variables['lon'][:]
-        except KeyError as e:
-            error_exit("{0} variable not found in {1} file.".format(str(e), netcdf_path))
-        x = np.array([np.arange(lats.shape[1])] * lats.shape[0])
-        y = np.array([np.arange(lats.shape[0]).T] * lats.shape[1]).T
+        if self.comm.Get_rank() == 0:
+            self.logger.write_log("\t\t\tGetting nearest neighbours", message_level=0)
+            nc = Dataset(netcdf_path, mode='r')
+            self.logger.write_log("\t\t\t\tReading coordinates", message_level=3)
+            try:
+                lats = nc.variables['lat'][:]
+                lons = nc.variables['lon'][:]
+            except KeyError as e:
+                error_exit("{0} variable not found in {1} file.".format(str(e), netcdf_path))
 
-        nc_dataframe = pd.DataFrame.from_dict({'X': x.flatten(), 'Y': y.flatten()})
-        nc_dataframe = gpd.GeoDataFrame(nc_dataframe,
-                                        geometry=[Point(xy) for xy in list(zip(lons.flatten(), lats.flatten()))],
-                                        crs={'init': 'epsg:4326'})
-        nc_dataframe['index'] = nc_dataframe.index
+            if len(lats.shape) > 1:  # Rotated
+                x = np.array([np.arange(lats.shape[1])] * lats.shape[0])
+                y = np.array([np.arange(lats.shape[0]).T] * lats.shape[1]).T
+            else:  # Global
+                x = np.array([np.arange(lons.shape[0])] * lats.shape[0])
+                y = np.array([np.arange(lats.shape[0])] * lons.shape[0]).T
 
-        union = nc_dataframe.unary_union
+                lats = np.array([lats] * lons.shape[0]).T
+                lons = np.array([lons] * lats.shape[0])
+            # print('X =====', x.shape, x)
+            # print('Y =====', y.shape, y)
+            #
+            # print('Lats =====', lats.shape, lats)
+            # print('Lons =====', lons.shape, lons)
+            self.logger.write_log("\t\t\t\tTo GeoDataframe", message_level=3)
+            nc_dataframe = pd.DataFrame.from_dict({'X': x.flatten(), 'Y': y.flatten()})
+            nc_dataframe = gpd.GeoDataFrame(nc_dataframe,
+                                            geometry=[Point(xy) for xy in list(zip(lons.flatten(), lats.flatten()))],
+                                            crs={'init': 'epsg:4326'})
+            nc_dataframe['index'] = nc_dataframe.index
+            self.logger.write_log("\t\t\t\tUnion", message_level=3)
+            union = nc_dataframe.unary_union
+        else:
+            nc_dataframe = None
+            union = None
+        self.logger.write_log("\t\t\t\tBroadcasting", message_level=3)
+        nc_dataframe = self.comm.bcast(nc_dataframe, root=0)
+        union = self.comm.bcast(union, root=0)
+        self.logger.write_log("\t\t\t\tStarting nearest neighbour", message_level=3)
         dataframe['meteo_index'] = dataframe.apply(
             nearest, geom_union=union, df1=dataframe, df2=nc_dataframe, src_column='index', axis=1)
-
+        self.logger.write_log("\t\t\t\tAssigning X & Y positions", message_level=3)
         dataframe['X'] = nc_dataframe.loc[dataframe['meteo_index'], 'X'].values
         dataframe['Y'] = nc_dataframe.loc[dataframe['meteo_index'], 'Y'].values
 
@@ -469,6 +515,8 @@ class PointSourceSector(Sector):
         return dataframe[['X', 'Y']]
 
     def get_plumerise_meteo(self, catalog):
+        self.logger.write_log("\t\tPlume Raise selected", message_level=0)
+
         def get_sfc_value(dataframe, filepath, var_name):
             from netCDF4 import Dataset, num2date
             nc_path = self.parse_netcdf_path(filepath, date_aux=dataframe.name)
@@ -663,12 +711,13 @@ class PointSourceSector(Sector):
 
         # TODO Use IoNetCDF
         spent_time = timeit.default_timer()
-        print(self.parse_netcdf_path(self.plume_rise_pahts['temperature_sfc_path'], date_aux=self.date_array[0]))
-        meteo_xy = self.get_meteo_xy(catalog.groupby('Code').first(),
-                                     self.parse_netcdf_path(self.plume_rise_pahts['temperature_sfc_path'],
-                                                            date_aux=self.date_array[0]))
 
-        catalog = catalog.merge(meteo_xy, left_index=True, right_index=True)
+        # meteo_xy = self.calculate_meteo_xy(catalog.groupby('Code').first(),
+        #                                    self.parse_netcdf_path(self.plume_rise_pahts['temperature_sfc_path'],
+        #                                                     date_aux=self.date_array[0]))
+        #
+        # catalog = catalog.merge(meteo_xy, left_index=True, right_index=True)
+        catalog = catalog.merge(self.meteo_xy, left_index=True, right_index=True, how='left')
 
         # ===== 3D Meteo variables =====
         # Adding stc_temp
@@ -759,7 +808,7 @@ class PointSourceSector(Sector):
 
     def write_plume_rise_output(self, catalog):
         catalog_aux = catalog.drop(
-            columns=['index', 'step', 'Diameter', 'Speed', 'Temp', 'P_month', 'P_week', 'P_hour', 'P_spec',
+            columns=['index', 'tstep', 'Diameter', 'Speed', 'Temp', 'P_month', 'P_week', 'P_hour', 'P_spec',
                      'geometry', 'FID', 'month', 'weekday', 'hour', 'date_as_date', 'temp_sfc', 'friction_v', 'pbl',
                      'obukhov_len', 'temp_top', 'wSpeed_top', 'Fb', 'S', ]).copy()
         catalog_aux.rename(columns={'Height': 'h_stck'}, inplace=True)

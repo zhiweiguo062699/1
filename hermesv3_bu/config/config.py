@@ -789,7 +789,7 @@ class Config(ArgParser):
         if arguments.plume_rise:
             arguments.plume_rise_output = self._parse_bool(arguments.plume_rise_output)
         else:
-            arguments.plume_rise_output = False
+            arguments.plume_rise_output = None
 
         # Point Source lists
         arguments.point_source_pollutants = self._parse_list(arguments.point_source_pollutants)

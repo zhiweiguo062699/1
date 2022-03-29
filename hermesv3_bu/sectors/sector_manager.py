@@ -165,7 +165,7 @@ class SectorManager(object):
                     arguments.point_source_weekly_profiles, arguments.point_source_hourly_profiles,
                     arguments.speciation_map, arguments.point_source_speciation_profiles, arguments.point_source_snaps,
                     arguments.point_source_measured_emissions, arguments.molecular_weights,
-                    plume_rise=arguments.plume_rise, plume_rise_pahts={
+                    plume_rise=arguments.plume_rise, plume_rise_filename=plume_rise_out_file, plume_rise_pahts={
                         'friction_velocity_path': arguments.friction_velocity_path,
                         'pblh_path': arguments.pblh_path,
                         'obukhov_length_path': arguments.obukhov_length_path,
