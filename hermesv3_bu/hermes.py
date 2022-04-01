@@ -75,7 +75,8 @@ class HermesBu(object):
                 sys.stdout.flush()
             self.logger.write_log('***** HERMESv3_BU simulation finished successfully *****')
         self.logger.write_time_log('HERMES', 'TOTAL', timeit.default_timer() - self.initial_time)
-        self.logger.finish_logs()
+        if self.logger.log_level >= 3:
+            self.logger.finish_logs()
 
         if self.arguments.start_date < self.arguments.end_date:
             return self.arguments.start_date + timedelta(days=1)
