@@ -638,3 +638,10 @@ class Sector(object):
         self.comm.Barrier()
 
         return True
+
+    @staticmethod
+    def parse_netcdf_path(path, date_aux=None):
+        if date_aux is not None:
+            path = path.replace('<YYYYMMDDHH>', date_aux.strftime("%Y%m%d%H"))
+            path = path.replace('<YYYYMMDD>', date_aux.strftime("%Y%m%d"))
+        return path

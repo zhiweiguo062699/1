@@ -153,6 +153,10 @@ class SectorManager(object):
 
             elif sector == 'point_sources' and comm_world.Get_rank() in sector_procs:
                 from hermesv3_bu.sectors.point_source_sector import PointSourceSector
+                if arguments.plume_rise_output and arguments.plume_rise:
+                    plume_rise_out_file = arguments.output_name.replace('.nc', '_ps_plumerise.csv')
+                else:
+                    plume_rise_out_file = None
                 self.sector = PointSourceSector(
                     comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.__logger,
                     arguments.auxiliary_files_path, grid, clip, date_array,
@@ -161,17 +165,17 @@ class SectorManager(object):
                     arguments.point_source_weekly_profiles, arguments.point_source_hourly_profiles,
                     arguments.speciation_map, arguments.point_source_speciation_profiles, arguments.point_source_snaps,
                     arguments.point_source_measured_emissions, arguments.molecular_weights,
-                    plume_rise=arguments.plume_rise, plume_rise_pahts={
-                        'friction_velocity_dir': arguments.friction_velocity_dir,
-                        'pblh_dir': arguments.pblh_dir,
-                        'obukhov_length_dir': arguments.obukhov_length_dir,
-                        'layer_thickness_dir': arguments.layer_thickness_dir,
-                        'temperature_sfc_dir': arguments.temperature_sfc_dir,
-                        'temperature_4d_dir': arguments.temperature_4d_dir,
-                        'u10_wind_speed_dir': arguments.u10_wind_speed_dir,
-                        'v10_wind_speed_dir': arguments.v10_wind_speed_dir,
-                        'u_wind_speed_4d_dir': arguments.u_wind_speed_4d_dir,
-                        'v_wind_speed_4d_dir': arguments.v_wind_speed_4d_dir})
+                    plume_rise=arguments.plume_rise, plume_rise_filename=plume_rise_out_file, plume_rise_pahts={
+                        'friction_velocity_path': arguments.friction_velocity_path,
+                        'pblh_path': arguments.pblh_path,
+                        'obukhov_length_path': arguments.obukhov_length_path,
+                        'layer_thickness_path': arguments.layer_thickness_path,
+                        'temperature_sfc_path': arguments.temperature_sfc_path,
+                        'temperature_4d_path': arguments.temperature_4d_path,
+                        'u10_wind_speed_path': arguments.u10_wind_speed_path,
+                        'v10_wind_speed_path': arguments.v10_wind_speed_path,
+                        'u_wind_speed_4d_path': arguments.u_wind_speed_4d_path,
+                        'v_wind_speed_4d_path': arguments.v_wind_speed_4d_path})
             elif sector == 'traffic' and comm_world.Get_rank() in sector_procs:
                 from hermesv3_bu.sectors.traffic_sector import TrafficSector
                 self.sector = TrafficSector(
