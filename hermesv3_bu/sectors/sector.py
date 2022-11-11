@@ -520,6 +520,35 @@ class Sector(object):
 
         return return_value
 
+    def spatial_overlays_v2(self, df1, df2):
+        """
+        Compute overlay intersection of two GeoPandasDataFrames df1 and df2
+
+        https://github.com/geopandas/geopandas/issues/400
+
+        :param df1: GeoDataFrame
+        :param df2: GeoDataFrame
+        :return: GeoDataFrame
+        """
+        # Get intersected areas
+        inp, res = df2.sindex.query_bulk(df1.geometry, predicate='intersects')
+
+        # Calculate intersected areas and fractions
+        intersection = pd.concat([df1.geometry[inp].reset_index(), df2.geometry[res].reset_index()],
+                                 axis=1, ignore_index=True)
+        intersection.columns = (list(df1.geometry[inp].reset_index().columns) +
+                                list(df2.geometry[res].reset_index().rename(columns={'geometry': 'geometry_mask',
+                                                                                    'index': 'index_mask'}).columns))
+        intersection['fraction'] = intersection.apply(
+            lambda x: x['geometry'].intersection(x['geometry_mask']).buffer(0).area,
+            axis=1)
+        intersection['fraction'] = intersection.apply(lambda x: x['fraction'] / x['geometry'].area, axis=1)
+
+        # Get data from mask
+        # df1.loc[intersection.index, df2.columns] = np.array(df2.loc[intersection.index_mask, :])
+
+        return intersection
+
     def nearest(self, row, geom_union, df1, df2, geom1_col='geometry', geom2_col='geometry', src_column=None):
         """Finds the nearest point and return the corresponding value from specified column.
         https://automating-gis-processes.github.io/2017/lessons/L3/nearest-neighbour.html#nearest-points-using-geopandas
@@ -638,3 +667,15 @@ class Sector(object):
         self.comm.Barrier()
 
         return True
+
+    @staticmethod
+    def line_intersect(line_shape, poly_shape):
+        if line_shape.crs != poly_shape.crs:
+            line_shape = line_shape.to_crs(poly_shape.crs)
+        line_shape = gpd.sjoin(line_shape, poly_shape, how="inner", op='intersects')
+        geometry_list = []
+        for i, row in line_shape.iterrows():
+            geometry_list.append(row.geometry.intersection(poly_shape.loc[row.index_right, 'geometry']))
+        line_shape.geometry = geometry_list
+        line_shape = line_shape.drop(columns=['index_right']).reset_index(drop=True)
+        return line_shape
