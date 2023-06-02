@@ -234,33 +234,33 @@ class Config(ArgParser):
                             "to make a polygon or nothing to use the default clip: domain extension")
 
         # ===== METEO PATHS =====
-        p.add_argument('--temperature_hourly_files_path', required=False, type=str, default='True',
+        p.add_argument('--temperature_hourly_files_path', required=False, type=str, default=None,
                        help="Defines the path to the NetCDF files containing hourly mean 2m temperature data.")
-        p.add_argument('--temperature_daily_files_path', required=False, type=str, default='True',
+        p.add_argument('--temperature_daily_files_path', required=False, type=str, default=None,
                        help="Defines the path to the NetCDF files containing daily mean 2m temperature data.")
-        p.add_argument('--wind_speed_daily_files_path', required=False, type=str, default='True',
+        p.add_argument('--wind_speed_daily_files_path', required=False, type=str, default=None,
                        help="Defines the path to the NetCDF files containing daily mean 10m wind speed data.")
-        p.add_argument('--precipitation_files_path', required=False, type=str, default='True',
+        p.add_argument('--precipitation_files_path', required=False, type=str, default=None,
                        help="Defines the path to the NetCDF files containing hourly mean precipitation data.")
-        p.add_argument('--temperature_4d_dir', required=False, type=str, default='True',
+        p.add_argument('--temperature_4d_path', required=False, type=str, default=None,
                        help="Defines the path to the NetCDF files containing hourly mean 4D temperature data.")
-        p.add_argument('--temperature_sfc_dir', required=False, type=str, default='True',
+        p.add_argument('--temperature_sfc_path', required=False, type=str, default=None,
                        help="Defines the path to the NetCDF files containing hourly mean surface temperature data.")
-        p.add_argument('--u_wind_speed_4d_dir', required=False, type=str, default='True',
+        p.add_argument('--u_wind_speed_4d_path', required=False, type=str, default=None,
                        help="Defines the path to the NetCDF files containing hourly mean 4D U wind component data.")
-        p.add_argument('--v_wind_speed_4d_dir', required=False, type=str, default='True',
+        p.add_argument('--v_wind_speed_4d_path', required=False, type=str, default=None,
                        help="Defines the path to the NetCDF files containing hourly mean 4D V wind component data.")
-        p.add_argument('--u10_wind_speed_dir', required=False, type=str, default='True',
+        p.add_argument('--u10_wind_speed_path', required=False, type=str, default=None,
                        help="Defines the path to the NetCDF files containing daily mean 10m U wind component data.")
-        p.add_argument('--v10_wind_speed_dir', required=False, type=str, default='True',
+        p.add_argument('--v10_wind_speed_path', required=False, type=str, default=None,
                        help="Defines the path to the NetCDF files containing daily mean 10m V wind component data.")
-        p.add_argument('--friction_velocity_dir', required=False, type=str, default='True',
+        p.add_argument('--friction_velocity_path', required=False, type=str, default=None,
                        help="Defines the path to the NetCDF files containing hourly mean 4D friction velocity data.")
-        p.add_argument('--pblh_dir', required=False, type=str, default='True',
+        p.add_argument('--pblh_path', required=False, type=str, default=None,
                        help="Defines the path to the NetCDF files containing hourly mean PBL height data.")
-        p.add_argument('--obukhov_length_dir', required=False, type=str, default='True',
+        p.add_argument('--obukhov_length_path', required=False, type=str, default=None,
                        help="Defines the path to the NetCDF files containing hourly mean Obukhov length data.")
-        p.add_argument('--layer_thickness_dir', required=False, type=str, default='True',
+        p.add_argument('--layer_thickness_path', required=False, type=str, default=None,
                        help="Defines the path to the NetCDF files containing hourly mean 4D layer thickness data.")
 
         # ***** AVIATION SECTOR *****
@@ -534,6 +534,8 @@ class Config(ArgParser):
                        help="List of pollutants considered for the calculation of the point sources sector.")
         p.add_argument('--plume_rise', required=False,
                        help="Boolean that defines if the plume rise algorithm is activated or not.")
+        p.add_argument('--plume_rise_output', required=False, type=str, default='False',
+                       help="Boolean that defines if you want to produce the plume-rise output as CSV.")
         p.add_argument('--point_source_snaps', required=False,
                        help="Defines the SNAP source categories considered during the emission calculation " +
                             "[01, 03, 04, 09].")
@@ -784,6 +786,10 @@ class Config(ArgParser):
 
         # Point Source bools
         arguments.plume_rise = self._parse_bool(arguments.plume_rise)
+        if arguments.plume_rise:
+            arguments.plume_rise_output = self._parse_bool(arguments.plume_rise_output)
+        else:
+            arguments.plume_rise_output = None
 
         # Point Source lists
         arguments.point_source_pollutants = self._parse_list(arguments.point_source_pollutants)

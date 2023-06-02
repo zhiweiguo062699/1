@@ -594,7 +594,7 @@ class ShippingPortSector(Sector):
         dataframe.rename(columns={'idx2': 'FID'}, inplace=True)
 
         dataframe.drop(columns=['src_inter_fraction', 'idx1', 'geometry'], inplace=True)
-        dataframe['layer'] = 0
+        dataframe['layer'] = 1
         dataframe = dataframe.loc[:, ~dataframe.columns.duplicated()]
         dataframe = dataframe.groupby(['FID', 'layer', 'tstep']).sum()
         self.logger.write_time_log('ShippingPortSector', 'to_grid_geometry', timeit.default_timer() - spent_time)
