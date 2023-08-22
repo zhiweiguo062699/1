@@ -194,6 +194,9 @@ class Config(ArgParser):
         p.add_argument('--solvents_processors', required=False, type=int, default=0,
                        help="Number of processors dedicated to simulate the solvents sector " +
                             "(0 to deactivated the sector).")
+        p.add_argument('--fugitive_fossil_fuels_processors', required=False, type=int, default=0,
+                       help="Number of processors dedicated to simulate the fugitive fossil fuels sector " +
+                            "(0 to deactivated the sector).")
 
         p.add_argument('--speciation_map', required=False,
                        help="Defines the path to the file that contains the mapping between input and output " +
@@ -691,6 +694,26 @@ class Config(ArgParser):
         p.add_argument('--solvents_speciation_profiles', required=False,
                        help="Defines the path to the CSV file that contains the speciation profiles.")
 
+        # ***** FUGITIVE FOSSIL FUELS SECTOR *****
+        p.add_argument('--fugitive_fossil_fuels_pollutants', required=False,
+                       help="List of pollutants considered for the calculation of the fugitive fossil fuels sector. " +
+                            "Only 'nmvoc' is available.")
+        # TODO add description for fugitive fossil fuels sector
+        p.add_argument('--fugitive_fossil_fuels_proxies_path', required=False,
+                       help="")
+        p.add_argument('--fugitive_fossil_fuels_yearly_emissions_by_nut2_path', required=False,
+                       help="")
+        p.add_argument('--fugitive_fossil_fuels_shapefile_dir', required=False,
+                       help="")
+        p.add_argument('--fugitive_fossil_fuels_monthly_profile', required=False,
+                       help="Defines the path to the CSV file that contains the monthly temporal profiles.")
+        p.add_argument('--fugitive_fossil_fuels_weekly_profile', required=False,
+                       help="Defines the path to the CSV file that contains the weekly temporal profiles.")
+        p.add_argument('--fugitive_fossil_fuels_hourly_profile', required=False,
+                       help="Defines the path to the CSV file that contains the hourly temporal profiles.")
+        p.add_argument('--fugitive_fossil_fuels_speciation_profiles', required=False,
+                       help="Defines the path to the CSV file that contains the speciation profiles.")
+
         arguments, unknown = p.parse_known_args()
         if len(unknown) > 0:
             warn("Unrecognized arguments: {0}".format(unknown))
@@ -747,6 +770,7 @@ class Config(ArgParser):
         arguments.do_crop_fertilizers = arguments.crop_fertilizers_processors > 0
         arguments.do_agricultural_machinery = arguments.agricultural_machinery_processors > 0
         arguments.do_solvents = arguments.solvents_processors > 0
+        arguments.do_fugitive_fossil_fuels = arguments.fugitive_fossil_fuels_processors > 0
 
         # Aviation lists
         arguments.airport_list = self._parse_list(arguments.airport_list)
@@ -820,6 +844,9 @@ class Config(ArgParser):
 
         # Solvents lists
         arguments.solvents_pollutants = self._parse_list(arguments.solvents_pollutants)
+
+        # Fugitive fossil fuels lists
+        arguments.fugitive_fossil_fuels_pollutants = self._parse_list(arguments.fugitive_fossil_fuels_pollutants)
 
         return arguments
 

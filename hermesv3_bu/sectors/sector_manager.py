@@ -5,7 +5,7 @@ from hermesv3_bu.logger.log import Log
 from hermesv3_bu.tools.checker import error_exit
 
 SECTOR_LIST = ['aviation', 'point_sources', 'recreational_boats', 'shipping_port', 'residential', 'livestock',
-               'crop_operations', 'crop_fertilizers', 'agricultural_machinery', 'solvents', 'traffic_area', 'traffic']
+               'crop_operations', 'crop_fertilizers', 'agricultural_machinery', 'solvents', 'traffic_area', 'traffic', 'fugitive_fossil_fuels']
 
 
 class SectorManager(object):
@@ -220,6 +220,18 @@ class SectorManager(object):
                     arguments.solvents_point_sources_shapefile, arguments.solvents_point_sources_weight_by_nut2_path,
                     arguments.population_density_map, arguments.population_nuts2, arguments.land_uses_path,
                     arguments.land_uses_nuts2_path, arguments.nuts2_shapefile)
+
+            elif sector == 'fugitive_fossil_fuels' and comm_world.Get_rank() in sector_procs:
+                from hermesv3_bu.sectors.fugitive_fossil_fuels_sector import FugitiveFossilFuelsSector
+                self.sector = FugitiveFossilFuelsSector(
+                    comm_world.Split(color, sector_procs.index(comm_world.Get_rank())), self.__logger,
+                    arguments.auxiliary_files_path, grid, clip, date_array, arguments.fugitive_fossil_fuels_pollutants,
+                    grid.vertical_desctiption, arguments.speciation_map, arguments.molecular_weights,
+                    arguments.fugitive_fossil_fuels_speciation_profiles, arguments.fugitive_fossil_fuels_monthly_profile,
+                    arguments.fugitive_fossil_fuels_weekly_profile, arguments.fugitive_fossil_fuels_hourly_profile,
+                    arguments.fugitive_fossil_fuels_proxies_path, arguments.fugitive_fossil_fuels_yearly_emissions_by_nut2_path,
+                    arguments.fugitive_fossil_fuels_shapefile_dir, arguments.population_density_map,
+                    arguments.population_nuts2, arguments.nuts2_shapefile)
 
             color += 1
 
